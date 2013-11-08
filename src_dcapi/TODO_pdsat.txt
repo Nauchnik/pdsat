@@ -1,0 +1,22 @@
+--- ПО ---
+- clock - неправильное время
+- проверка вып. набора
+- Чистка БД
+- мак ос
+- добавить FRAC_EVERY в задаваемые параметры
+- Не удалять ненужные WU из БД, а ставить им assimilation_state 2, error_mask оставлять 0
+- Добавить как службу часть приложения, которая делает assimilation
+- UNSATUNSAT
+- уменьшить дедлайн для повторных WU
+- отдельные версии приложнеий для SSE
+--- САЙТ ---
+- formula boinc
+- ссылки на сайтах институтов
+- профили
+- сайт на википедии
+- ссылки на рус. википедию
+- % выполненныех WU
+- баннеры институтов
+- 10-ка стран
+- http://www.rechenkraft.net/yoyo/show_user.php?userid=23836
+- http://www.worldcommunitygrid.org/stat/viewMemberInfo.do?userName=Alexone
