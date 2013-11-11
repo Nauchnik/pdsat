@@ -81,8 +81,6 @@ int main( int argc, char** argv )
 	{ printf( "\n Error in GetInputFlags" ); WriteUsage( ); return 1; }
 	
 	if ( myflags.IsConseq ) {
-		//cout << endl << "before MPI_ConseqSolve solver_type is " << solver_type;
-		//cout << endl << "before MPI_ConseqSolve solver_type is " << core_len;
 		MPI_Solver mpi_s;
 		if ( myflags.solver_type != -1 )
 			mpi_s.solver_type = myflags.solver_type;

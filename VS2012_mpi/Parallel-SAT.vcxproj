@@ -41,7 +41,6 @@
   <ItemGroup>
     <None Include="..\src_mpi\Makefile" />
     <None Include="..\src_mpi\ReadMe.txt" />
-    <None Include="..\src_mpi\TODO.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{B5CE7637-316A-4F02-A366-A323DC254CE4}</ProjectGuid>

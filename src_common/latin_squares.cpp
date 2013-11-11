@@ -8,6 +8,12 @@
 #include <algorithm>
 #include "addit_func.h"
 
+#ifdef _DEBUG
+	const unsigned MAX_VALUE_COUNT = 100;
+#else
+	const unsigned MAX_VALUE_COUNT = 5000000;
+#endif
+
 using namespace Addit_func;
 
 const int CHECKPOINT_EVERY_SEC = 5;
@@ -246,7 +252,7 @@ bool latin_square :: SolveOneProblem( Solver *&S, vector< vector<int> > :: itera
 	return true;
 }
 
-void latin_square :: FindLatinSquares( )
+void latin_square :: SolveLatinProblems( )
 {
 	cout << "Start FindLatinSquares()" << endl;
 	all_problems = positive_literals.size();
@@ -509,10 +515,6 @@ void latin_square :: Show_Values()
 // ---------- //
 void latin_square :: MakeLatinValues( )
 {
-	unsigned max_value_count = 5000000;
-#ifdef _DEBUG
-	max_value_count = 100;
-#endif
 	vector<vector<vector<char>>> row_values;
 	vector<char> first_row, cur_row;
 	vector< vector<int> > permutations;
@@ -581,7 +583,7 @@ void latin_square :: MakeLatinValues( )
 				cout << "final_values.size() " << final_values.size() <<  endl;
 				cout << "impossible_count " << impossible_count << endl;
 			}
-			if( final_values.size() == max_value_count ) {
+			if( final_values.size() == MAX_VALUE_COUNT ) {
 				cout << "final_values.size() == max_value_count" << endl;
 				break;
 			}

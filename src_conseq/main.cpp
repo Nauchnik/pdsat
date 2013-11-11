@@ -153,10 +153,10 @@ int main( int argc, char* argv[] )
 			}
 		ofile.close();
 	}
-
+	
 	cout << "Make_Permutations_n_k() done" << endl;
-	ls.FindLatinSquares( );
-
+	ls.SolveLatinProblems( );
+	
 	ofstream outfile;	
 	outfile.open( "outfile", ios_base :: out );
 	outfile << ls.all_answers.rdbuf();

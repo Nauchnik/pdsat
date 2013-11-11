@@ -36,9 +36,6 @@ public:
 	vector< vector<char> > final_values;
 	vector< vector<int> > positive_literals;
 	vector< vector<int> > interrupted_problems;
-	//stringstream sat_answers;
-	//stringstream unsat_answers;
-	//stringstream inter_answers;
 	stringstream all_answers;
 	int solver_type;
 	ofstream out_file;
@@ -69,7 +66,6 @@ public:
 	unsigned final_values_index;
 
 	bool ReadLiteralsFromFile( FILE *infile, string &error_msg );
-	//bool ReadLiteralsFromFile( ifstream infile );
 	void WriteCurrentState( ofstream &out_file, double current_time );
 	void Show_Values( );
 
@@ -78,7 +74,7 @@ public:
 	bool CompareWithFirstRow( vector<char> vec, unsigned row_index, unsigned columns_count );
 	void FindAdditValues( vector<char> cur_vec, unsigned row_index, vector<char> &add_values );
 	
-	void FindLatinSquares( );
+	void SolveLatinProblems( );
 	bool SolveOneProblem( Solver *&S, vector< vector<int> > :: iterator &positive_literals_it, clock_t clk_start );
 	
 	void MakeLatinValues( );
