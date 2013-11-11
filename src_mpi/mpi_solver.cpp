@@ -29,90 +29,6 @@ MPI_Solver :: MPI_Solver( ) :
 MPI_Solver :: ~MPI_Solver( )
 { }
 
-void combinations_recursive( int num_elements, int comb_len, int &comb_count, int &erase_count, 
-							 int &real_count, const vector<int> &elems,  unsigned long req_len, 
-							 vector<unsigned long> &pos, unsigned long depth, unsigned long margin,
-							 unsigned int **&values_arr, bool IsMakeArray )
-{
-	// Have we selected the number of required elements?
-	/*unsigned long ii, ji, ti, IsErase;
-	int string_len = num_elements / comb_len;
-	unsigned int current_value[FULL_MASK_LEN];
-	unsigned long reg_num;
-	unsigned int tmp;
-	if (depth >= req_len) 
-	{
-		comb_count++;
-		IsErase = 0;
-		for (ii = 0; ii < pos.size() - 1; ++ii)
-		{
-			for (ji = ii + 1; ji < pos.size(); ++ji)
-			{
-				if ( ( elems[pos[ii]] % string_len ) == ( elems[pos[ji]] % string_len ) )  
-				{
-					//cout << endl << elems[pos[ii]] << " " << elems[pos[ji]];
-					IsErase = 1;
-					break;
-				}
-				//cout << endl << elems[pos[ii]] << " " << elems[pos[ji]];
-				for ( ti = 0; ti < comb_len; ti++ )
-				{
-					if ( ( elems[pos[ii]] >= string_len*ti ) && ( elems[pos[ii]] < string_len*( ti + 1 ) ) &&
-					     ( elems[pos[ji]] >= string_len*ti ) && ( elems[pos[ji]] < string_len*( ti + 1 ) ) )
-					{
-						//cout << endl << elems[pos[ii]] << " " << elems[pos[ji]];
-						//cout << endl << elems[pos[ii]] << " " << elems[pos[ji]] << " " << string_len*ti << " " << string_len*( ti + 1 );
-						IsErase = 1;
-						break;
-					}
-				}
-				//cout << endl << elems[pos[ii]] << " " << elems[pos[ji]]; //<< " " << string_len*ti << " " << string_len*( ti + 1 );
-				//cout << endl << elems[pos[ii]] << " " << elems[pos[ji]];
-			}
-			if ( IsErase ) {
-				erase_count += IsErase;
-				break;	
-			}
-		}
-		if ( !IsErase )
-		{
-			real_count++;
-			if ( IsMakeArray )
-			{
-				for ( int m = 0; m < FULL_MASK_LEN; m++)
-					current_value[m] = 0;
-				for (ii = 0; ii < pos.size(); ++ii)
-				{
-					reg_num = pos[ii] / 32;
-					tmp = ( 1 << ( pos[ii] % 32 ) );
-					//if ( reg_num > 0 )
-					//	cout << endl << tmp;
-					current_value[reg_num + 2] += tmp;
-				}
-				//equalize_arr( values_arr[real_count - 1], current_value );
-				copy( current_value, current_value + FULL_MASK_LEN, values_arr[real_count - 1] );
-			}
-		}
-		return;
-	}
-	
-	// Are there enough remaining elements to be selected?
-	// This test isn't required for the function to be correct, but
-	// it can save a good amount of futile function calls.
-	if ((elems.size() - margin) < (req_len - depth))
-		return;
-
-	// Try to select new elements to the right of the last selected one.
-	for (unsigned long ii = margin; ii < elems.size(); ++ii) {
-		pos[depth] = ii;
-		combinations_recursive( num_elements, comb_len, comb_count, erase_count, 
-		                        real_count,elems, req_len, pos, depth + 1, ii + 1, 
-								values_arr, IsMakeArray);
-	}
-	*/
-	return;
-}
-
 int make_QAP_values( int num_elements, unsigned comb_len, unsigned int **&values_arr, bool IsMakeArray )
 {
 	int comb_count  = 0;
@@ -123,12 +39,13 @@ int make_QAP_values( int num_elements, unsigned comb_len, unsigned int **&values
 
 	for ( int i = 0; i < num_elements; i++ )
 		elements[i] = i;
-	//
+	
 	assert(comb_len > 0 && comb_len <= elements.size());
 	vector<unsigned long> positions(comb_len, 0);
-	combinations_recursive( num_elements, comb_len, comb_count, erase_count, 
+	// TODO update with new function for combinations
+	/*combinations_recursive( num_elements, comb_len, comb_count, erase_count, 
 		                    real_count, elements, comb_len, positions, 0, 0, 
-							values_arr, IsMakeArray );
+							values_arr, IsMakeArray );*/
 	cout << endl << "comb_count is "  << comb_count;
 	cout << endl << "erase_count is " << erase_count;
 	cout << endl << "real_count is "  << real_count;
@@ -411,7 +328,6 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	int process_sat_count = 0;
 	int current_obj_val = -1;
 	MPI_Status status;
-	int i;
 	double cnf_time_from_node = 0.0;
 	bool IsFirstTaskRecieved = false;
 	unsigned int value[FULL_MASK_LEN];
@@ -421,20 +337,20 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	//Solver *S;
 	Solver *S;
 
-	for ( i = 0; i < FULL_MASK_LEN; i++ )
+	for ( unsigned i = 0; i < FULL_MASK_LEN; ++i )
 		value[i] = 0;
 	extra_tasks_count = 0;
 
-	if ( solver_type == 4 ) {
+	if ( solver_type == 4 ) { // last version of minisat
 		ifstream in( input_cnf_name );
 		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
 		in.close();
 		S = new Solver();
 		S->addProblem(cnf);
-		S->verbosity = 0;
-		S->IsPredict = IsPredict;
-		S->core_len = core_len;
-		S->start_activity = start_activity;
+		S->verbosity        = 0;
+		S->IsPredict        = IsPredict;
+		S->core_len         = core_len;
+		S->start_activity   = start_activity;
 		S->max_solving_time = max_solving_time;
 		S->max_nof_restarts = max_nof_restarts;
 	}
@@ -442,7 +358,6 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	for (;;) {
 		// get index of current task
 		MPI_Recv( &current_task_index, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
-		//cout << "\n Recieved current_task_index "<< current_task_index << endl;
 		
 		if ( current_task_index == -2 )
 			MPI_Finalize();
@@ -479,10 +394,12 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		if ( verbosity > 0 )
 			cout << "\n process_sat_count is " << process_sat_count << endl;
 		
-		MPI_Send( &process_sat_count,   1, MPI_INT,          0, 0, MPI_COMM_WORLD );
+		MPI_Send( &process_sat_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD );
 		MPI_Send( &solving_times, 1, mpi_solving_time, 0, 0, MPI_COMM_WORLD );
 	}
-	delete S;
+
+	if ( solver_type == 4 )
+		delete S;
 
 	return true;
 }

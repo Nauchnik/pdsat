@@ -50,6 +50,8 @@ const double MIN_SOLVE_TIME = 0.000001;
 const unsigned MAX_BATCH_VAR_COUNT = 18;
 const unsigned MAX_PART_MASK_VAR_COUNT = 24;
 
+enum ProblemStates{ Solved, SolvedOnPreprocessing, Interrupted };
+
 class MPI_Base
 {
 public:
@@ -132,7 +134,7 @@ public:
 					double &cnf_time_from_node, double *solving_times,
 					int current_task_index );
 	
-	void AddSolvingTimeToArray( bool solved_on_preprocessing, double cnf_time_from_node, double *solving_times );
+	void AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, double *solving_times );
 	
 	// Make array var_choose_order with vars sorted by given rule
 	bool MakeVarChoose( );
