@@ -334,9 +334,8 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	double solving_times[SOLVING_TIME_LEN];
 	minisat22_wrapper m22_wrapper;
 	Problem cnf;
-	//Solver *S;
 	Solver *S;
-
+	
 	for ( unsigned i = 0; i < FULL_MASK_LEN; ++i )
 		value[i] = 0;
 	extra_tasks_count = 0;

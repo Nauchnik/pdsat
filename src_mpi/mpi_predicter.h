@@ -116,16 +116,16 @@ public:
 	vector<int> sorted_index_array;
 
 	bool MPI_Predict( int argc, char **argv );
-	bool ControlProcessPredict( MPI_Datatype mpi_mask, int ProcessListNumber, stringstream &sstream_control );
-	bool ComputeProcessPredict( MPI_Datatype mpi_mask );
+	bool ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control );
+	bool ComputeProcessPredict( );
 	bool GetPredict( );
 
-	bool DeepPredictMain( MPI_Datatype mpi_mask );
+	bool DeepPredictMain( );
 	bool DeepPredictFindNewUncheckedArea( stringstream &sstream );
 	bool GetDeepPredictTasks( );
 	void GetInitPoint( );
 	void NewRecordPoint( int set_index );
-	void DecVarLinerDeepMode( stringstream &sstream, fstream &deep_predict_file, MPI_Datatype mpi_mask, int &ProcessListNumber );
+	void DecVarLinerDeepMode( stringstream &sstream, fstream &deep_predict_file, int &ProcessListNumber );
 	void GetDecDeepPredictTasks( );
 	bool IsPointInCheckedArea( boost::dynamic_bitset<> &point );
 	bool IsPointInUnCheckedArea( boost::dynamic_bitset<> &point );

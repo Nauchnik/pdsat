@@ -61,7 +61,7 @@ struct points_class
     unsigned size;
 };
 
-bool MPI_Predicter :: ControlProcessPredict( MPI_Datatype mpi_mask, int ProcessListNumber, stringstream &sstream_control )
+bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control )
 {
 // Predicting of compute cost
    int current_obj_val = -1,
@@ -147,6 +147,8 @@ bool MPI_Predicter :: ControlProcessPredict( MPI_Datatype mpi_mask, int ProcessL
 	double start_sec = MPI_Wtime( ); // get init time
 	int int_cur_time = 0, prev_int_cur_time = 0;
 	double get_predict_time;
+	double *var_activity = new double[activity_vec_len];
+	double *total_var_activity = new double[activity_vec_len];
 	// send tasks if needed
 	while ( solved_tasks_count < all_tasks_count ) {
 		for( ; ; ) { // get predict every PREDICT_EVERY_SEC seconds	
@@ -204,6 +206,11 @@ bool MPI_Predicter :: ControlProcessPredict( MPI_Datatype mpi_mask, int ProcessL
 		// then get 1 more mes
 		MPI_Recv( &process_sat_count,  1, MPI_INT,    current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		MPI_Recv( &cnf_time_from_node, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		MPI_Recv( &var_activity, 1, mpi_var_activity, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		cout << "current total_var_activity" << endl;
+		for( unsigned i=0; i < activity_vec_len; ++i )
+			cout << (total_var_activity[i] += var_activity[i]) << " ";
+		cout << endl;
 		
 		// skip old message
 		if ( current_status.MPI_TAG < ProcessListNumber ) {
@@ -279,6 +286,8 @@ bool MPI_Predicter :: ControlProcessPredict( MPI_Datatype mpi_mask, int ProcessL
 		}
 	} // while ( solved_tasks_count < tasks_count )
 
+	delete[] var_activity;
+	
 	sstream_control << "after while (solved_tasks_count < all_tasks_count) loop" << endl;
 	sstream_control << "solved_tasks_count " << solved_tasks_count << endl;
 	sstream_control << "global_deep_point_index " << global_deep_point_index << endl;
@@ -305,7 +314,7 @@ bool MPI_Predicter :: ControlProcessPredict( MPI_Datatype mpi_mask, int ProcessL
 	return true;
 }
 
-bool MPI_Predicter :: ComputeProcessPredict( MPI_Datatype mpi_mask )
+bool MPI_Predicter :: ComputeProcessPredict( )
 {
 	int current_task_index;
 	int process_sat_count = 0;
@@ -332,6 +341,8 @@ bool MPI_Predicter :: ComputeProcessPredict( MPI_Datatype mpi_mask )
 		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
 		in.close();
 	}
+	
+	double *var_activity = new double[activity_vec_len];
 	
 	for (;;) {
 		// get index of current task
@@ -424,14 +435,15 @@ bool MPI_Predicter :: ComputeProcessPredict( MPI_Datatype mpi_mask )
 			cnf_time_from_node = MPI_Wtime( );
 			ret = S->solveLimited( dummy_vec[0] );
 			cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
-			
-			// TODO comment
-			if ( ret == l_Undef ) {
+			//for( unsigned i=0; i < activity_vec_len; ++i )
+				//var_activity[i] = S->activity[i];
+
+			/*if ( ret == l_Undef ) {
 				cout << "ret == l_Undef" << endl;
 				cout << "cnf_time_from_node " << cnf_time_from_node << endl;
 				S->printStats();
 				cout << endl;
-			}
+			}*/
 
 			if ( cnf_time_from_node < MIN_SOLVE_TIME ) // TODO. maybe 0 - but why?!
 				cnf_time_from_node = MIN_SOLVE_TIME;
@@ -461,6 +473,7 @@ bool MPI_Predicter :: ComputeProcessPredict( MPI_Datatype mpi_mask )
 		MPI_Send( &cnf_time_from_node, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
 	}
 
+	delete[] var_activity;
 	delete[] b_SAT_set_array;
 	delete S;
 	MPI_Finalize( );
@@ -586,7 +599,7 @@ void MPI_Predicter :: GetInitPoint( )
 }
 
 void MPI_Predicter :: DecVarLinerDeepMode( stringstream &sstream, fstream &deep_predict_file, 
-										   MPI_Datatype mpi_mask, int &ProcessListNumber )
+										   int &ProcessListNumber )
 {
 	int stop_message = -1;
 	MPI_Request request;
@@ -613,7 +626,7 @@ void MPI_Predicter :: DecVarLinerDeepMode( stringstream &sstream, fstream &deep_
 	if ( !PrepareForPredict( ) )
 	{ cout << "\n Error in PrepareForPredict" << endl; exit(1); }
 						
-	if ( !ControlProcessPredict( mpi_mask, ProcessListNumber++, sstream_control ) ) {
+	if ( !ControlProcessPredict( ProcessListNumber++, sstream_control ) ) {
 		cout << endl << "Error in ControlProcessPredict" << endl;
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
@@ -846,7 +859,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 	return true;
 }
 
-bool MPI_Predicter :: DeepPredictMain( MPI_Datatype mpi_mask )
+bool MPI_Predicter :: DeepPredictMain( )
 {
 	// make renadom init point for 1st iteration
 	// for other ones as init use best point of prev iteration
@@ -904,7 +917,7 @@ bool MPI_Predicter :: DeepPredictMain( MPI_Datatype mpi_mask )
 			cout << "PrepareForPredict() done" << endl;
 		//cout << "PrepareForPredict() time " << MPI_Wtime( ) - current_time << endl;
 
-		if ( !ControlProcessPredict( mpi_mask, ProcessListNumber++, sstream_control ) ) {
+		if ( !ControlProcessPredict( ProcessListNumber++, sstream_control ) ) {
 			cout << endl << "Error in ControlProcessPredict" << endl;
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
@@ -1003,11 +1016,13 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	MPI_Init( &argc, &argv );
 	MPI_Comm_size( MPI_COMM_WORLD, &corecount );
 	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
-
-	MPI_Datatype mpi_mask;
 	MPI_Type_contiguous( FULL_MASK_LEN, MPI_UNSIGNED, &mpi_mask );
 	MPI_Type_commit( &mpi_mask );
-
+	// array of var activity
+	activity_vec_len = core_len;
+	MPI_Type_contiguous( activity_vec_len, MPI_DOUBLE, &mpi_var_activity );
+	MPI_Type_commit( &mpi_var_activity );
+	
 	IsPredict = true;
 
 	if ( corecount < 2 )
@@ -1060,14 +1075,14 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			// make all_tasks_count, arrays with part_mask, array with values
 			if ( !PrepareForPredict( ) ) 
 				{ cout << "Error in PrepareForPredict" << endl; return false; }
-			if ( !ControlProcessPredict( mpi_mask, 0, sstream_control ) ) // ProcessListNumber == 0;
+			if ( !ControlProcessPredict( 0, sstream_control ) ) // ProcessListNumber == 0;
 				{ cout << endl << "Error in ControlProcessPredict" << endl; return false; }
 		}
 		else
-			DeepPredictMain( mpi_mask );
+			DeepPredictMain( );
 	}
 	else { // if rank != 0
-		if ( !ComputeProcessPredict( mpi_mask ) ) {
+		if ( !ComputeProcessPredict( ) ) {
 			cout << endl << "Error in ComputeProcessPredict" << endl;
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 			return false;
@@ -1075,6 +1090,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	}
 
 	MPI_Type_free( &mpi_mask );
+	MPI_Type_free( &mpi_var_activity );
 	MPI_Abort( MPI_COMM_WORLD, 0 );
 
 	return true;

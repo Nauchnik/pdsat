@@ -53,7 +53,8 @@ MPI_Base :: MPI_Base( ) :
 	keybit_count         ( 4 ),
 	rslos_table_name     ( "" ),
 	IsFileAssumptions    ( false ),
-	assumptions_string_count ( 0 )
+	assumptions_string_count ( 0 ),
+	activity_vec_len	 ( 0 )
 {
 	for ( unsigned i = 0; i < FULL_MASK_LEN; i++ )
 		full_mask[i] = part_mask[i] = 0;
@@ -1318,15 +1319,6 @@ bool MPI_Base :: SolverRun( Solver *&S, unsigned int *full_mask, unsigned int *p
 			cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
 #endif
 			total_time += cnf_time_from_node;
-
-			/*if ( ( S->conflicts == prev_conflicts ) && ( S->decisions == prev_decisions ) ) {
-				cout << "S->decisions prev_decisions" << endl;
-				cout << S->decisions << " " << prev_decisions << endl;
-				cout << "S->conflicts conflicts" << endl;
-				cout << S->conflicts << " " << prev_conflicts << endl;
-				cout << "S->starts prev_starts" << endl;
-				cout << S->starts << " " << prev_starts << endl;
-			}*/
 
 			if ( ret == l_Undef )
 				cur_problem_state = Interrupted; // interrupted cause of restarts or time limit

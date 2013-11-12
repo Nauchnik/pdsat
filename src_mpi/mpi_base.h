@@ -76,8 +76,10 @@ public:
 #ifdef _MPI
 	MPI_Datatype mpi_mask;
 	MPI_Datatype mpi_solving_time;
+	MPI_Datatype mpi_var_activity;
 #endif
 
+	unsigned activity_vec_len;
 	string known_point_file_name;
 	string known_assumptions_file_name;
 
