@@ -77,6 +77,7 @@ public:
 	int global_skipped_points_count;
 	int decomp_sets_in_block;
 	string deep_predict_file_name;
+	string var_activity_file_name;
 	vector< vector<int> > combinations;
 	list<checked_area> L1; // areas where all points were checked
 	list<unchecked_area> L2; // areas where not all points were checked
@@ -102,6 +103,8 @@ public:
 	bool IsFirstStage;
 	bool IsRecordUpdated;
 	unsigned max_L2_hamming_distance;
+
+	vector<double> total_var_activity;
 
 	int slow_cnf_mask_index;
 	vector<decomp_set> decomp_set_arr;

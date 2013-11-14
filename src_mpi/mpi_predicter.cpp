@@ -21,6 +21,7 @@ MPI_Predicter :: MPI_Predicter( ) :
 	IsDecDecomp         ( false ),
 	IsSimulatedGranted  ( false ),
 	deep_predict_file_name ( "deep_predict" ),
+	var_activity_file_name ( "var_activity" ),
 	cur_temperature ( 0 ),
 	min_temperature ( 20 ),
 	temperature_multiply_koef ( 0.99 ),
@@ -148,7 +149,6 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	int int_cur_time = 0, prev_int_cur_time = 0;
 	double get_predict_time;
 	double *var_activity = new double[activity_vec_len];
-	double *total_var_activity = new double[activity_vec_len];
 	// send tasks if needed
 	while ( solved_tasks_count < all_tasks_count ) {
 		for( ; ; ) { // get predict every PREDICT_EVERY_SEC seconds	
@@ -209,8 +209,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		MPI_Recv( &var_activity, 1, mpi_var_activity, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		cout << "current total_var_activity" << endl;
 		for( unsigned i=0; i < activity_vec_len; ++i )
-			cout << (total_var_activity[i] += var_activity[i]) << " ";
-		cout << endl;
+			total_var_activity[i] += var_activity[i];
 		
 		// skip old message
 		if ( current_status.MPI_TAG < ProcessListNumber ) {
@@ -331,7 +330,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	Problem cnf;
 	Solver *S;
 	lbool ret;
-	bool IsFirstTaskRecieved = false;
+	bool IsFirstTaskReceived = false;
 	bool IsNewPartMask = true;
 	int result;
 	
@@ -382,22 +381,23 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		for ( i = 1; i < FULL_MASK_LEN; i++ )
 			value[i] = uint_rand(); // make rand value as form of assumption values
 
-		if ( IsFirstTaskRecieved ) {
+		if ( IsFirstTaskReceived ) {
 			IsNewPartMask = false;
 			for ( i = 0; i < FULL_MASK_LEN; i++ )
-				if ( part_mask[i] != part_mask_prev[i] )
+				if ( part_mask[i] != part_mask_prev[i] ) {
 					IsNewPartMask = true;
+					break;
+				}
 		}
 		
 		if ( IsNewPartMask ) {
 			// read CNF onc for every part_mask and make solver ready for iterative using
 			for ( i = 0; i < FULL_MASK_LEN; i++ )
 				part_mask_prev[i] = part_mask[i];
-
-			if ( ( solver_type == 4 ) || ( solver_type == 5 ) ) {
-				if ( IsFirstTaskRecieved ) { // if not first time, delete
+			
+			if ( solver_type == 4 ) {
+				if ( IsFirstTaskReceived ) // if not first time, delete old data
 					delete S;
-				}
 				S = new Solver();
 				S->addProblem(cnf);
 				S->verbosity        = verbosity;
@@ -407,43 +407,24 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 				S->max_solving_time = max_solving_time;
 				S->rank = rank;
 			}
-			if ( !IsFirstTaskRecieved )
-				IsFirstTaskRecieved = true;
+			if ( !IsFirstTaskReceived )
+				IsFirstTaskReceived = true;
 		}
 		
 		process_sat_count = 0;
 		
-		if ( solver_type == 1 ) {
-            // param 0 means flag IsPredict == 1
-			if ( !dminisat_solve( input_cnf_name, full_mask, part_mask, value,
-                                  solver_type, core_len, start_activity,
-                                  &process_sat_count, &b_SAT_set_array, sort_type, 
-                                  &cnf_time_from_node, 1, 0 ) )
-				cout << "Error in dminisat_solve" << endl;
-        }
-        else if ( ( solver_type == 4 ) || ( solver_type == 5 ) ) {
+        if ( solver_type == 4 ) {
 			MakeAssignsFromMasks( full_mask, part_mask, value, dummy_vec );
 			if ( dummy_vec.size() > 1 ) {
 				cerr << "Error. In predict mode dummy_vec.size() > 1" << endl;
 				cerr << "dummy_vec.size() " << dummy_vec.size() << endl;
 				MPI_Finalize( );
 			}
-			/*for ( unsigned i = 0; i < dummy_vec[0].size(); i++ )
-				cout << dummy_vec[0][i].x << " ";
-			cout << endl <<"dummy_vec[0].size() " << dummy_vec[0].size() << endl;*/
 			
 			cnf_time_from_node = MPI_Wtime( );
 			ret = S->solveLimited( dummy_vec[0] );
 			cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
-			//for( unsigned i=0; i < activity_vec_len; ++i )
-				//var_activity[i] = S->activity[i];
-
-			/*if ( ret == l_Undef ) {
-				cout << "ret == l_Undef" << endl;
-				cout << "cnf_time_from_node " << cnf_time_from_node << endl;
-				S->printStats();
-				cout << endl;
-			}*/
+			S->GetActivity( var_activity, activity_vec_len ); // get activity of Solver
 
 			if ( cnf_time_from_node < MIN_SOLVE_TIME ) // TODO. maybe 0 - but why?!
 				cnf_time_from_node = MIN_SOLVE_TIME;
@@ -455,14 +436,11 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 				for ( int i=0; i < S->model.size(); i++ )
 					b_SAT_set_array[i] = ( S->model[i] == l_True) ? 1 : 0;
 				if ( !AnalyzeSATset( ) ) { 	// check res file for SAT set existing
-					cout << "\n Error in Analyzer procedute" << endl;;	
+					cout << "\n Error in Analyzer procedute" << endl;
 					MPI_Abort( MPI_COMM_WORLD, 0 );
 					return false;
 				}
 			}
-			for ( int i = 0; i < dummy_vec.size(); i++)
-				dummy_vec[i].clear();
-			dummy_vec.clear();
 		    S->clearDB();
         }
 		else
@@ -471,6 +449,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		MPI_Send( &current_task_index, 1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &process_sat_count,  1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &cnf_time_from_node, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
+		MPI_Send( &var_activity,       1, mpi_var_activity, 0, ProcessListNumber, MPI_COMM_WORLD );
 	}
 
 	delete[] var_activity;
@@ -1020,6 +999,8 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	MPI_Type_commit( &mpi_mask );
 	// array of var activity
 	activity_vec_len = core_len;
+	total_var_activity.resize( activity_vec_len );
+	for( auto &x : total_var_activity ) x = 0;
 	MPI_Type_contiguous( activity_vec_len, MPI_DOUBLE, &mpi_var_activity );
 	MPI_Type_commit( &mpi_var_activity );
 	
@@ -1282,16 +1263,24 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		WritePredictToFile( 0, 0 );
 	predict_file_name = "predict";
 
-	ofstream graph_file;
+	ofstream graph_file, var_activity_file;
 	if ( IsFirstPoint ) {
 		graph_file.open( "graph_file", ios_base :: out ); // erase info from previous launches 
 		graph_file << "# best_var_num best_predict_time cnf_in_set_count last_predict_record_time current_predict_time";
 		if ( deep_predict == 5 ) // simulated anealing
 			graph_file << " cur_temperature";
 		graph_file << endl;
+		var_activity_file.open( var_activity_file_name.c_str(), ios_base :: out );
 	}
-	else
+	else {
 		graph_file.open( "graph_file", ios_base :: app );
+		var_activity_file.open( var_activity_file_name.c_str(), ios_base :: app );
+	}
+
+	var_activity_file << record_count << endl;
+	for( auto &x : total_var_activity )
+		var_activity_file << x << " ";
+	var_activity_file << endl;
 	
 	graph_file << record_count << " " << best_var_num << " " << best_predict_time << " " 
 		       << cnf_in_set_count << " " << last_predict_record_time << " " << current_predict_time;

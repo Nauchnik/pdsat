@@ -25,15 +25,6 @@
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/dynamic_bitset.hpp>
 
-#ifdef __cplusplus
-extern "C" 
-{
-#endif
-#include "dminisat.h"
-#ifdef __cplusplus
-}
-#endif
-
 #ifdef _WIN32
 #include "./win_headers/dirent.h"
 #else
@@ -46,9 +37,14 @@ using namespace Addit_func;
 using namespace std;
 
 #define MAX_CORE_LEN 800
-const double MIN_SOLVE_TIME = 0.000001;
-const unsigned MAX_BATCH_VAR_COUNT = 18;
+const double   MIN_SOLVE_TIME = 0.000001;
+const unsigned RECOMMEND_BATCH_VAR_COUNT = 16;
+const unsigned MAX_BATCH_VAR_COUNT = 31;
 const unsigned MAX_PART_MASK_VAR_COUNT = 24;
+const unsigned UINT_LEN = 32;
+const unsigned FULL_MASK_LEN = 26;
+const unsigned SOLVING_TIME_LEN = 15; // info about time of solving tasks
+const unsigned MAX_ASSIGNS_COUNT = 800;
 
 enum ProblemStates{ Solved, SolvedOnPreprocessing, Interrupted };
 

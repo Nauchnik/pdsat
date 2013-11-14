@@ -635,11 +635,6 @@ void TestSolve()
 	double corevars_activ_type = 1;
 	int *b_SAT_set_array;
 	int sort_type = 0;
-
-	dminisat_solve( input_cnf_name, full_mask, part_mask, value,
-				    solver_type, core_len, corevars_activ_type, 
-					&process_sat_count, &b_SAT_set_array, sort_type, 
-					&cnf_time_from_node, 0, 0 );
 }
 
 //---------------------------------------------------------

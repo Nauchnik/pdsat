@@ -12,8 +12,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src_common\addit_func.cpp" />
-    <ClCompile Include="..\src_common\dminisat.c" />
-    <ClCompile Include="..\src_common\dminisat_solver.c" />
     <ClCompile Include="..\src_common\minisat22_wrapper.cpp" />
     <ClCompile Include="..\src_common\minisat\core\Solver.cc" />
     <ClCompile Include="..\src_common\minisat\utils\Options.cc" />
@@ -25,12 +23,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src_common\addit_func.h" />
-    <ClInclude Include="..\src_common\dminisat.h" />
-    <ClInclude Include="..\src_common\dminisat_solver.h" />
     <ClInclude Include="..\src_common\minisat22_wrapper.h" />
     <ClInclude Include="..\src_common\minisat\core\Dimacs.h" />
     <ClInclude Include="..\src_common\minisat\core\Solver.h" />
     <ClInclude Include="..\src_common\minisat\core\SolverTypes.h" />
+    <ClInclude Include="..\src_common\minisat\mtl\Vec.h" />
     <ClInclude Include="..\src_common\minisat\utils\Options.h" />
     <ClInclude Include="..\src_common\minisat\utils\ParseUtils.h" />
     <ClInclude Include="..\src_common\minisat\utils\System.h" />

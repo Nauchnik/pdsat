@@ -145,6 +145,13 @@ void Solver::clearDB()
     checkGarbage();
 }
 
+void Solver :: GetActivity( double *&var_activity, unsigned activity_vec_len )
+{
+	unsigned size = activity_vec_len < nVars() ? activity_vec_len : nVars();
+	for( unsigned i=0; i < size; ++i )
+		var_activity[i] = activity[i];
+}
+
 // save state of Solver
 /*void Solver::saveState()
 {

@@ -597,12 +597,18 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 		part_mask_var_count = var_choose_order.size();
 	cout << "part_mask_var_count " << part_mask_var_count << endl;
 	// change batch size to treshold value if needed
-	if ( var_choose_order.size() - part_mask_var_count > MAX_BATCH_VAR_COUNT ) {
-		part_mask_var_count = var_choose_order.size() - MAX_BATCH_VAR_COUNT;
+	if ( var_choose_order.size() - part_mask_var_count > RECOMMEND_BATCH_VAR_COUNT ) {
+		part_mask_var_count = var_choose_order.size() - RECOMMEND_BATCH_VAR_COUNT;
 		cout << "part_mask_var_count changed to " << part_mask_var_count << endl;
 	}
 	if ( part_mask_var_count > MAX_PART_MASK_VAR_COUNT )
 		part_mask_var_count = MAX_PART_MASK_VAR_COUNT;
+	if ( var_choose_order.size() - part_mask_var_count > MAX_BATCH_VAR_COUNT ) {
+		cerr << "Error. var_choose_order.size() - part_mask_var_count > MAX_BATCH_VAR_COUNT" << endl;
+		cerr << var_choose_order.size() - part_mask_var_count << " < " << MAX_BATCH_VAR_COUNT << endl;
+		return false;
+	}
+
 	// get default count of tasks = power of part_mask_var_count
 	part_var_power = ( unsigned_one << part_mask_var_count );
 

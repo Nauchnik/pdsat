@@ -58,6 +58,7 @@ public:
 	double last_time;
 	int rank;
 	void clearDB();
+	void GetActivity( double *&var_activity, unsigned activity_vec_len );
 	//void saveState();
 	//void loadState();
 
@@ -74,7 +75,6 @@ public:
     bool    addClause (Lit p, Lit q, Lit r, Lit s);             // Add a quaternary clause to the solver. 
     bool    addClause_(      vec<Lit>& ps);                     // Add a clause to the solver without making superflous internal copy. Will
                                                                 // change the passed vector 'ps'.
-
     // Solving:
     //
     bool    simplify     ();                        // Removes already satisfied clauses.
@@ -208,6 +208,7 @@ protected:
         Lit      l;
         ShrinkStackElem(uint32_t _i, Lit _l) : i(_i), l(_l){}
     };
+	
 
     // Solver state:
     //

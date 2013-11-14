@@ -336,22 +336,27 @@ void MPI_Base :: MakeAssignsFromMasks( unsigned full_mask[FULL_MASK_LEN],
 // for predict with minisat2.2. convert masks to vector of Literals
 	unsigned mask, range = 0, range_mask_ind;
 	int cur_var_ind;
-	unsigned long long range_val_count,
-			           range_mask, 
-			           lint;
+	int range_val_count,
+		range_mask, 
+		lint;
 	bool IsPositiveLiteral, IsAddingLiteral;
-	Lit new_lit;
-
+	unsigned index;
+	
 	for ( unsigned i = 1; i < FULL_MASK_LEN; i++ )
 		range += new_count_ones( full_mask[i] ^ part_mask[i] );
-
-	shl64( range_val_count, range );
-	dummy_vec.growTo( range_val_count );
-
+	
+	// resize dummy vector
+	range_val_count = 1 << range;
+	int diff_count = range_val_count - dummy_vec.size();
+	if( diff_count > 0 )
+		dummy_vec.growTo( dummy_vec.size() + diff_count );
+	else if ( diff_count < 0 )
+		dummy_vec.shrink( diff_count );
+	
 	for ( lint = 0; lint < range_val_count; lint++ ) {
 		range_mask = 1;
 		range_mask_ind = 1;
-
+		index = 0;
 		for ( unsigned i = 1; i < FULL_MASK_LEN; i++ ) {
 			for ( unsigned j = 0; j < UINT_LEN; j++ ) {
 				mask = ( 1 << j );
@@ -363,14 +368,12 @@ void MPI_Base :: MakeAssignsFromMasks( unsigned full_mask[FULL_MASK_LEN],
 				}
 				else if ( full_mask[i] & mask ) {
 					IsPositiveLiteral = ( lint & range_mask ) ? true : false;
- 					shl64( range_mask, range_mask_ind );
+					range_mask = 1 << range_mask_ind;
 					range_mask_ind++;
 					IsAddingLiteral = true;
 				}
 				if ( !IsAddingLiteral ) continue;
-
-				new_lit = IsPositiveLiteral ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind );
-				dummy_vec[lint].push( new_lit );
+				dummy_vec[lint][index++] = IsPositiveLiteral ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind );
 			}
 		}
 	}
@@ -1277,16 +1280,7 @@ bool MPI_Base :: SolverRun( Solver *&S, unsigned int *full_mask, unsigned int *p
 	for ( unsigned i = 1; i < SOLVING_TIME_LEN; i++ )
 		solving_times[i] = 0;
 	
-	if ( solver_type == 1 ) {
-		//printf( "\n Start of dminisat_solve" );
-		// param 0 means flag IsPredict == 0
-		if ( !dminisat_solve( input_cnf_name, full_mask, part_mask, value,
-							  solver_type, core_len, start_activity, 
-							  &process_sat_count, &b_SAT_set_array, sort_type,
-							  &cnf_time_from_node, 0, IsHardProblem ) )
-		{ printf( "\n Error in dminisat_solve" ); }
-	} 
-	else if ( solver_type == 4 ) {	
+	if ( solver_type == 4 ) {	
 		if ( IsFileAssumptions ) // if assumptions in file 
 			MakeAssignsFromFile( current_task_index, dummy_vec );
 		else
