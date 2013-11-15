@@ -118,8 +118,6 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	// send to all cores (except # 0) tasks from 1st range
 	for ( i = 0; i < first_range_tasks_count; i++ ) {
 		if ( next_task_index % cnf_in_set_count == 0 ) {
-			//cout << "next_task_index " << next_task_index << endl;
-			//cout << "part_mask_index " << part_mask_index << endl;
 			for ( unsigned j = 0; j < FULL_MASK_LEN; j++ )
 				part_mask[j] = part_mask_arr[part_mask_index][j];
 			part_mask_index++;
@@ -134,8 +132,12 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		node_list[i] = i + 1; // fix node where CNF will be solved
 		// send new index of task
 		MPI_Send( &i,     1, MPI_INT,  i + 1, ProcessListNumber, MPI_COMM_WORLD );
-		// minisat input masks
-		MPI_Send( &part_mask, 1, mpi_mask, i + 1, ProcessListNumber, MPI_COMM_WORLD );
+		//MPI_Send( &part_mask, 1, mpi_mask, i + 1, ProcessListNumber, MPI_COMM_WORLD );
+		//MPI_Send( &part_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, ProcessListNumber, MPI_COMM_WORLD );
+		unsigned part_mask_test[FULL_MASK_LEN];
+		for(unsigned t=0; t < FULL_MASK_LEN; ++t)	
+			part_mask_test[t] = t+1;
+		MPI_Send( &part_mask_test, 1, mpi_mask, i + 1, ProcessListNumber, MPI_COMM_WORLD );
 		
 		if ( verbosity > 2 )
 			cout << "\n task # " << i << " was send to core # " << i + 1 << endl;
@@ -206,7 +208,8 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		// then get 1 more mes
 		MPI_Recv( &process_sat_count,  1, MPI_INT,    current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		MPI_Recv( &cnf_time_from_node, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		MPI_Recv( &var_activity, 1, mpi_var_activity, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		//MPI_Recv( &var_activity, 1, mpi_var_activity, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		MPI_Recv( &var_activity, activity_vec_len, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		cout << "current total_var_activity" << endl;
 		for( unsigned i=0; i < activity_vec_len; ++i )
 			total_var_activity[i] += var_activity[i];
@@ -279,8 +282,9 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 			// send new index of task
 			MPI_Send( &next_task_index, 1, MPI_INT, current_status.MPI_SOURCE, ProcessListNumber, MPI_COMM_WORLD );
 			// send to free core new task in format of minisat input masks
-			MPI_Send( &part_mask, 1, mpi_mask, current_status.MPI_SOURCE, ProcessListNumber, MPI_COMM_WORLD );
-
+			//MPI_Send( &part_mask, 1, mpi_mask, current_status.MPI_SOURCE, ProcessListNumber, MPI_COMM_WORLD );
+			MPI_Send( &part_mask, FULL_MASK_LEN, MPI_UNSIGNED, current_status.MPI_SOURCE, ProcessListNumber, MPI_COMM_WORLD );
+			
 			next_task_index++; // if status != STOPPED next_task_index will increase once
 		}
 	} // while ( solved_tasks_count < tasks_count )
@@ -362,9 +366,13 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			cout << "current_task_index" << current_task_index << endl;
 
 		ProcessListNumber = status.MPI_TAG;
-		//cout << "\n MPI_Recv current_task_index" << endl;
+
 		// recieve data from o-rank core in format of minisat input masks
-		MPI_Recv( &part_mask, 1, mpi_mask, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		//MPI_Recv( &part_mask, 1, mpi_mask, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		//MPI_Recv( &part_mask, FULL_MASK_LEN, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		// TODO delete
+		unsigned part_mask_test[FULL_MASK_LEN];
+		MPI_Recv( &part_mask_test, 1, mpi_mask, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 
 		if ( ( part_mask < 0 ) || ( current_task_index < 0 ) ) {
 			cerr << "Error. negative values";
@@ -373,14 +381,14 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		
 		if ( verbosity > 2) {
 			for ( j = 0; j < FULL_MASK_LEN; j++ )
-				cout << "\n Rec part_mask"<< j << " " << part_mask[j] << endl;
+				cout << "\n Received part_mask"<< j << " " << part_mask_test[j] << endl;
 		}
 		// in predict full and part masks are equal
 		for ( i = 0; i < FULL_MASK_LEN; i++ )
 			full_mask[i] = part_mask[i];
 		for ( i = 1; i < FULL_MASK_LEN; i++ )
-			value[i] = uint_rand(); // make rand value as form of assumption values
-
+			value[i] = uint_rand(); // make rand values as assumptions
+		
 		if ( IsFirstTaskReceived ) {
 			IsNewPartMask = false;
 			for ( i = 0; i < FULL_MASK_LEN; i++ )
@@ -449,7 +457,8 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		MPI_Send( &current_task_index, 1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &process_sat_count,  1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &cnf_time_from_node, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
-		MPI_Send( &var_activity,       1, mpi_var_activity, 0, ProcessListNumber, MPI_COMM_WORLD );
+		//MPI_Send( &var_activity,       1, mpi_var_activity, 0, ProcessListNumber, MPI_COMM_WORLD );
+		MPI_Send( &var_activity, activity_vec_len, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
 	}
 
 	delete[] var_activity;
@@ -1000,7 +1009,9 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	// array of var activity
 	activity_vec_len = core_len;
 	total_var_activity.resize( activity_vec_len );
-	for( auto &x : total_var_activity ) x = 0;
+	//for( auto &x : total_var_activity ) x = 0;
+	for( vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it )
+		*it = 0;
 	MPI_Type_contiguous( activity_vec_len, MPI_DOUBLE, &mpi_var_activity );
 	MPI_Type_commit( &mpi_var_activity );
 	
@@ -1278,8 +1289,11 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	}
 
 	var_activity_file << record_count << endl;
-	for( auto &x : total_var_activity )
-		var_activity_file << x << " ";
+	//for( auto &x : total_var_activity )
+	//	var_activity_file << x << " ";
+	for( vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it )
+		var_activity_file << *it << " ";
+	
 	var_activity_file << endl;
 	
 	graph_file << record_count << " " << best_var_num << " " << best_predict_time << " " 

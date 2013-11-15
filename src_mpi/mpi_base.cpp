@@ -214,13 +214,17 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned full_mask[FULL_MASK_LEN],
 									   vec< vec<Lit> > &dummy_vec )
 {
 // for predict with minisat2.2. convert masks to vector of Literals
-	unsigned range = 0;
-	for ( unsigned i = 1; i < FULL_MASK_LEN; i++ )
-		range += BitCount( full_mask[i] ^ part_mask[i] );
+	unsigned full_mask_var_count = 0, variate_vars_count = 0;
+	for ( unsigned i = 1; i < FULL_MASK_LEN; i++ ) {
+		variate_vars_count += BitCount( full_mask[i] ^ part_mask[i] );
+		full_mask_var_count += BitCount( full_mask[i] );
+	}
 	
-	// resize dummy vector
-	int range_val_count = 1 << range;
-	dummy_vec.resize( range_val_count );
+	// determine count of assumptions and lenght of every one
+	int problems_count = 1 << variate_vars_count;
+	dummy_vec.resize( problems_count );
+	for( int i=0; i < dummy_vec.size(); ++i )
+		dummy_vec[i].resize( full_mask_var_count );
 	
 	unsigned mask, range_mask_ind;
 	int range_mask;
@@ -228,7 +232,7 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned full_mask[FULL_MASK_LEN],
 	int cur_var_ind;
 	bool IsPositiveLiteral, IsAddingLiteral;
 
-	for ( int lint = 0; lint < range_val_count; lint++ ) {
+	for ( int lint = 0; lint < problems_count; lint++ ) {
 		range_mask = 1;
 		range_mask_ind = 1;
 		index = 0;
@@ -237,11 +241,11 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned full_mask[FULL_MASK_LEN],
 				mask = ( 1 << j );
 				cur_var_ind = ( i-1 ) * UINT_LEN + j;
 				IsAddingLiteral = false;
-				if ( part_mask[i] & mask ) {
+				if ( part_mask[i] & mask ) { // one common vector send by control process
 					IsPositiveLiteral = ( value[i] & mask ) ? true : false;
 					IsAddingLiteral = true;
 				}
-				else if ( full_mask[i] & mask ) {
+				else if ( full_mask[i] & mask ) { // set of vectors
 					IsPositiveLiteral = ( lint & range_mask ) ? true : false;
 					range_mask = 1 << range_mask_ind;
 					range_mask_ind++;
