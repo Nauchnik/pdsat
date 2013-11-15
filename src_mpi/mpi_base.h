@@ -25,12 +25,6 @@
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/dynamic_bitset.hpp>
 
-#ifdef _WIN32
-#include "./win_headers/dirent.h"
-#else
-#include <dirent.h>
-#endif
-
 #include "minisat22_wrapper.h"
 #include "addit_func.h"
 using namespace Addit_func;
@@ -66,8 +60,8 @@ public:
 	bool IsPredict;
 	bool IsFileAssumptions;
 	
-	unsigned int full_mask[FULL_MASK_LEN];
-	unsigned int part_mask[FULL_MASK_LEN];
+	unsigned *full_mask;
+	unsigned *part_mask;
 
 #ifdef _MPI
 	MPI_Datatype mpi_mask;
@@ -97,7 +91,7 @@ public:
 
 	vector<int> rslos_lengths;
 
-	bool sat_count;
+	int sat_count;
 	bool IsPB; //  pseudo Boolean mode. if 0 then common CNF mode
 	int PB_mode; // Pseudo Boolean mode. 1 - inequality mode, 2 - equality mode
 	int best_lower_bound;
@@ -144,25 +138,20 @@ public:
 	
 	bool AnalyzeSATset( );
 	bool CheckSATset( vector<int> &lit_SAT_set_array );
-	void MakeAssignsFromMasks( unsigned full_mask[FULL_MASK_LEN], 
+	bool MakeAssignsFromMasks( unsigned full_mask[FULL_MASK_LEN], 
 							   unsigned part_mask[FULL_MASK_LEN], 
 						       unsigned values[FULL_MASK_LEN], 
 							  vec< vec<Lit> > &dummy_vec );
-	void MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &dummy_vec );
-	bool SortValuesDecrease( unsigned int range, unsigned int *&sorted_index_array );
+	bool MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &dummy_vec );
 
-	// service procedures
-	boost::dynamic_bitset<> IntVecToBitset( unsigned bitset_len, vector<int> &vec_int );
-	vector<int> BitsetToIntVec( boost::dynamic_bitset<> &bs );
-	void shl64( unsigned long long int &val_for_left_shift, unsigned int bit_count );
-	void equalize_arr( unsigned int arr1[FULL_MASK_LEN], unsigned int arr2[FULL_MASK_LEN] );
-	void MakeRandArr( vector< vector<unsigned> > &rand_arr, unsigned shortcnf_count, unsigned rnd_uint32_count );
-	void MakeUniqueRandArr( vector<unsigned> &rand_arr, unsigned rand_arr_len, 
-		              unsigned max_rand_val );
-	void PrintVector( vector<int> &vec );
-
-	int getdir( string dir, vector<string> &files );
 	unsigned uint_rand();
+	void MakeRandArr( vector< vector<unsigned> > &rand_arr, unsigned shortcnf_count, unsigned rnd_uint32_count );
+	void MakeUniqueRandArr( vector<unsigned> &rand_arr, unsigned rand_arr_len, unsigned max_rand_val );
+	
+	static inline double cpuTime( void ) 
+	{
+		return ( double )clock( ) / CLOCKS_PER_SEC; 
+	}
 };
 
 #endif

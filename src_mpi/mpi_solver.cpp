@@ -55,7 +55,7 @@ int make_QAP_values( int num_elements, unsigned comb_len, unsigned int **&values
 //---------------------------------------------------------
 bool MPI_Solver :: GetExtraTasks( unsigned int **&values_arr, unsigned int *full_mask_ext )
 {
-	unsigned int full_mask_temp[FULL_MASK_LEN];
+	unsigned *full_mask_temp = new unsigned[FULL_MASK_LEN];
 
 	// index in full_mask_ext that is needed increased by extra 1 vars
 	unsigned int extra_addon_index = 0;
@@ -63,7 +63,7 @@ bool MPI_Solver :: GetExtraTasks( unsigned int **&values_arr, unsigned int *full
 	unsigned int extra_addon_value = 0;
 
 	// use full_mask to make it's increased modification
-	equalize_arr( full_mask_temp, full_mask );
+	copy( full_mask, full_mask + FULL_MASK_LEN, full_mask_temp );
 			
 	// temporary action
 	full_mask_var_count++;
@@ -87,23 +87,22 @@ bool MPI_Solver :: GetExtraTasks( unsigned int **&values_arr, unsigned int *full
 	// change it back
 	full_mask_var_count--;
 	part_mask_var_count = full_mask_var_count;
-	equalize_arr( full_mask_ext, full_mask );
-	equalize_arr( full_mask, full_mask_temp );
-	equalize_arr( part_mask, full_mask ); // part_mask == full_mask
+
+	copy( full_mask, full_mask + FULL_MASK_LEN, full_mask_ext );
+	copy( full_mask_temp, full_mask_temp + FULL_MASK_LEN, full_mask );
+	copy( full_mask, full_mask + FULL_MASK_LEN, part_mask );
 
 	unsigned int shift_count = 0;
 	bool IsAddonFound = false;
 
 	extra_addon_index = 1; // init value
 
-	while ( !IsAddonFound && ( extra_addon_index < FULL_MASK_LEN ) )
-	{
+	while ( !IsAddonFound && ( extra_addon_index < FULL_MASK_LEN ) ) {
 		// init
 		shift_count = 0;
 		extra_addon_value = 1;
 		extra_addon_index++; // first time it is 2
-		while ( !IsAddonFound && ( shift_count < 32 ) )
-		{
+		while ( !IsAddonFound && ( shift_count < 32 ) ) {
 			if ( ( full_mask[extra_addon_index] & extra_addon_value ) != 
 				 ( full_mask_ext[extra_addon_index] & extra_addon_value ) )
 			{
@@ -121,14 +120,14 @@ bool MPI_Solver :: GetExtraTasks( unsigned int **&values_arr, unsigned int *full
 		cout << "Error. IsAddonFound == false after GetExtraTasks" << endl;
 		return false;
 	}
-
-	int i;
 	
 	// before it last extra_tasks_count values of values_arr are undefined
 	// define them basing on first extra_addon_index values
-	for( i = 0; i < extra_tasks_count; i++ )
+	for( int i = 0; i < extra_tasks_count; i++ )
 		values_arr[i + orig_tasks_count][extra_addon_index] = 
 		values_arr[i + full_mask_tasks_count][extra_addon_index] + extra_addon_value;
+	
+	delete[] full_mask_temp;
 
 	return true;
 }
@@ -223,7 +222,7 @@ bool MPI_Solver :: ControlProcessSolve( int first_range_tasks_count, unsigned in
 		       current_status;
 	unsigned int value[FULL_MASK_LEN];
 	unsigned int tmp_mask[FULL_MASK_LEN];
-	double start_time = MPI_Wtime(), final_time, finding_first_sat_time = 0;
+	double start_time = MPI_Wtime(), finding_first_sat_time = 0;
 	
 	cout << "\n ControlProcessSolve is running" << endl;
 
@@ -238,7 +237,7 @@ bool MPI_Solver :: ControlProcessSolve( int first_range_tasks_count, unsigned in
 
 	// send to all cores (except # 0) tasks from 1st range
 	for ( int i = skip_tasks; i < skip_tasks + first_range_tasks_count; i++ ) {
-		equalize_arr( value, values_arr[i] );
+		copy( values_arr[i], values_arr[i] + FULL_MASK_LEN, value );
 		
 		// send new index of task
 		MPI_Send( &mpi_i,             1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
@@ -250,7 +249,8 @@ bool MPI_Solver :: ControlProcessSolve( int first_range_tasks_count, unsigned in
 		MPI_Send( &extra_tasks_count, 1, MPI_INT, i + 1, 0, MPI_COMM_WORLD );
 
 		if ( ( extra_tasks_count ) && ( i >= full_mask_tasks_count ) ) { // modified tasks
-			equalize_arr( tmp_mask, full_mask_ext ); // 09.01.2011 checking error
+			//equalize_arr( tmp_mask, full_mask_ext );
+			copy(tmp_mask, tmp_mask + FULL_MASK_LEN, full_mask_ext);
 			MPI_Send( &tmp_mask, 1, mpi_mask, mpi_i + 1, 0, MPI_COMM_WORLD );
 		}
 		else // if no extra tasks or if first orig tasks sending 08.01.11
@@ -379,7 +379,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 			// if extra then take full_mask every time and part_mask == full_mask
 			if ( extra_tasks_count ) {
 				MPI_Recv( &full_mask, 1, mpi_mask, 0, 0, MPI_COMM_WORLD, &status );
-				equalize_arr( part_mask, full_mask );
+				copy( full_mask, full_mask + FULL_MASK_LEN, part_mask );
 			}
 			// do it anyway
 			MPI_Recv( &value, 1, mpi_mask, 0, 0, MPI_COMM_WORLD, &status );
@@ -637,9 +637,9 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 		cout << "extra_tasks_count is " << extra_tasks_count << endl;
 		cout << "all_tasks_count is "   << all_tasks_count   << endl;
 		if ( skip_tasks >= all_tasks_count ) {
-			cerr << "skip_tasks >= all_tasks_count " << endl;
+			cerr << "Error. skip_tasks >= all_tasks_count " << endl;
 			cerr << skip_tasks << " >= " << all_tasks_count << endl;
-			exit;
+			return false;
 		}
 		
 		// part_var_power - count of part variables

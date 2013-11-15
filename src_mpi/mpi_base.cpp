@@ -8,11 +8,6 @@ const int    MAX_LINE_LENGTH_2             = 8192;
 const int    MEDIUM_STRING_LEN             = 4096;
 const double TRANSP_COAST                  = 0.000001;
 const int    NUM_KEY_BITS                  = 64;
-//const int MAX_VAR_IN_CNF		        = 65536;
-//const int MAX_SIZE_OF_FILE	        = 42949672;
-//const int MAX_CNF_IN_FOLDER		    = 65536;
-//const int MAX_STEP_CNF_COUNT	        = 30;
-//const int LITTLE_STRING_LEN           = 16;
 
 boost::random::mt19937 gen;
 
@@ -56,6 +51,8 @@ MPI_Base :: MPI_Base( ) :
 	assumptions_string_count ( 0 ),
 	activity_vec_len	 ( 0 )
 {
+	full_mask = new unsigned[FULL_MASK_LEN];
+	part_mask = new unsigned[FULL_MASK_LEN];
 	for ( unsigned i = 0; i < FULL_MASK_LEN; i++ )
 		full_mask[i] = part_mask[i] = 0;
 	gen.seed( static_cast<unsigned>(std::time(0)) );
@@ -63,7 +60,9 @@ MPI_Base :: MPI_Base( ) :
 
 MPI_Base :: ~MPI_Base( )
 {
-	/*int i = 0;
+	delete[] full_mask;
+	delete[] part_mask;
+	/*
 	if ( IsSAT ) 
 		delete[] b_SAT_set_array; // allocated in ReadIntCNF
 	
@@ -84,114 +83,6 @@ MPI_Base :: ~MPI_Base( )
 		delete[] clause_array; // allocated in ReadIntCNF
 		delete[] clause_lengths; // allocated in ReadIntCNF
 	}*/
-}
-
-static inline double cpuTime( void ) 
-{
-    return ( double )clock( ) / CLOCKS_PER_SEC; 
-}
-
-boost::dynamic_bitset<> MPI_Base :: IntVecToBitset( unsigned bitset_len, vector<int> &int_vec )
-{
-	boost::dynamic_bitset<> bs( bitset_len );
-	for ( unsigned i=0; i<int_vec.size(); i++ )
-		bs.set( int_vec[i]-1 ); // set element to 1
-	return bs;
-}
-
-vector<int> MPI_Base :: BitsetToIntVec( boost::dynamic_bitset<> &bs )
-{
-	vector<int> vec_int;
-	for ( unsigned i=0; i<bs.size(); i++ )
-		if ( (int)bs[i] == 1 )
-			vec_int.push_back( (int)(i+1) );
-	return vec_int;
-}
-
-//---------------------------------------------------------
-void MPI_Base :: shl64( unsigned long long int &val_for_left_shift, unsigned int bit_count )
-{
-	unsigned int val1, val2; 
-	if ( ( bit_count > 30 ) && ( bit_count < 61 ) ) {
-		val1 = 30;
-		val2 = bit_count - val1;
-		val_for_left_shift =  ( unsigned long long int )( 1 << val1 );
-		val_for_left_shift *= ( unsigned long long int )( 1 << val2 );
-	}
-	else if ( bit_count < 31 )
-		val_for_left_shift =  ( unsigned long long int )( 1 << bit_count );
-	else
-		cout << "\n bit_count " <<  bit_count << " is too large ";
-}
-
-//---------------------------------------------------------
-void MPI_Base :: equalize_arr( unsigned int arr1[FULL_MASK_LEN], unsigned int arr2[FULL_MASK_LEN] )
-{
-	// Make arr1 be equal to arr2
-	for ( int i = 0; i < FULL_MASK_LEN; i++ )
-		arr1[i] = arr2[i];
-}
-
-void MPI_Base :: PrintVector( vector<int> &vec )
-{
-	for ( unsigned i=0; i < vec.size(); i++ )
-		cout << vec[i] << " ";
-	cout << endl;
-}
-
-int MPI_Base :: getdir( string dir, vector<string> &files )
-{
-    DIR *dp;
-    struct dirent *dirp;
-    if((dp  = opendir(dir.c_str())) == NULL) {
-        cout << endl << "Error in opening " << dir;
-        return 1;
-    }
-    while ((dirp = readdir(dp)) != NULL) 
-	{ files.push_back(string(dirp->d_name)); }
-    closedir(dp);
-    return 0;
-}
-
-void MPI_Base :: MakeRandArr( vector< vector<unsigned> > &rand_arr, unsigned vec_len, unsigned rnd_uint32_count )
-{
-// make array of pseudorandom values using Mersenne Twister generator
-	rand_arr.resize( vec_len );
-	vector< vector<unsigned> > :: iterator it;
-	for ( it = rand_arr.begin(); it != rand_arr.end(); it++ ) {
-		(*it).resize( rnd_uint32_count );
-		for ( unsigned j = 0; j < (*it).size(); j++ )
-			(*it)[j] = uint_rand();
-	}
-}
-
-void MPI_Base :: MakeUniqueRandArr( vector<unsigned> &rand_arr, unsigned rand_arr_len, 
-							        unsigned max_rand_val )
-{
-// make array of differenr pseudorandom values
-	if ( verbosity > 0 )
-		cout << "MakeUniqueRandArr() started" << endl;
-
-	if ( max_rand_val < rand_arr_len )
-		max_rand_val = rand_arr_len;
-	unsigned long long rand_numb;
-	rand_arr.resize( rand_arr_len );
-	
-	bool IsOldValue;
-	for ( unsigned i = 0; i < rand_arr_len; i++ ) {
-		do { // if value is not unique get value again
-			rand_numb = uint_rand();
-			rand_numb %= max_rand_val;
-			IsOldValue = false;
-			for ( unsigned k = 0; k < i; k++ ) {
-				if ( rand_numb == rand_arr[k] ) {
-					IsOldValue = true;
-					break;
-				}
-			}
-		} while ( IsOldValue );
-		rand_arr[i] = rand_numb; // new values
-	}
 }
 
 // Make full_mask and part_mask for sending from order that is set by var choose array
@@ -246,19 +137,7 @@ bool MPI_Base :: GetMainMasksFromVarChoose( vector<int> &var_choose_order )
 	return true;
 }
 
-unsigned new_count_ones( unsigned num )
-{
-	unsigned cnt = 0;
-	unsigned i;
-	for ( i = 0; i < UINT_LEN; i++ ) {
-		if ( num & 1 ) 
-			cnt++;
-		num >>= 1;
-	}
-	return cnt;
-}
-
-void MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &dummy_vec )
+bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &dummy_vec )
 {
 	ifstream in;
 	string str;
@@ -266,20 +145,20 @@ void MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 	in.open( known_assumptions_file_name.c_str() );
 	if ( !in.is_open() ) {
 		cerr << "Error. !in.is_open(). file name " << known_assumptions_file_name << endl;
-		exit;
+		return false;
 	}
 
 	int cur_var_ind, intval, k = 0;
 	// int rslos_num = 1; 
-	unsigned strings_passed = 0;
-	unsigned basic_batch_size = floor( (double)assumptions_string_count / (double)all_tasks_count );
+	int strings_passed = 0;
+	int basic_batch_size = (int)floor( (double)assumptions_string_count / (double)all_tasks_count );
 	// calculate count of bathes with additional size (+1)
-	unsigned batch_addit_size_count = assumptions_string_count - basic_batch_size*all_tasks_count;
-	unsigned cur_batch_size = basic_batch_size;
+	int batch_addit_size_count = assumptions_string_count - basic_batch_size*all_tasks_count;
+	int cur_batch_size = basic_batch_size;
 	if ( current_task_index < batch_addit_size_count )
 		cur_batch_size++;
 	// skip unuseful strings
-	unsigned previous_tasks_count = current_task_index*basic_batch_size;
+	int previous_tasks_count = current_task_index*basic_batch_size;
 	if ( current_task_index < batch_addit_size_count )
 		previous_tasks_count += current_task_index; // add some 1 to sum
 	else
@@ -296,18 +175,18 @@ void MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 	cout << "cur_batch_size "           << cur_batch_size << endl;
 	cout << "strings_passed "           << strings_passed  << endl;
 	
-	dummy_vec.growTo( cur_batch_size );
+	dummy_vec.resize( cur_batch_size );
 	// reading values from file
-	for ( unsigned i=0; i < cur_batch_size; i++ ) {
+	for ( int i=0; i < cur_batch_size; i++ ) {
 		if ( !getline( in, str ) ) {
 			cerr << "Error. !getline( in, str )" << endl;
-			exit;
+			return false;
 		}
 		//rslos_num = 1;
 		//k = 0;
 		if ( str.size() < var_choose_order.size() ) {
 			cerr << "Error. str.size() < var_choose_order.size()" << endl;
-			exit;
+			return false;
 		}
 		for ( unsigned j=0; j < var_choose_order.size(); j++ ) {
 			cur_var_ind = var_choose_order[j] - 1;
@@ -326,34 +205,30 @@ void MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 		}
 	}
 	in.close();
+	return true;
 }
 
-void MPI_Base :: MakeAssignsFromMasks( unsigned full_mask[FULL_MASK_LEN], 
+bool MPI_Base :: MakeAssignsFromMasks( unsigned full_mask[FULL_MASK_LEN], 
 									   unsigned part_mask[FULL_MASK_LEN], 
 									   unsigned value[FULL_MASK_LEN],
 									   vec< vec<Lit> > &dummy_vec )
 {
 // for predict with minisat2.2. convert masks to vector of Literals
-	unsigned mask, range = 0, range_mask_ind;
-	int cur_var_ind;
-	int range_val_count,
-		range_mask, 
-		lint;
-	bool IsPositiveLiteral, IsAddingLiteral;
-	unsigned index;
-	
+	unsigned range = 0;
 	for ( unsigned i = 1; i < FULL_MASK_LEN; i++ )
-		range += new_count_ones( full_mask[i] ^ part_mask[i] );
+		range += BitCount( full_mask[i] ^ part_mask[i] );
 	
 	// resize dummy vector
-	range_val_count = 1 << range;
-	int diff_count = range_val_count - dummy_vec.size();
-	if( diff_count > 0 )
-		dummy_vec.growTo( dummy_vec.size() + diff_count );
-	else if ( diff_count < 0 )
-		dummy_vec.shrink( diff_count );
+	int range_val_count = 1 << range;
+	dummy_vec.resize( range_val_count );
 	
-	for ( lint = 0; lint < range_val_count; lint++ ) {
+	unsigned mask, range_mask_ind;
+	int range_mask;
+	unsigned index;
+	int cur_var_ind;
+	bool IsPositiveLiteral, IsAddingLiteral;
+
+	for ( int lint = 0; lint < range_val_count; lint++ ) {
 		range_mask = 1;
 		range_mask_ind = 1;
 		index = 0;
@@ -377,6 +252,7 @@ void MPI_Base :: MakeAssignsFromMasks( unsigned full_mask[FULL_MASK_LEN],
 			}
 		}
 	}
+	return true;
 }
 
 // Get values for sending using order by var choose array
@@ -1119,110 +995,6 @@ bool MPI_Base :: AnalyzeSATset( )
 	return true;
 }
 
-//---------------------------------------------------------
-bool MPI_Base :: SortValuesDecrease( unsigned int range, 
-									 unsigned int *&sorted_index_array )
-{
-// Sorting of array {0, ... , 2^range - 1 }
-// by decreasing of weight (from 1-vector to 0-vector)
-// bits - array of "1" count in 0 .. 255
-	unsigned int bits[] = {0,1,1,2,1,2,2,3,1,
-      2,2,3,2,3,3,4,1,2,2,3,2,3,3,4,
-      2,3,3,4,3,4,4,5,1,2,2,3,2,3,3,4,2,3,
-      3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,
-      4,5,5,6,1,2,2,3,2,3,3,4,2,3,3,4,3,4,
-      4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
-      2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,
-      4,5,4,5,5,6,4,5,5,6,5,6,6,7,1,2,2,3,
-      2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,
-      4,5,3,4,4,5,4,5,5,6,2,3,3,4,3,4,4,5,
-      3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,
-      5,6,5,6,6,7,2,3,3,4,3,4,4,5,3,4,4,5,
-      4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,
-      6,7,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
-      4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8};
-
-	// part_var_power - length of binary sequences for sorting
-	unsigned int j = 0,
-				 bit_weight = 0,
-				 k,
-				 val2;
-	int i, 
-		table_val_count = 0, 
-		bit_value_count = 0;
-	unsigned int *index_array_lengths,
-				 *sort_index_arr, 
-				 **index_array;
-
-	table_val_count = ( 1 << range );
-	bit_value_count = range + 1;
-	
-	index_array_lengths = ( unsigned int* )malloc( bit_value_count * sizeof( unsigned int ) );
-	sort_index_arr = ( unsigned int* )malloc( bit_value_count * sizeof( unsigned int ) );
-	index_array = ( unsigned int** )malloc( bit_value_count * sizeof( unsigned int* ) );
-
-	for ( i = 0; i < bit_value_count; i++ )
-		index_array_lengths[i] = 0;
-	
-	// at first compute lengths of arrays, they are same for any kind of input values
-	for ( i = 0; i < table_val_count; i++ )
-	{
-		// get count of "1" in 32-bit value by shifting 3 times
-		bit_weight = bits[( unsigned char )( i )] + bits[( unsigned char )( i >> 8 )] +
-		             bits[( unsigned char )( i >> 16 )] + bits[( unsigned char )( i >> 24 )];
-		index_array_lengths[bit_weight] += 1;
-		//index_array[bit_weight][index_array_lengths[bit_weight] - 1] = i;
-	}
-	
-	// allocate array of indexes
-	for ( i = 0; i < bit_value_count; i++ )
-	{
-		if ( index_array_lengths[i] )
-			index_array[i] = ( unsigned int* )malloc( index_array_lengths[i] * sizeof( unsigned int ) );
-		index_array_lengths[i] = 0; // null array of lengths
-	}
-	
-	// fill array of indexes
-	for ( i = 0; i < table_val_count; i++ )
-	{
-		// by shifting 3 times get count of "1" in 32-bit value
-		bit_weight = bits[( unsigned char )( i )] + bits[( unsigned char )( i >> 8 )] +
-		             bits[( unsigned char )( i >> 16 )] + bits[( unsigned char )( i >> 24 )];
-		// again fill array of lengths
-		index_array_lengths[bit_weight] += 1;
-		index_array[bit_weight][index_array_lengths[bit_weight] - 1] = i;
-	}
-
-	k = 0;
-	// fill array with sorted values
-	for ( int i = bit_value_count - 1; i > -1; --i )
-	{
-		val2 = index_array_lengths[i];
-		for ( j = 0; j < val2; j++ ) {
-			sorted_index_array[k] = index_array[i][j];
-			k++;
-		}
-	}
-	
-	// deallocate arrays
-	free( sort_index_arr );
-
-	for ( i = 0; i < bit_value_count; i++ ) {
-		if ( index_array_lengths[i] )
-			free( index_array[i] );
-	}
-	
-	free( index_array_lengths );
-	free( index_array );
-	
-	return true;
-}
-
-unsigned MPI_Base ::  uint_rand() {
-	boost::random::uniform_int_distribution<uint32_t> dist;
-	return dist(gen);
-}
-
 void MPI_Base :: AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, double *solving_times )
 {
 	// solving_times[0]  == min
@@ -1359,4 +1131,48 @@ bool MPI_Base :: SolverRun( Solver *&S, unsigned int *full_mask, unsigned int *p
 		{ cout << "\n solver_type has unknown format" << endl; return false; }
 
 	return true;
+}
+
+// TODO move to Addit_func namespace
+unsigned MPI_Base ::  uint_rand() {
+	boost::random::uniform_int_distribution<uint32_t> dist;
+	return dist(gen);
+}
+
+void MPI_Base :: MakeRandArr( vector< vector<unsigned> > &rand_arr, unsigned vec_len, unsigned rnd_uint32_count )
+{
+// make array of pseudorandom values using Mersenne Twister generator
+	rand_arr.resize( vec_len );
+	vector< vector<unsigned> > :: iterator it;
+	for ( it = rand_arr.begin(); it != rand_arr.end(); it++ ) {
+		(*it).resize( rnd_uint32_count );
+		for ( unsigned j = 0; j < (*it).size(); j++ )
+			(*it)[j] = uint_rand();
+	}
+}
+
+void MPI_Base :: MakeUniqueRandArr( vector<unsigned> &rand_arr, unsigned rand_arr_len, 
+							        unsigned max_rand_val )
+{
+// make array of different pseudorandom values
+	if ( max_rand_val < rand_arr_len )
+		max_rand_val = rand_arr_len;
+	unsigned rand_numb;
+	rand_arr.resize( rand_arr_len );
+	
+	bool IsOldValue;
+	for ( unsigned i = 0; i < rand_arr_len; i++ ) {
+		do { // if value is not unique get value again
+			rand_numb = uint_rand();
+			rand_numb %= max_rand_val;
+			IsOldValue = false;
+			for ( unsigned k = 0; k < i; ++k ) {
+				if ( rand_numb == rand_arr[k] ) {
+					IsOldValue = true;
+					break;
+				}
+			}
+		} while ( IsOldValue );
+		rand_arr[i] = rand_numb; // new values
+	}
 }

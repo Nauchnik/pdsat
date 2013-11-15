@@ -88,7 +88,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	if ( verbosity > 0 ) {
 		cout << "Start ControlProcessPredict()" << endl;
 		unsigned count = 0;
-		for ( unsigned i=0; i < all_tasks_count; ++i )
+		for ( int i=0; i < all_tasks_count; ++i )
 			if (cnf_start_time_arr[j] > 0)
 				count++;
 		cout << "count of cnf_start_time_arr[j] > 0 " << count << " from " << all_tasks_count << endl;

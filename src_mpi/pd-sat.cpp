@@ -633,7 +633,6 @@ void TestSolve()
 	int solver_type = 1;
 	int core_len = 64;
 	double corevars_activ_type = 1;
-	int *b_SAT_set_array;
 	int sort_type = 0;
 }
 
@@ -676,7 +675,7 @@ void TestDeepPredict( )
 	for ( unsigned i = 0; i < mpi_p.core_len; i ++ )
 		ua.center.set(i);
 	mpi_p.L2.push_back( ua );
-	boost::dynamic_bitset<> bs = mpi_p.IntVecToBitset( mpi_p.core_len, mpi_p.var_choose_order );
+	boost::dynamic_bitset<> bs = IntVecToBitset( mpi_p.core_len, mpi_p.var_choose_order );
 	stringstream sstream;
 	mpi_p.AddNewUncheckedArea( bs, sstream );
 	mpi_p.current_unchecked_area.center = bs;

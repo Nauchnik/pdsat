@@ -3,16 +3,31 @@
 
 #include <iostream>
 #include <vector>
+#include <string>
 #include <algorithm>
 using std::vector;
+using std::string;
+
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
+#include <boost/dynamic_bitset.hpp>
+
+#ifdef _WIN32
+#include "./win_headers/dirent.h"
+#else
+#include <dirent.h>
+#endif
 
 namespace Addit_func {
 
-void MakeCombinations( int n, int k, vector< vector<int> > &combinations );
+extern void MakeCombinations( int n, int k, vector< vector<int> > &combinations );
 extern void MakePermutations( int n, int k, vector< vector<int> > &permutations );
-extern int combinations_count( int n, int k );
-extern int conseq_multipl( int low_bound, int high_bound );
-extern bool IfValueInArray( int value, int *arr, int arr_len);
+extern int ConseqMultip( int low_bound, int high_bound );
+extern int BitCount( unsigned u );
+extern int getdir( string dir, vector<string> &files );
+extern boost::dynamic_bitset<> IntVecToBitset( unsigned bitset_len, vector<int> &vec_int );
+extern vector<int> BitsetToIntVec( boost::dynamic_bitset<> &bs );
+extern void shl64( unsigned long long int &val_for_left_shift, unsigned int bit_count );
 
 template< typename T > 
 bool next_cartesian( vector<T> &vii, vector<int> &index_arr, T &cur_vi )
