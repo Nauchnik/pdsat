@@ -71,6 +71,8 @@ public:
     void     growTo   (Size size);
     void     growTo   (Size size, const T& pad);
     void     clear    (bool dealloc = false);
+	//
+	void     resize   (Size size); // new
 	
     // Stack interface:
     void     push  (void)              { if (sz == cap) capacity(sz+1); new (&data[sz]) T(); sz++; }
@@ -131,6 +133,16 @@ void vec<T,_Size>::clear(bool dealloc) {
         if (dealloc) free(data), data = NULL, cap = 0; } }
 
 //=================================================================================================
+// new
+template<class T, class _Size>
+void vec<T,_Size>::resize(Size size) {
+    if (sz == size) return;
+	if( size - sz > 0 )
+		growTo( size );
+	else
+		shrink( sz - size );
+    }
+
 }
 
 #endif
