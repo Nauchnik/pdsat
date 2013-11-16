@@ -83,7 +83,7 @@ public:
 	list<unchecked_area> L2; // areas where not all points were checked
 	unchecked_area current_unchecked_area; // for creating list of points for checking
 	// TODO ? vector of unchecked areas where vector of checked must be changed cause of last point 
-	int ts_strategy;
+	unsigned ts_strategy;
 	unsigned max_sat_problems;
 	double current_predict_start_time;
 	double current_predict_time;
@@ -94,20 +94,19 @@ public:
 	int predict_every_sec;
 	double start_sample_varianse_limit;
 	
-	int cnf_in_set_count;
-	int decomp_set_count;
-	int total_decomp_set_count;
-	int solved_tasks_count;
+	unsigned cnf_in_set_count;
+	unsigned decomp_set_count;
+	unsigned total_decomp_set_count;
+	unsigned solved_tasks_count;
 	string predict_file_name;
-	int record_count;
+	unsigned record_count;
 	bool IsFirstStage;
 	bool IsRecordUpdated;
 	unsigned max_L2_hamming_distance;
+	unsigned slow_cnf_mask_index;
 
-	double *var_activity;
 	vector<double> total_var_activity;
 
-	int slow_cnf_mask_index;
 	vector<decomp_set> decomp_set_arr;
 	vector< vector<unsigned> > part_mask_arr;
 	vector< vector<unsigned> > all_values_arr;
@@ -160,7 +159,7 @@ private:
 
 	vector<unsigned> set_len_arr; // array of indexes of sets
 	vector<int> cnf_to_stop_arr;  
-	vector<int> set_index_arr;
+	vector<unsigned > set_index_arr;
 	vector<char> set_status_arr;
 	vector<int> node_list;
 	vector<int> stopped_cnf_count_arr;				

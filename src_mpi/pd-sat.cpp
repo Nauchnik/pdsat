@@ -173,8 +173,6 @@ int main( int argc, char** argv )
 
 		if ( myflags.solver_type != -1 )
 			mpi_s.solver_type = myflags.solver_type;
-		if ( myflags.sort_type != -1 )
-			mpi_s.sort_type   = myflags.sort_type;
 		if ( myflags.koef_val != -1 )
 			mpi_s.koef_val    = myflags.koef_val;
 		if ( myflags.schema_type != "" )
@@ -294,7 +292,6 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 		   value;
 	// default values
 	myflags.solver_type			= -1;
-	myflags.sort_type			= -1;
 	myflags.koef_val			= -1,
 	myflags.schema_type			= "";
 	myflags.poly_mod			= -1;
@@ -416,14 +413,6 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			else
                 cout << "ERROR! unknown solver " << value;
 		}
-		else if ( hasPrefix_String( argv_string, "-sort=",       value ) )
-		{
-			myflags.sort_type = atoi( value.c_str( ) );
-			if ( myflags.sort_type > 3 ) {
-				cout << "Warning! unknown sort " << value << " changed to 0";
-				myflags.sort_type = 0;
-			}
-		}
 		else if ( hasPrefix_String( argv_string, "-koef=",       value ) ) {
 			myflags.koef_val = atoi( value.c_str( ) );
 			if ( myflags.koef_val < 1 ) {
@@ -536,7 +525,6 @@ void TestPredict( )
 {
 // Testing predicter
 	cout << "*** DEBUG MODE" << endl;
-	unsigned i;
 	MPI_Predicter mpi_p;
 
 	mpi_p.input_cnf_name = "D:\\ForCopy\\a5_144_1_64.cnf";
@@ -572,14 +560,7 @@ void TestPredict( )
 	mpi_p.cnf_in_set_count = 4;
 
 	mpi_p.ReadVarCount( );
-
-	// create array for answer
-	mpi_p.b_SAT_set_array = new int[mpi_p.var_count];
-	for ( i = 0; i < mpi_p.var_count; i++ )
-		mpi_p.b_SAT_set_array[i] = -1;
-
 	mpi_p.decomp_set_count = mpi_p.predict_to - mpi_p.predict_from + 1;
-
 	mpi_p.PrepareForPredict( );
 
 	int process_sat_count = 0;
@@ -616,8 +597,7 @@ void TestSolve()
 	mpi_s.ReadIntCNF();
 	mpi_s.MakeVarChoose();
 	double cnf_time_from_node;
-	int current_task_index = 0, current_obj_val;
-	double solving_times[SOLVING_TIME_LEN];
+	int current_task_index = 0;
 	Solver *S;
 	
 	for ( unsigned i=0; i < FULL_MASK_LEN; i++ )

@@ -37,8 +37,6 @@ MPI_Base :: MPI_Base( ) :
 	upper_bound          ( -1 ),
 	verbosity			 ( 0 ),
 	check_every_conflict ( 2000 ),
-	IsHardProblem        ( 0 ),
-	sort_type            ( 0 ),
 	known_point_file_name ( "known_point" ),
 	known_assumptions_file_name ( "known_assumptions" ),
 	IsSolveAll           ( false ),
@@ -51,11 +49,12 @@ MPI_Base :: MPI_Base( ) :
 	assumptions_string_count ( 0 ),
 	activity_vec_len	 ( 0 )
 {
-	full_mask = new unsigned[FULL_MASK_LEN];
-	part_mask = new unsigned[FULL_MASK_LEN];
+	full_mask  = new unsigned[FULL_MASK_LEN];
+	part_mask  = new unsigned[FULL_MASK_LEN];
 	mask_value = new unsigned[FULL_MASK_LEN];
 	for ( unsigned i = 0; i < FULL_MASK_LEN; i++ )
 		full_mask[i] = part_mask[i] = mask_value[i] = 0;
+
 	gen.seed( static_cast<unsigned>(std::time(0)) );
 }
 
@@ -64,24 +63,6 @@ MPI_Base :: ~MPI_Base( )
 	delete[] full_mask;
 	delete[] part_mask;
 	delete[] mask_value;
-	/*
-	if ( var_count > 0 )
-	{
-		for( i = 0; i < var_count; i++ )
-			delete[] lits_clause_array[i];
-
-		delete[] lits_clause_array; // allocated in ReadIntCNF
-		delete[] lits_clause_lengths; // allocated in ReadIntCNF
-	}
-
-	if ( clause_count > 0 )
-	{
-		for( i = 0; i < clause_count; i++ )
-			delete[] clause_array[i];
-
-		delete[] clause_array; // allocated in ReadIntCNF
-		delete[] clause_lengths; // allocated in ReadIntCNF
-	}*/
 }
 
 // Make full_mask and part_mask for sending from order that is set by var choose array
@@ -260,22 +241,18 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask,
 
 // Get values for sending using order by var choose array
 //---------------------------------------------------------
-bool MPI_Base :: GetValuesFromVarChoose( unsigned long long int &part_var_power,
-										 unsigned int **&values_arr )
+bool MPI_Base :: GetValuesFromVarChoose( unsigned &part_var_power )
 {
-	unsigned int cur_uint_ind = 0;
-	int i, j;
-	
-	unsigned long long int lint;
-	unsigned int value_index;
-	unsigned int  mask;
-	unsigned long long int mask2;
-	for( lint = 0; lint < part_var_power; lint++ ) {
+	unsigned cur_uint_ind = 0;
+	unsigned value_index;
+	unsigned mask;
+	unsigned mask2;
+	for( unsigned lint = 0; lint < part_var_power; lint++ ) {
 		value_index = 0;
-		for ( i = 1; i < FULL_MASK_LEN; i++ ) {
-			for( j = 0; j < UINT_LEN; j++ ) {
+		for( unsigned i = 1; i < FULL_MASK_LEN; i++ ) {
+			for( unsigned j = 0; j < UINT_LEN; j++ ) {
 				mask  = ( 1 << j );
-				shl64( mask2, value_index );
+				mask2 = 1 << value_index;
 				if ( part_mask[i] & mask ) { // if part_mask bit is 1	
 					if ( lint & mask2 ) // if bit is 1
 						values_arr[lint][i] += mask;
@@ -286,8 +263,8 @@ bool MPI_Base :: GetValuesFromVarChoose( unsigned long long int &part_var_power,
 	} // for( lint = 0; lint < part_var_power; lint++ )
 
 	// set values_arr[lint][0] and values_arr[lint][i]
-	for( lint = 0; lint < part_var_power; lint++ ) {
-		for( i = 1; i < FULL_MASK_LEN; i++ ) { // fill part_mask[0]
+	for( unsigned lint = 0; lint < part_var_power; lint++ ) {
+		for( unsigned i = 1; i < FULL_MASK_LEN; i++ ) { // fill part_mask[0]
 			if ( values_arr[lint][i] )
 				values_arr[lint][0] += 1 << ( i-1 );
 		}
@@ -297,20 +274,19 @@ bool MPI_Base :: GetValuesFromVarChoose( unsigned long long int &part_var_power,
 }
 
 //---------------------------------------------------------
-bool MPI_Base :: MakeStandartMasks( unsigned long long int &part_var_power, 
-									unsigned int **&values_arr )
+bool MPI_Base :: MakeStandartMasks( unsigned &part_var_power )
 {		
 	if ( !GetMainMasksFromVarChoose( var_choose_order ) ) { 
-		cout << "\n Error in GetMainMasksFromVarChoose" << endl; 
+		cout << "Error in GetMainMasksFromVarChoose" << endl; 
 		return false; 
 	}
-	cout << "\n Correct end of GetMasksFromVarChoose" << endl;
+	cout << "Correct end of GetMasksFromVarChoose" << endl;
 		
-	if ( !GetValuesFromVarChoose( part_var_power, values_arr ) ) { 
-		cout << "\n Error in GetValuesFromVarChoose" << endl; 
+	if ( !GetValuesFromVarChoose( part_var_power ) ) { 
+		cout << "Error in GetValuesFromVarChoose" << endl; 
 		return false; 
 	}
-	cout << "\n Correct end of GetValuesFromVarChoose" << endl;
+	cout << "Correct end of GetValuesFromVarChoose" << endl;
 	
 	return true;
 }
@@ -575,9 +551,9 @@ bool MPI_Base :: ReadVarCount( )
 	lit_count    = var_count * 2;
 	clause_count = current_clause_count;
 
-	clause_lengths      = new int[clause_count];
-	lits_clause_lengths = new unsigned[lit_count];
-	for ( i = 0; i < lit_count; i++ )
+	clause_lengths.resize( clause_count );
+	lits_clause_lengths.resize( lit_count );
+	for ( i = 0; i < lits_clause_lengths.size(); ++i )
 		lits_clause_lengths[i] = 0;
 
 	main_cnf.close( ); // reopen file
@@ -643,12 +619,6 @@ bool MPI_Base :: ReadVarCount( )
 		}
 	}
 
-	/*for ( i = 0; i < 20; i++ )
-		cout << clause_lengths[i] << " " << endl;
-	cout << endl;
-	for ( i = 0; i < 20; i++ )
-		cout << lits_clause_lengths[i] << " " << endl;*/
-
 	main_cnf.close( );
 	
 	return true;
@@ -674,9 +644,8 @@ bool MPI_Base :: ReadIntCNF( )
 				 k                    = 0, 
 				 val				  = 0,
 				 sign				  = 0;
-	unsigned i,
-		input_var_num,
-		first_obj_var;
+	unsigned input_var_num,
+			 first_obj_var;
 	int lit_val;
 	string line_str, 
 		   word_str;
@@ -689,17 +658,15 @@ bool MPI_Base :: ReadIntCNF( )
 	if ( verbosity > 0 )
 		cout << "Success of ReadVarCount()" << endl;
 
-	b_SAT_set_array = new int[var_count];
-
-	clause_array      = new int*[clause_count];
-	lits_clause_array = new int*[lit_count]; // array of indexes of clauses for literals
+	clause_array.resize( clause_count );
+	lits_clause_array.resize( lit_count ); // array of indexes of clauses for literals
 
 	int *lits_clause_current = new int[lit_count];
 
-	for ( i = 0; i < clause_count; i++ )
-		clause_array[i]      = new int[clause_lengths[i]];
-	for ( i = 0; i < lit_count; i++ ) {
-		lits_clause_array[i] = new int[lits_clause_lengths[i]];
+	for ( unsigned i = 0; i < clause_array.size(); ++i )
+		clause_array[i].resize( clause_lengths[i] );
+	for ( unsigned i = 0; i < lits_clause_array.size(); ++i ) {
+		lits_clause_array[i].resize( lits_clause_lengths[i] );
 		lits_clause_current[i] = 0;
 	}
 
@@ -808,7 +775,7 @@ bool MPI_Base :: ReadIntCNF( )
 			// try to read line with clause
 			current_lit_count = 0; // cuttenr count of lits in current clause
 			line_str = " " + line_str;
-			for ( i = 0; i < line_str.length( ) - 1; i++ ) {
+			for ( unsigned i = 0; i < line_str.length( ) - 1; i++ ) {
 				IncorrectLine = false;
 				if ( ( line_str[i] == ' ' ) && ( line_str[i + 1] != ' ' ) && 
 					 ( line_str[i + 1] != '0' ) )
@@ -871,7 +838,6 @@ bool MPI_Base :: ReadIntCNF( )
 		else PB_mode = 1;
 	}*/
 
-	delete[] lits_clause_current;
 	main_cnf.close( );
 
 	return true;
@@ -923,9 +889,8 @@ bool MPI_Base :: AnalyzeSATset( )
 		int_answer = 0,
 		sign = 0,
 		val = 0,
-		str_output_cur_ind = 0, 
-		k;
-	unsigned i , answer_var_count;
+		str_output_cur_ind = 0;
+	unsigned answer_var_count;
 	bool bIsSATSetExist = false;
 	string answer_file_name,
 		   output_file_name = "output",
@@ -937,15 +902,12 @@ bool MPI_Base :: AnalyzeSATset( )
 	stringstream sstream;
 	
 	cout << "Start of AnalyzeSATset" << endl;
-	//cout << "var_count " << var_count << endl;
-	lit_SAT_set_array.resize( var_count );
-	for ( i = 0; i < lit_SAT_set_array.size(); i++ ) {
+	lit_SAT_set_array.resize( b_SAT_set_array.size() );
+	for ( unsigned i = 0; i < lit_SAT_set_array.size(); ++i )
 		lit_SAT_set_array[i] = ( ( i + 1 ) << 1 ) + (b_SAT_set_array[i] ? 0 : 1);
-		//cout << lit_SAT_set_array[i];
-	}
-	cout << endl;
 	// if SAT set exist then check it
-	//cout << "Before CheckSATset()" << endl;
+	if ( verbosity > 0 )
+		cout << "Before CheckSATset()" << endl;
 	if ( !CheckSATset( lit_SAT_set_array ) ) {
 		cerr << "Error in checking of SAT set" << endl;
 		return false;
@@ -957,8 +919,8 @@ bool MPI_Base :: AnalyzeSATset( )
 	answer_file_name = "sat_sets_";
 	answer_file_name += input_cnf_name;
 	
-	k = 1;
-	for( i = 1; i < ( int )answer_file_name.length( ); i++ ) {
+	unsigned k = 1;
+	for( unsigned i = 1; i < answer_file_name.length( ); ++i ) {
 		if ( ( answer_file_name[i] == '.' ) || ( answer_file_name[i] == '\\' ) || 
 			 ( answer_file_name[i] == '/' ) || ( answer_file_name[i] == '//' ) ||
 			 ( answer_file_name[i] == ':' ) || 
@@ -982,13 +944,10 @@ bool MPI_Base :: AnalyzeSATset( )
 		return false;
 	}
 	
-	// put only core vars if such was specified
-	if ( !core_len ) answer_var_count = var_count;
-	else answer_var_count = core_len;
+	answer_var_count = core_len;
 	
 	sstream << "SAT" << endl;
-	for ( unsigned i = 0; i < var_count; i++ )
-		//sstream << (b_SAT_set_array[i] ? i + 1 : -( i + 1 )) << " ";
+	for ( unsigned i = 0; i < b_SAT_set_array.size(); ++i )
 		sstream << b_SAT_set_array[i];
 	sstream << endl; 
 	answer_file << sstream.rdbuf( );

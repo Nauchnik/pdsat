@@ -81,8 +81,7 @@ public:
 
 	unsigned full_mask_var_count;
 	unsigned part_mask_var_count;
-
-	int all_tasks_count;
+	unsigned all_tasks_count;
 
 	vector<int> rslos_lengths;
 
@@ -92,8 +91,6 @@ public:
 	int best_lower_bound;
 	int upper_bound;
 	int verbosity;
-	int IsHardProblem;
-	int sort_type;
 	bool IsSolveAll;
 	double max_solving_time; // max time in seconds for solving particular SAT subproblem
 	unsigned keybit_count;
@@ -103,12 +100,12 @@ public:
 	
 	char *input_cnf_name;
 
-	int **clause_array;
-	int *clause_lengths;
-	int **lits_clause_array;
-	unsigned *lits_clause_lengths;
-	int *b_SAT_set_array;
-	
+	vector< vector<int> > clause_array;
+	vector<int> clause_lengths;
+	vector< vector<int> >lits_clause_array;
+	vector<unsigned> lits_clause_lengths;
+	vector<int> b_SAT_set_array;
+	vector< vector<unsigned> > values_arr;
 	vector<int> var_choose_order;
 	
 	// Read header "p cnf [var_count] [clause_count]" from DIMACS file
@@ -118,11 +115,9 @@ public:
 	
 	// Make array var_choose_order with vars sorted by given rule
 	bool MakeVarChoose( );
-	bool MakeStandartMasks( unsigned long long int &part_var_power, 
-							unsigned int **&values_arr );
+	bool MakeStandartMasks( unsigned &part_var_power );
 	bool GetMainMasksFromVarChoose( vector<int> &var_choose_order );
-	bool GetValuesFromVarChoose( unsigned long long int &part_var_power, 
-								 unsigned int **&values_arr );
+	bool GetValuesFromVarChoose( unsigned &part_var_power );
 	
 	bool AnalyzeSATset( );
 	bool CheckSATset( vector<int> &lit_SAT_set_array );

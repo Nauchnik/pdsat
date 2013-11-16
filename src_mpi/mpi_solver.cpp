@@ -18,7 +18,6 @@ const int    NUM_KEY_BITS                  = 64;
 // Constructor/Destructor:
 
 MPI_Solver :: MPI_Solver( ) :
-	extra_tasks_count      ( 0 ),
 	orig_tasks_count       ( 0 ),
 	full_mask_tasks_count  ( 0 ),
 	exch_activ			   ( 1 ),
@@ -26,6 +25,8 @@ MPI_Solver :: MPI_Solver( ) :
 	solving_info_file_name ( "solving_info" )
 { 
 	solving_times = new double[SOLVING_TIME_LEN];
+	for( unsigned i=0; i < SOLVING_TIME_LEN; ++i )
+		solving_times[i] = 0;
 	total_solving_times.resize( SOLVING_TIME_LEN );
 }
 
@@ -34,7 +35,7 @@ MPI_Solver :: ~MPI_Solver( )
 	delete[] solving_times;
 }
 
-int make_QAP_values( int num_elements, unsigned comb_len, unsigned int **&values_arr, bool IsMakeArray )
+int make_QAP_values( int num_elements, unsigned comb_len, vector< vector<unsigned> > &values_arr, bool IsMakeArray )
 {
 	int comb_count  = 0;
 	int erase_count = 0;
@@ -57,7 +58,8 @@ int make_QAP_values( int num_elements, unsigned comb_len, unsigned int **&values
 	return real_count;
 }
 
-void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, double *solving_times )
+void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
+										  double *solving_times )
 {
 	// solving_times[0]  == min
 	// solving_times[1]  == max
@@ -94,9 +96,6 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 {
 // Run needed solver
 	process_sat_count = 0;
-	
-	ofstream file_class_prep, file_class1, file_class2, file_class3, 
-		     file_class4, file_class5, file_class_sat;
 	stringstream sstream;
 	vec< vec<Lit> > dummy_vec;
 	lbool ret;
@@ -154,15 +153,15 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 				cur_problem_state = Solved; // just solved
 			
 			AddSolvingTimeToArray( cur_problem_state, cnf_time_from_node, solving_times );
-			result = (ret == l_True) ? 1 : 0;
 			
-			if ( result ) {
+			if ( ret == l_True ) {
 				process_sat_count += result;
 				cout << "process_sat_count " << process_sat_count << endl;
 				if ( !solving_times[3] ) {
 					solving_times[3] = cnf_time_from_node; // time of 1st SAT, write only once
 					cout << " SAT time " << solving_times[3] << endl;
 				}
+				b_SAT_set_array.resize( S->model.size() );
 				for ( int i=0; i < S->model.size(); i++ )
 					b_SAT_set_array[i] = ( S->model[i] == l_True) ? 1 : 0 ;
 						// check res file for SAT set existing
@@ -181,90 +180,9 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 		}
 		
 		solving_times[2] = total_time / dummy_vec.size(); // med time for current batch
-		//cout << "median time in batch " << solving_times[2] << endl;
 	}
 	else 
-		{ cout << "\n solver_type has unknown format" << endl; return false; }
-
-	return true;
-}
-
-//---------------------------------------------------------
-bool MPI_Solver :: GetExtraTasks( unsigned int **&values_arr, unsigned int *full_mask_ext )
-{
-	unsigned *full_mask_temp = new unsigned[FULL_MASK_LEN];
-
-	// index in full_mask_ext that is needed increased by extra 1 vars
-	unsigned int extra_addon_index = 0;
-	// value that is needed to be added to values with extra 1 vars
-	unsigned int extra_addon_value = 0;
-
-	// use full_mask to make it's increased modification
-	copy( full_mask, full_mask + FULL_MASK_LEN, full_mask_temp );
-			
-	// temporary action
-	full_mask_var_count++;
-	part_mask_var_count = full_mask_var_count; // part_mask == full_mask
-			
-	cout << "\n Start of extra_tasks_count procedures" << endl;
-	if ( !MakeVarChoose( ) ) {
-		cout << "\n Error in MakeVarChoose" << endl;
-		// is't needed to deallocate memory - MPI_Abort will do it
-		MPI_Abort( MPI_COMM_WORLD, 0 );
-		return 1;
-	}
-	cout << "\n Correct end of MakeVarChoose" << endl;
-			
-	if ( !GetMainMasksFromVarChoose( var_choose_order ) ) {
-		cout << "\n Error in GetMasksFromVarChoose" << endl;
-		return false;
-	}
-	cout << "\n Correct end of GetMainMasksFromVarChoose" << endl;
-	
-	// change it back
-	full_mask_var_count--;
-	part_mask_var_count = full_mask_var_count;
-
-	copy( full_mask, full_mask + FULL_MASK_LEN, full_mask_ext );
-	copy( full_mask_temp, full_mask_temp + FULL_MASK_LEN, full_mask );
-	copy( full_mask, full_mask + FULL_MASK_LEN, part_mask );
-
-	unsigned int shift_count = 0;
-	bool IsAddonFound = false;
-
-	extra_addon_index = 1; // init value
-
-	while ( !IsAddonFound && ( extra_addon_index < FULL_MASK_LEN ) ) {
-		// init
-		shift_count = 0;
-		extra_addon_value = 1;
-		extra_addon_index++; // first time it is 2
-		while ( !IsAddonFound && ( shift_count < 32 ) ) {
-			if ( ( full_mask[extra_addon_index] & extra_addon_value ) != 
-				 ( full_mask_ext[extra_addon_index] & extra_addon_value ) )
-			{
-				IsAddonFound = true;
-				break;
-			}
-			extra_addon_value <<= 1;
-			shift_count++;
-		}
-	}
-	
-	cout << "Correct construction of full_mask_ext" << endl;
-
-	if ( !IsAddonFound ) {
-		cout << "Error. IsAddonFound == false after GetExtraTasks" << endl;
-		return false;
-	}
-	
-	// before it last extra_tasks_count values of values_arr are undefined
-	// define them basing on first extra_addon_index values
-	for( int i = 0; i < extra_tasks_count; i++ )
-		values_arr[i + orig_tasks_count][extra_addon_index] = 
-		values_arr[i + full_mask_tasks_count][extra_addon_index] + extra_addon_value;
-	
-	delete[] full_mask_temp;
+		{ cout << "solver_type has unknown format" << endl; return false; }
 
 	return true;
 }
@@ -346,79 +264,48 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, vector<double> t
 	sstream.clear(); sstream.str("");
 }
 
-bool MPI_Solver :: ControlProcessSolve( int first_range_tasks_count, unsigned *full_mask_ext,
-                                        unsigned **values_arr )
+bool MPI_Solver :: ControlProcessSolve( vector< vector<unsigned> > &values_arr )
 {
-	int mpi_i = 0;
-	int solved_tasks_count = 0;
-	int process_sat_count = 0;
-	int next_task_index = 0;
-	MPI_Status status,
-		       current_status;
-	unsigned tmp_mask[FULL_MASK_LEN];
-	double start_time = MPI_Wtime(), finding_first_sat_time = 0;
-	
-	cout << "\n ControlProcessSolve is running" << endl;
-
-	total_solving_times[0] = 1 << 30; // start min len
-	for ( unsigned i = 1; i < SOLVING_TIME_LEN; i++ )
-		total_solving_times[i] = 0;
+	double start_time = MPI_Wtime();
+	cout << "ControlProcessSolve is running" << endl;
+	unsigned next_task_index = 0;
 	
 	// send to all cores (except # 0) tasks from 1st range
-	for ( int i = skip_tasks; i < skip_tasks + first_range_tasks_count; i++ ) {
-		copy( values_arr[i], values_arr[i] + FULL_MASK_LEN, mask_value );
+	for ( int i = 0; i < corecount-1; i++ ) {		
+		// send new index of task for reading tasks from file
+		MPI_Send( &i,         1,            MPI_INT,      i + 1, 0, MPI_COMM_WORLD );
 		
-		// send new index of task
-		MPI_Send( &mpi_i,             1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
-
-		// don't send valus when we have file with assimptions
-		if ( IsFileAssumptions )
+		if ( IsFileAssumptions ) // don't send valus when we have file with assimptions
 			continue;
-		
-		MPI_Send( &extra_tasks_count, 1, MPI_INT, i + 1, 0, MPI_COMM_WORLD );
 
-		if ( ( extra_tasks_count ) && ( i >= full_mask_tasks_count ) ) { // modified tasks
-			//equalize_arr( tmp_mask, full_mask_ext );
-			copy(tmp_mask, tmp_mask + FULL_MASK_LEN, full_mask_ext);
-			MPI_Send( &tmp_mask, FULL_MASK_LEN, MPI_UNSIGNED, mpi_i + 1, 0, MPI_COMM_WORLD );
-		}
-		else // if no extra tasks or if first orig tasks sending 08.01.11
-			MPI_Send( full_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-	
-		// if default mode, part_mask and full_mask can be different
-		if ( !extra_tasks_count ) // original tasks
-			MPI_Send( part_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-
-		MPI_Send( mask_value,    FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-		
-		//cout << endl << "task # " << mpi_i << " was send to core # " << mpi_i + 1 << endl;
+		copy( values_arr[i].begin(), values_arr[i].end(), mask_value );
+		MPI_Send( full_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( part_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( mask_value,FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+		next_task_index++;
 	}
 
-	next_task_index = first_range_tasks_count - 1;
-	// send tasks if needed
-	// cur_ind_part_control_va and cur_ind_part_work_var are ready from prev for( ; ; ) { } 
-	stringstream sstream;
-
-	solved_tasks_count = skip_tasks; // don't solved first skip_tasks problems
-	
+	unsigned solved_tasks_count = 0;
+	double finding_first_sat_time = 0;
 	// write init info
 	WriteSolvingTimeInfo( solving_times, total_solving_times, solved_tasks_count, 
 			              sat_count, finding_first_sat_time );
+
+	total_solving_times[0] = 1 << 30; // start min len
+	for ( unsigned i = 1; i < total_solving_times.size(); ++i )
+		total_solving_times[i] = 0;
+	int process_sat_count = 0;
+	MPI_Status status,
+		       current_status;
 	
 	while ( solved_tasks_count < all_tasks_count ) {
-		// recieve from core message about solved task 
-		// if extra_tasks_count > 0 then this code is unesed
-		
-		MPI_Recv( &process_sat_count,   1, MPI_INT,          MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status );
+		// recieve from core message about solved task 		
+		MPI_Recv( &process_sat_count, 1, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status );
 		current_status = status;
 		MPI_Recv( solving_times, SOLVING_TIME_LEN, MPI_DOUBLE, current_status.MPI_SOURCE, 0, MPI_COMM_WORLD, &status );
-		
 		solved_tasks_count++;
-		next_task_index++;
-		if ( verbosity > 0 ) {
+		if ( verbosity > 0 )
 			cout << "solved_tasks_count " << solved_tasks_count << endl;
-			cout << "next_task_index " << next_task_index << endl;
-		}
 		
 		if ( process_sat_count ) {
 			sat_count += process_sat_count;
@@ -441,7 +328,9 @@ bool MPI_Solver :: ControlProcessSolve( int first_range_tasks_count, unsigned *f
 			if ( IsFileAssumptions )
 				continue;
 			// send to free core new task in format of minisat input masks
-			MPI_Send( values_arr[next_task_index], FULL_MASK_LEN, MPI_UNSIGNED, current_status.MPI_SOURCE, 0, MPI_COMM_WORLD );
+			copy( values_arr[next_task_index].begin(), values_arr[next_task_index].end(), mask_value );
+			MPI_Send( mask_value, FULL_MASK_LEN, MPI_UNSIGNED, current_status.MPI_SOURCE, 0, MPI_COMM_WORLD );
+			next_task_index++;
 		}
 	} // while ( solved_tasks_count < all_tasks_count )
 	
@@ -450,18 +339,9 @@ bool MPI_Solver :: ControlProcessSolve( int first_range_tasks_count, unsigned *f
 
 bool MPI_Solver :: ComputeProcessSolve( )
 {
-	int current_task_index = -1;
-	int process_sat_count = 0;
-	int current_obj_val = -1;
-	MPI_Status status;
-	double cnf_time_from_node = 0.0;
-	bool IsFirstTaskRecieved = false;
-	double solving_times[SOLVING_TIME_LEN];
 	minisat22_wrapper m22_wrapper;
 	Problem cnf;
 	Solver *S;
-	
-	extra_tasks_count = 0;
 
 	if ( solver_type == 4 ) { // last version of minisat
 		ifstream in( input_cnf_name );
@@ -476,43 +356,36 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		S->max_solving_time = max_solving_time;
 		S->max_nof_restarts = max_nof_restarts;
 	}
+
+	int current_task_index;
+	int process_sat_count = 0;
+	MPI_Status status;
+	double cnf_time_from_node = 0.0;
+	bool IsFirstTaskRecieved = false;
 	
 	for (;;) {
 		// get index of current task
 		MPI_Recv( &current_task_index, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
 		
-		if ( current_task_index == -2 )
-			MPI_Finalize();
-
+		if ( current_task_index < 0 )
+			MPI_Finalize( ); // finalize-message from control process
+		
 		// with assumptions file we need only current_task_index for reading values from file 
 		if ( !IsFileAssumptions ) {
-			// first time  recieve from o-rank service information
 			if ( !IsFirstTaskRecieved ) {
-				// if some CNF extra "doubled" then full_mask = part_mask and they can by
-				// different for different values
-				MPI_Recv( &extra_tasks_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
-				if ( extra_tasks_count )
-					cout << "\n Recieved extra_tasks_count " << extra_tasks_count << endl;
-				if ( !extra_tasks_count ) { // if standart mode do it once
-					MPI_Recv( full_mask, FULL_MASK_LEN, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
-					MPI_Recv( part_mask, FULL_MASK_LEN, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
-				}
+				MPI_Recv( full_mask, FULL_MASK_LEN, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
+				MPI_Recv( part_mask, FULL_MASK_LEN, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 				IsFirstTaskRecieved = true;
 			}
-			// if extra then take full_mask every time and part_mask == full_mask
-			if ( extra_tasks_count ) {
-				MPI_Recv( full_mask, FULL_MASK_LEN, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
-				copy( full_mask, full_mask + FULL_MASK_LEN, part_mask );
-			}
-			// do it anyway
 			MPI_Recv( mask_value, FULL_MASK_LEN, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 		}
 		
-		if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index ) )
-		{ cout << endl << "Error in SolverRun"; return false; }
+		if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index ) ) { 
+			cout << endl << "Error in SolverRun"; return false; 
+		}
 		
 		if ( verbosity > 0 )
-			cout << "\n process_sat_count is " << process_sat_count << endl;
+			cout << "process_sat_count is " << process_sat_count << endl;
 		
 		MPI_Send( &process_sat_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD );
 		MPI_Send( solving_times, SOLVING_TIME_LEN, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD );
@@ -591,8 +464,6 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 		unsigned int zero_mask[FULL_MASK_LEN];
 		for ( int i = 0; i < FULL_MASK_LEN; i++ )
 			zero_mask[i] = 0;
-		IsHardProblem = 1;
-		double solving_times[SOLVING_TIME_LEN];
 		if ( !ReadIntCNF( ) ) // Read original CNF
 		{ cout << "\n Error in ReadIntCNF" << endl; return 1; }
 		cout << endl << "end of ReadIntCNF";
@@ -632,16 +503,14 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 
 void MPI_Solver :: PrintParams( )
 {
-	cout << endl << "solver_type is "           << solver_type;              
-	cout << endl << "sort_type is "             << sort_type;                
+	cout << endl << "solver_type is "           << solver_type;                         
 	cout << endl << "koef_val is "              << koef_val;             		
 	cout << endl << "schema_type is "		    << schema_type;           
 	cout << endl << "full_mask_var_count is "   << full_mask_var_count;  
 	cout << endl << "proc_count is "            << corecount;            
 	cout << endl << "core_len is "              << core_len;                 
 	cout << endl << "start_activity is "        << start_activity;
-	cout << endl << "IsConseq is "              << IsConseq;
-	cout << endl << "IsHardProblem is "         << IsHardProblem;	         
+	cout << endl << "IsConseq is "              << IsConseq;         
 	cout << endl << "IsPB is "                  << IsPB;                     
 	cout << endl << "best_lower_bound is "      << best_lower_bound;        
 	cout << endl << "upper_bound is "	        << upper_bound;			  
@@ -656,23 +525,9 @@ void MPI_Solver :: PrintParams( )
 bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 {
 // Solve with MPI
-   int temp_corecount = -1,
-	   max_possible_tasks_count = 0,
-	   process_sat_count = 0,
-	   temp_tasks_count = -1,
-	   i = 0,
-	   mpi_i = 0,
-	   first_range_tasks_count = 0;
-	unsigned unsigned_one = 1,
-				 j = 0;
-	unsigned long long int part_var_power = 0;
 	double start_sec = 0.0,
 		   final_sec = 0.0,
 		   whole_time_sec = 0.0;
-	// extended variant of full_mask (one more "1")
-	unsigned full_mask_ext[FULL_MASK_LEN];
-
-	rank = -1;
 
 	// MPI start
 	//MPI_Request request;
@@ -682,14 +537,23 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 
 	IsPredict = false;
 
-	if ( corecount < 2 ) 
-	{ printf( "\n Error. corecount < 2" ); return false; }
+	if ( corecount < 2 ) { 
+		printf( "Error. corecount < 2" ); return false; 
+	}
 
-	if ( !ReadIntCNF( ) ) // Read original CNF
-	{ cout << "\n Error in ReadIntCNF" << endl; return 1; }
+	if ( !ReadIntCNF( ) ) { // Read original CNF
+		cout << "Error in ReadIntCNF" << endl; return 1; 
+	}
 
-	if ( !MakeVarChoose( ) ) 
-	{ cerr << "\n Error in MakeVarChoose" << endl; return false; }
+	if ( !MakeVarChoose( ) ) { 
+		cerr << "Error in MakeVarChoose" << endl; return false; 
+	}
+
+	int temp_corecount = -1,
+	   max_possible_tasks_count = 0,
+	   process_sat_count = 0,
+	   temp_tasks_count = -1;
+	unsigned part_var_power = 0;
 
 	// get power of 2 that >= corecount
 	// 1 core == control core, hence if corecount == 129, temp_corecount == 128
@@ -722,22 +586,10 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	}
 
 	// get default count of tasks = power of part_mask_var_count
-	part_var_power = ( unsigned_one << part_mask_var_count );
+	part_var_power = ( 1 << part_mask_var_count );
+	// TODO add extended tasks count
+	all_tasks_count = part_var_power;
 
-	// if default count of tasks < corecount (count of tasks are not enough)
-	// and if user want to use extra_tasks
-	if ( ( part_var_power < corecount ) && ( part_var_power > ( corecount - 1 ) / 2 ) )
-		extra_tasks_count = corecount - ( int )part_var_power - 1;
-	else
-		extra_tasks_count = 0;
-
-	// for ex if corecount = 8 and part_mask_var_count = 2 then user don't want to use
-	// extra_count, or then he would set part_mask_var_count = 3
-
-	all_tasks_count = ( int )( part_var_power ) + extra_tasks_count;
-
-	//cout << "\n***End of ReadIntCNF" << endl;
-	//std :: cout << "\n Hello from process # " << rank << endl;
 	if ( rank == 0 ) {
 		start_sec = MPI_Wtime( ); // get init time
 
@@ -746,7 +598,6 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 		PrintParams( );
 		
 		cout << "part_var_power is "    << part_var_power    << endl;
-		cout << "extra_tasks_count is " << extra_tasks_count << endl;
 		cout << "all_tasks_count is "   << all_tasks_count   << endl;
 		if ( skip_tasks >= all_tasks_count ) {
 			cerr << "Error. skip_tasks >= all_tasks_count " << endl;
@@ -754,47 +605,25 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 			return false;
 		}
 		
-		// part_var_power - count of part variables
-		unsigned int **values_arr;
-		values_arr = new unsigned int*[( unsigned int )all_tasks_count];
-		for( i = 0; i < all_tasks_count; i++ ) { // max length of array is part_var_power
-			values_arr[i] = new unsigned int[FULL_MASK_LEN];
-			for( j = 0; j < FULL_MASK_LEN; j++ )
-				values_arr[i][j] = 0;
-		}
+		values_arr.resize( all_tasks_count );
+		for( unsigned i = 0; i < values_arr.size(); ++i )
+			values_arr[i].resize( FULL_MASK_LEN );
 		
-		if ( !MakeStandartMasks( part_var_power, values_arr ) ) {
-			std :: cout << "\n Error in MakeStandartMasks" << endl;
+		if ( !MakeStandartMasks( part_var_power ) ) {
+			cout << "Error in MakeStandartMasks" << endl;
 			// is't needed to deallocate memory - MPI_Abort will do it
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 			return 1;
 		}
-		cout << "\n Correct end of MakeStandartMasks" << endl;
+		cout << "Correct end of MakeStandartMasks" << endl;
 		
-		if ( extra_tasks_count ) { // if more paralleling is needed (ex. for Gifford) 
-			orig_tasks_count      = all_tasks_count  - extra_tasks_count;
-			full_mask_tasks_count = orig_tasks_count - extra_tasks_count;
-			cout << "\n orig_tasks_count is "      << orig_tasks_count      << endl;
-			cout << "\n full_mask_tasks_count is " << full_mask_tasks_count << endl;
-			if ( !GetExtraTasks( values_arr, full_mask_ext ) ) {
-				std :: cout << "\n Error in MakeStandartMasks" << endl;
-				MPI_Abort( MPI_COMM_WORLD, 0 );
-				return 1;
-			}
-			cout << "\n GetExtraTasks done";
-			cout << "\n full_mask_ext[0] is " << full_mask_ext[0] << endl;
+		if ( (int)all_tasks_count < corecount-1 ) {
+			cerr << "Error. all_tasks_count < corecount-1" << endl;
+			return false;
 		}
-		
-		if ( all_tasks_count >= corecount )
-			first_range_tasks_count  = corecount - 1;
-		else
-			first_range_tasks_count  = all_tasks_count;
-			//second_range_tasks_count = corecount - first_range_tasks_count - 1;
-
-		cout << "\n first_range_tasks_count is " << first_range_tasks_count << endl;
 
 		if ( !IsPB ) // common CNF mode
-			ControlProcessSolve( first_range_tasks_count, full_mask_ext, values_arr );
+			ControlProcessSolve( values_arr );
 		// get time of solving
 		// int final_sec = cpuTimeInSec( ) - start_sec;
 		final_sec = MPI_Wtime( );
@@ -806,19 +635,11 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 
-		for ( i = 0; i < all_tasks_count; i++ )
-			delete[] values_arr[i];
-		delete[] values_arr;
-
-		cout << "\n Correct deleting of values_arr" << endl;
-
 		// if SAT set was found then write SAT set to file and call MPI_Abort
 		if ( sat_count )
-			cout << "\n SAT set was found " << endl;
+			cout << "SAT set was found " << endl;
 		else
-			cout << "\n SAT set was not found " << endl;
-		//next_task_index = -1;
-		//MPI_Bcast( &next_task_index, 1, MPI_INT, 0, MPI_COMM_WORLD );
+			cout << "SAT set was not found " << endl;
 			
 		// send messages for finalizing
 		int break_message = -2;
@@ -826,12 +647,10 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 			MPI_Send( &break_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
 
 		MPI_Finalize( );
-		
-		//MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 	else { // if rank != 0
 		if ( !ComputeProcessSolve() ) {
-			cout << "\n Error in ComputeProcessSovle" << endl;
+			cout << "Error in ComputeProcessSovle" << endl;
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 			return 1;
 		}
