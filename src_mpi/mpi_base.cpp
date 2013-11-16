@@ -53,8 +53,9 @@ MPI_Base :: MPI_Base( ) :
 {
 	full_mask = new unsigned[FULL_MASK_LEN];
 	part_mask = new unsigned[FULL_MASK_LEN];
+	mask_value = new unsigned[FULL_MASK_LEN];
 	for ( unsigned i = 0; i < FULL_MASK_LEN; i++ )
-		full_mask[i] = part_mask[i] = 0;
+		full_mask[i] = part_mask[i] = mask_value[i] = 0;
 	gen.seed( static_cast<unsigned>(std::time(0)) );
 }
 
@@ -62,10 +63,8 @@ MPI_Base :: ~MPI_Base( )
 {
 	delete[] full_mask;
 	delete[] part_mask;
+	delete[] mask_value;
 	/*
-	if ( IsSAT ) 
-		delete[] b_SAT_set_array; // allocated in ReadIntCNF
-	
 	if ( var_count > 0 )
 	{
 		for( i = 0; i < var_count; i++ )
@@ -208,9 +207,9 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 	return true;
 }
 
-bool MPI_Base :: MakeAssignsFromMasks( unsigned full_mask[FULL_MASK_LEN], 
-									   unsigned part_mask[FULL_MASK_LEN], 
-									   unsigned value[FULL_MASK_LEN],
+bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask, 
+									   unsigned *part_mask, 
+									   unsigned *value,
 									   vec< vec<Lit> > &dummy_vec )
 {
 // for predict with minisat2.2. convert masks to vector of Literals
@@ -996,144 +995,6 @@ bool MPI_Base :: AnalyzeSATset( )
 	answer_file.close( );
 	lit_SAT_set_array.clear();
 	
-	return true;
-}
-
-void MPI_Base :: AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, double *solving_times )
-{
-	// solving_times[0]  == min
-	// solving_times[1]  == max
-	// solving_times[2]  == med
-	// solving_times[3]  == sat
-	switch( cur_problem_state ){ 
-		case Solved :
-			if ( cnf_time_from_node < solving_times[0] )
-				solving_times[0] = cnf_time_from_node;
-			if ( cnf_time_from_node > solving_times[1] ) {
-				solving_times[1] = cnf_time_from_node;
-			}
-			else if ( cnf_time_from_node < 0.0001 ) solving_times[5]++;
-			else if ( cnf_time_from_node < 0.001  ) solving_times[6]++;
-			else if ( cnf_time_from_node < 0.01 )   solving_times[7]++;
-			else if ( cnf_time_from_node < 0.1  )   solving_times[8]++;
-			else if ( cnf_time_from_node < 1    )   solving_times[9]++;
-			else if ( cnf_time_from_node < 10   )   solving_times[10]++;
-			else if ( cnf_time_from_node < 100  )   solving_times[11]++;
-			else if ( cnf_time_from_node < 1000 )   solving_times[12]++;
-			else solving_times[13]++;
-			break;
-		case SolvedOnPreprocessing : 
-			solving_times[4]++;
-			break;
-		case Interrupted : 
-			solving_times[14]++;
-			break;
-	}
-}
-
-bool MPI_Base :: SolverRun( Solver *&S, unsigned int *full_mask, unsigned int *part_mask, 
-							unsigned int *value, int &process_sat_count, int &current_obj_val,
-							double &cnf_time_from_node, double *solving_times, 
-							int current_task_index )
-{
-// Run needed solver
-	process_sat_count = 0;
-	
-	ofstream file_class_prep, file_class1, file_class2, file_class3, 
-		     file_class4, file_class5, file_class_sat;
-	stringstream sstream;
-	vec< vec<Lit> > dummy_vec;
-	lbool ret;
-	double total_time = 0;
-	unsigned current_tasks_solved = 0;
-	int result;
-	ProblemStates cur_problem_state;
-	
-	if ( verbosity > 1 )
-		cout << "start SolverRun()" << endl;
-
-	solving_times[0] = 1 << 30; // start min len
-	for ( unsigned i = 1; i < SOLVING_TIME_LEN; i++ )
-		solving_times[i] = 0;
-	
-	if ( solver_type == 4 ) {	
-		if ( IsFileAssumptions ) // if assumptions in file 
-			MakeAssignsFromFile( current_task_index, dummy_vec );
-		else
-			MakeAssignsFromMasks( full_mask, part_mask, value, dummy_vec );
-		
-		if ( verbosity > 1 ) {
-			cout << "dummy_vec size" << dummy_vec.size() << endl;
-			for ( int i = 0; i < dummy_vec.size(); i++ ) {
-				for ( int j=0; j < dummy_vec[i].size(); j++ )
-					cout << dummy_vec[i][j].x << " ";
-				cout << endl;
-			}
-		}
-
-		uint64_t prev_starts, prev_conflicts, prev_decisions;
-		for ( int i=0; i < dummy_vec.size(); i++ ) {
-#ifndef _DEBUG
-			cnf_time_from_node = MPI_Wtime( );
-#endif
-			// save current state to check differences
-			prev_starts    = S->starts;
-			prev_conflicts = S->conflicts;
-			prev_decisions = S->decisions;
-			
-			S->last_time = Minisat :: cpuTime();
-			ret = S->solveLimited( dummy_vec[i] );
-			
-			//ret = S->solveLimited( dummy_vec[i], true, false ); // for SimpSolver
-#ifndef _DEBUG
-			cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
-#endif
-			total_time += cnf_time_from_node;
-
-			if ( ret == l_Undef )
-				cur_problem_state = Interrupted; // interrupted cause of restarts or time limit
-			else if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) && ( S->decisions == prev_decisions ) )
-				cur_problem_state = SolvedOnPreprocessing;  // solved by BCP
-			else
-				cur_problem_state = Solved; // just solved
-			
-			AddSolvingTimeToArray( cur_problem_state, cnf_time_from_node, solving_times );
-			result = (ret == l_True) ? 1 : 0;
-			
-			if ( result ) {
-				process_sat_count += result;
-				cout << "process_sat_count " << process_sat_count << endl;
-				if ( !solving_times[3] ) {
-					solving_times[3] = cnf_time_from_node; // time of 1st SAT, write only once
-					cout << " SAT time " << solving_times[3] << endl;
-				}
-				for ( int i=0; i < S->model.size(); i++ )
-					b_SAT_set_array[i] = ( S->model[i] == l_True) ? 1 : 0 ;
-						// check res file for SAT set existing
-				if ( !AnalyzeSATset( ) ) {
-					// is't needed to deallocate memory - MPI_Abort will do it	
-					cout << "\n Error in Analyzer" << endl;
-					MPI_Abort( MPI_COMM_WORLD, 0 );
-					return false;
-				}
-				if ( !IsSolveAll )
-					break;
-			}
-			//S->loadState();
-			//delete S;
-			//S->clearDB(); // we don't need to clear DB, because incremental solving is faster
-		}
-		
-		solving_times[2] = total_time / dummy_vec.size(); // med time for current batch
-		//cout << "median time in batch " << solving_times[2] << endl;
-
-		for ( int i = 0; i < dummy_vec.size(); i++ )
-			dummy_vec[i].clear();
-		dummy_vec.clear();
-	}
-	else 
-		{ cout << "\n solver_type has unknown format" << endl; return false; }
-
 	return true;
 }
 

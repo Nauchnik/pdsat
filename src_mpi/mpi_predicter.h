@@ -104,6 +104,7 @@ public:
 	bool IsRecordUpdated;
 	unsigned max_L2_hamming_distance;
 
+	double *var_activity;
 	vector<double> total_var_activity;
 
 	int slow_cnf_mask_index;

@@ -18,6 +18,9 @@ public:
 	int exch_activ;
 	int skip_tasks;
 	string solving_info_file_name;
+
+	double *solving_times;
+	vector<double> total_solving_times;
 	
 	bool MPI_Solve( int argc, char **argv );
 	bool MPI_ConseqSolve( int argc, char **argv );
@@ -26,17 +29,23 @@ public:
 	bool cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, 
 		                 int &real_seconds );
 
-	bool ControlProcessSolve( int first_range_tasks_count, unsigned int *full_mask_ext, 
-		                      unsigned int **values_arr );
+	bool ControlProcessSolve( int first_range_tasks_count, unsigned *full_mask_ext, 
+		                      unsigned **values_arr );
 	bool ComputeProcessSolve( );
 
-	bool GetExtraTasks( unsigned int **&values_arr, unsigned int *full_mask_ext );
+	bool GetExtraTasks( unsigned **&values_arr, unsigned *full_mask_ext );
 
 	void PrintParams( );
 
-	void WriteSolvingTimeInfo( double *solving_times, double *total_solving_times, 
+	void WriteSolvingTimeInfo( double *solving_times, vector<double> total_solving_times, 
 							   unsigned solved_tasks_count, unsigned sat_count, 
 							   double finding_first_sat_time );
+
+	void AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
+		                        double *solving_times );
+
+	bool SolverRun( Solver *&S, int &process_sat_count, double &cnf_time_from_node, 
+				    int current_task_index );
 };
 
 #endif

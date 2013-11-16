@@ -555,7 +555,7 @@ void TestPredict( )
 	part_mask[1] = 3;
 	full_mask[1] = 7;
 	value[1] = 5;
-	mpi_p.MakeAssignsFromMasks( full_mask, part_mask, value, dummy_vec );
+	//mpi_p.MakeAssignsFromMasks( full_mask, part_mask, value, dummy_vec );
 
 	cout << "dummy_vec" << endl;
 	for ( int i = 0; i < dummy_vec.size(); i++ ) {
@@ -628,8 +628,7 @@ void TestSolve()
 
 	mpi_s.all_tasks_count = 16;
 	//mpi_s.verbosity = 2;
-	mpi_s.SolverRun( S, full_mask, part_mask, value, process_sat_count, current_obj_val,
-					 cnf_time_from_node, solving_times, current_task_index );
+	mpi_s.SolverRun( S, process_sat_count, cnf_time_from_node,current_task_index );
 	int solver_type = 1;
 	int core_len = 64;
 	double corevars_activ_type = 1;

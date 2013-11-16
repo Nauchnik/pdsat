@@ -97,7 +97,6 @@ public:
     void moveTo(vec<T>& dest) { dest.clear(true); dest.data = data; dest.sz = sz; dest.cap = cap; data = NULL; sz = 0; cap = 0; }
 };
 
-
 template<class T, class _Size>
 void vec<T,_Size>::capacity(Size min_cap) {
     if (cap >= min_cap) return;
@@ -108,7 +107,6 @@ void vec<T,_Size>::capacity(Size min_cap) {
         throw OutOfMemoryException();
  }
 
-
 template<class T, class _Size>
 void vec<T,_Size>::growTo(Size size, const T& pad) {
     if (sz >= size) return;
@@ -116,14 +114,12 @@ void vec<T,_Size>::growTo(Size size, const T& pad) {
     for (Size i = sz; i < size; i++) data[i] = pad;
     sz = size; }
 
-
 template<class T, class _Size>
 void vec<T,_Size>::growTo(Size size) {
     if (sz >= size) return;
     capacity(size);
     for (Size i = sz; i < size; i++) new (&data[i]) T();
     sz = size; }
-
 
 template<class T, class _Size>
 void vec<T,_Size>::clear(bool dealloc) {

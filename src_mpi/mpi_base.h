@@ -62,12 +62,7 @@ public:
 	
 	unsigned *full_mask;
 	unsigned *part_mask;
-
-#ifdef _MPI
-	MPI_Datatype mpi_mask;
-	MPI_Datatype mpi_solving_time;
-	MPI_Datatype mpi_var_activity;
-#endif
+	unsigned *mask_value; // particular value of bits which set in part_mask
 
 	unsigned activity_vec_len;
 	string known_point_file_name;
@@ -120,13 +115,6 @@ public:
 	bool ReadVarCount( );
 	// Read clauses from DIMACS file
 	bool ReadIntCNF( );
-
-	bool SolverRun( Solver *&S, unsigned int *full_mask, unsigned int *part_mask, 
-					unsigned int *value, int &process_sat_count, int &current_obj_val,
-					double &cnf_time_from_node, double *solving_times,
-					int current_task_index );
-	
-	void AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, double *solving_times );
 	
 	// Make array var_choose_order with vars sorted by given rule
 	bool MakeVarChoose( );
@@ -138,10 +126,10 @@ public:
 	
 	bool AnalyzeSATset( );
 	bool CheckSATset( vector<int> &lit_SAT_set_array );
-	bool MakeAssignsFromMasks( unsigned full_mask[FULL_MASK_LEN], 
-							   unsigned part_mask[FULL_MASK_LEN], 
-						       unsigned values[FULL_MASK_LEN], 
-							  vec< vec<Lit> > &dummy_vec );
+	bool MakeAssignsFromMasks( unsigned *full_mask, 
+							   unsigned *part_mask, 
+						       unsigned *value, 
+							   vec< vec<Lit> > &dummy_vec );
 	bool MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &dummy_vec );
 
 	unsigned uint_rand();

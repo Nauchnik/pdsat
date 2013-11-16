@@ -24,10 +24,15 @@ MPI_Solver :: MPI_Solver( ) :
 	exch_activ			   ( 1 ),
 	skip_tasks             ( 0 ),
 	solving_info_file_name ( "solving_info" )
-{ }
+{ 
+	solving_times = new double[SOLVING_TIME_LEN];
+	total_solving_times.resize( SOLVING_TIME_LEN );
+}
 
 MPI_Solver :: ~MPI_Solver( )
-{ }
+{ 
+	delete[] solving_times;
+}
 
 int make_QAP_values( int num_elements, unsigned comb_len, unsigned int **&values_arr, bool IsMakeArray )
 {
@@ -50,6 +55,138 @@ int make_QAP_values( int num_elements, unsigned comb_len, unsigned int **&values
 	cout << endl << "erase_count is " << erase_count;
 	cout << endl << "real_count is "  << real_count;
 	return real_count;
+}
+
+void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, double *solving_times )
+{
+	// solving_times[0]  == min
+	// solving_times[1]  == max
+	// solving_times[2]  == med
+	// solving_times[3]  == sat
+	switch( cur_problem_state ){ 
+		case Solved :
+			if ( cnf_time_from_node < solving_times[0] )
+				solving_times[0] = cnf_time_from_node;
+			if ( cnf_time_from_node > solving_times[1] ) {
+				solving_times[1] = cnf_time_from_node;
+			}
+			else if ( cnf_time_from_node < 0.0001 ) solving_times[5]++;
+			else if ( cnf_time_from_node < 0.001  ) solving_times[6]++;
+			else if ( cnf_time_from_node < 0.01 )   solving_times[7]++;
+			else if ( cnf_time_from_node < 0.1  )   solving_times[8]++;
+			else if ( cnf_time_from_node < 1    )   solving_times[9]++;
+			else if ( cnf_time_from_node < 10   )   solving_times[10]++;
+			else if ( cnf_time_from_node < 100  )   solving_times[11]++;
+			else if ( cnf_time_from_node < 1000 )   solving_times[12]++;
+			else solving_times[13]++;
+			break;
+		case SolvedOnPreprocessing : 
+			solving_times[4]++;
+			break;
+		case Interrupted : 
+			solving_times[14]++;
+			break;
+	}
+}
+
+bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_time_from_node, 
+							  int current_task_index )
+{
+// Run needed solver
+	process_sat_count = 0;
+	
+	ofstream file_class_prep, file_class1, file_class2, file_class3, 
+		     file_class4, file_class5, file_class_sat;
+	stringstream sstream;
+	vec< vec<Lit> > dummy_vec;
+	lbool ret;
+	double total_time = 0;
+	unsigned current_tasks_solved = 0;
+	int result;
+	ProblemStates cur_problem_state;
+	
+	if ( verbosity > 1 )
+		cout << "start SolverRun()" << endl;
+
+	solving_times[0] = 1 << 30; // start min len
+	for ( unsigned i = 1; i < SOLVING_TIME_LEN; i++ )
+		solving_times[i] = 0;
+	
+	if ( solver_type == 4 ) {	
+		if ( IsFileAssumptions ) // if assumptions in file 
+			MakeAssignsFromFile( current_task_index, dummy_vec );
+		else
+			MakeAssignsFromMasks( full_mask, part_mask, mask_value, dummy_vec );
+		
+		if ( verbosity > 1 ) {
+			cout << "dummy_vec size" << dummy_vec.size() << endl;
+			for ( int i = 0; i < dummy_vec.size(); i++ ) {
+				for ( int j=0; j < dummy_vec[i].size(); j++ )
+					cout << dummy_vec[i][j].x << " ";
+				cout << endl;
+			}
+		}
+
+		uint64_t prev_starts, prev_conflicts, prev_decisions;
+		for ( int i=0; i < dummy_vec.size(); i++ ) {
+#ifndef _DEBUG
+			cnf_time_from_node = MPI_Wtime( );
+#endif
+			// save current state to check differences
+			prev_starts    = S->starts;
+			prev_conflicts = S->conflicts;
+			prev_decisions = S->decisions;
+			
+			S->last_time = Minisat :: cpuTime();
+			ret = S->solveLimited( dummy_vec[i] );
+			
+			//ret = S->solveLimited( dummy_vec[i], true, false ); // for SimpSolver
+#ifndef _DEBUG
+			cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
+#endif
+			total_time += cnf_time_from_node;
+
+			if ( ret == l_Undef )
+				cur_problem_state = Interrupted; // interrupted cause of restarts or time limit
+			else if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) && ( S->decisions == prev_decisions ) )
+				cur_problem_state = SolvedOnPreprocessing;  // solved by BCP
+			else
+				cur_problem_state = Solved; // just solved
+			
+			AddSolvingTimeToArray( cur_problem_state, cnf_time_from_node, solving_times );
+			result = (ret == l_True) ? 1 : 0;
+			
+			if ( result ) {
+				process_sat_count += result;
+				cout << "process_sat_count " << process_sat_count << endl;
+				if ( !solving_times[3] ) {
+					solving_times[3] = cnf_time_from_node; // time of 1st SAT, write only once
+					cout << " SAT time " << solving_times[3] << endl;
+				}
+				for ( int i=0; i < S->model.size(); i++ )
+					b_SAT_set_array[i] = ( S->model[i] == l_True) ? 1 : 0 ;
+						// check res file for SAT set existing
+				if ( !AnalyzeSATset( ) ) {
+					// is't needed to deallocate memory - MPI_Abort will do it	
+					cout << "\n Error in Analyzer" << endl;
+					MPI_Abort( MPI_COMM_WORLD, 0 );
+					return false;
+				}
+				if ( !IsSolveAll )
+					break;
+			}
+			//S->loadState();
+			//delete S;
+			//S->clearDB(); // we don't need to clear DB, because incremental solving is faster
+		}
+		
+		solving_times[2] = total_time / dummy_vec.size(); // med time for current batch
+		//cout << "median time in batch " << solving_times[2] << endl;
+	}
+	else 
+		{ cout << "\n solver_type has unknown format" << endl; return false; }
+
+	return true;
 }
 
 //---------------------------------------------------------
@@ -132,7 +269,7 @@ bool MPI_Solver :: GetExtraTasks( unsigned int **&values_arr, unsigned int *full
 	return true;
 }
 
-void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, double *total_solving_times, 
+void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, vector<double> total_solving_times, 
 										 unsigned solved_tasks_count, unsigned sat_count, 
 										 double finding_first_sat_time )
 {
@@ -209,35 +346,27 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, double *total_so
 	sstream.clear(); sstream.str("");
 }
 
-bool MPI_Solver :: ControlProcessSolve( int first_range_tasks_count, unsigned int *full_mask_ext,
-                                        unsigned int **values_arr )
+bool MPI_Solver :: ControlProcessSolve( int first_range_tasks_count, unsigned *full_mask_ext,
+                                        unsigned **values_arr )
 {
-	int i;
-	unsigned int j;
 	int mpi_i = 0;
 	int solved_tasks_count = 0;
 	int process_sat_count = 0;
 	int next_task_index = 0;
 	MPI_Status status,
 		       current_status;
-	unsigned int value[FULL_MASK_LEN];
-	unsigned int tmp_mask[FULL_MASK_LEN];
+	unsigned tmp_mask[FULL_MASK_LEN];
 	double start_time = MPI_Wtime(), finding_first_sat_time = 0;
 	
 	cout << "\n ControlProcessSolve is running" << endl;
 
-	double total_solving_times[SOLVING_TIME_LEN];
-	double solving_times[SOLVING_TIME_LEN];
 	total_solving_times[0] = 1 << 30; // start min len
 	for ( unsigned i = 1; i < SOLVING_TIME_LEN; i++ )
 		total_solving_times[i] = 0;
-
-	for ( i = 0; i < FULL_MASK_LEN; i++ )
-		value[i] = 0;
-
+	
 	// send to all cores (except # 0) tasks from 1st range
 	for ( int i = skip_tasks; i < skip_tasks + first_range_tasks_count; i++ ) {
-		copy( values_arr[i], values_arr[i] + FULL_MASK_LEN, value );
+		copy( values_arr[i], values_arr[i] + FULL_MASK_LEN, mask_value );
 		
 		// send new index of task
 		MPI_Send( &mpi_i,             1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
@@ -251,17 +380,17 @@ bool MPI_Solver :: ControlProcessSolve( int first_range_tasks_count, unsigned in
 		if ( ( extra_tasks_count ) && ( i >= full_mask_tasks_count ) ) { // modified tasks
 			//equalize_arr( tmp_mask, full_mask_ext );
 			copy(tmp_mask, tmp_mask + FULL_MASK_LEN, full_mask_ext);
-			MPI_Send( &tmp_mask, 1, mpi_mask, mpi_i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &tmp_mask, FULL_MASK_LEN, MPI_UNSIGNED, mpi_i + 1, 0, MPI_COMM_WORLD );
 		}
 		else // if no extra tasks or if first orig tasks sending 08.01.11
-			MPI_Send( &full_mask,     1, mpi_mask, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( full_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 	
 		// if default mode, part_mask and full_mask can be different
 		if ( !extra_tasks_count ) // original tasks
-			MPI_Send( &part_mask,     1, mpi_mask, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( part_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 
-		MPI_Send( &value,             1, mpi_mask, i + 1, 0, MPI_COMM_WORLD );
-				
+		MPI_Send( mask_value,    FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+		
 		//cout << endl << "task # " << mpi_i << " was send to core # " << mpi_i + 1 << endl;
 	}
 
@@ -282,7 +411,7 @@ bool MPI_Solver :: ControlProcessSolve( int first_range_tasks_count, unsigned in
 		
 		MPI_Recv( &process_sat_count,   1, MPI_INT,          MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status );
 		current_status = status;
-		MPI_Recv( &solving_times, 1, mpi_solving_time, current_status.MPI_SOURCE, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( solving_times, SOLVING_TIME_LEN, MPI_DOUBLE, current_status.MPI_SOURCE, 0, MPI_COMM_WORLD, &status );
 		
 		solved_tasks_count++;
 		next_task_index++;
@@ -306,19 +435,16 @@ bool MPI_Solver :: ControlProcessSolve( int first_range_tasks_count, unsigned in
 		
 		if ( next_task_index < all_tasks_count ) {
 			// send new index of task
+
 			MPI_Send( &next_task_index, 1, MPI_INT, current_status.MPI_SOURCE, 0, 
 				      MPI_COMM_WORLD );
-			// send to free core new task in format of minisat input masks
-
 			if ( IsFileAssumptions )
 				continue;
-
-			for ( j = 0; j < FULL_MASK_LEN; j++ )
-				value[j] = values_arr[next_task_index][j];
-				
-			MPI_Send( &value, 1, mpi_mask, current_status.MPI_SOURCE, 0, MPI_COMM_WORLD );
+			// send to free core new task in format of minisat input masks
+			MPI_Send( values_arr[next_task_index], FULL_MASK_LEN, MPI_UNSIGNED, current_status.MPI_SOURCE, 0, MPI_COMM_WORLD );
 		}
 	} // while ( solved_tasks_count < all_tasks_count )
+	
 	return true;
 }
 
@@ -330,14 +456,11 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	MPI_Status status;
 	double cnf_time_from_node = 0.0;
 	bool IsFirstTaskRecieved = false;
-	unsigned int value[FULL_MASK_LEN];
 	double solving_times[SOLVING_TIME_LEN];
 	minisat22_wrapper m22_wrapper;
 	Problem cnf;
 	Solver *S;
 	
-	for ( unsigned i = 0; i < FULL_MASK_LEN; ++i )
-		value[i] = 0;
 	extra_tasks_count = 0;
 
 	if ( solver_type == 4 ) { // last version of minisat
@@ -371,32 +494,30 @@ bool MPI_Solver :: ComputeProcessSolve( )
 				if ( extra_tasks_count )
 					cout << "\n Recieved extra_tasks_count " << extra_tasks_count << endl;
 				if ( !extra_tasks_count ) { // if standart mode do it once
-					MPI_Recv( &full_mask, 1, mpi_mask, 0, 0, MPI_COMM_WORLD, &status );
-					MPI_Recv( &part_mask, 1, mpi_mask, 0, 0, MPI_COMM_WORLD, &status );
+					MPI_Recv( full_mask, FULL_MASK_LEN, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
+					MPI_Recv( part_mask, FULL_MASK_LEN, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 				}
 				IsFirstTaskRecieved = true;
 			}
 			// if extra then take full_mask every time and part_mask == full_mask
 			if ( extra_tasks_count ) {
-				MPI_Recv( &full_mask, 1, mpi_mask, 0, 0, MPI_COMM_WORLD, &status );
+				MPI_Recv( full_mask, FULL_MASK_LEN, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 				copy( full_mask, full_mask + FULL_MASK_LEN, part_mask );
 			}
 			// do it anyway
-			MPI_Recv( &value, 1, mpi_mask, 0, 0, MPI_COMM_WORLD, &status );
+			MPI_Recv( mask_value, FULL_MASK_LEN, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 		}
-
-		// Run Solvers
-		if ( !SolverRun( S, full_mask, part_mask, value, process_sat_count, current_obj_val,
-						 cnf_time_from_node, solving_times, current_task_index ) )
+		
+		if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index ) )
 		{ cout << endl << "Error in SolverRun"; return false; }
 		
 		if ( verbosity > 0 )
 			cout << "\n process_sat_count is " << process_sat_count << endl;
 		
 		MPI_Send( &process_sat_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD );
-		MPI_Send( &solving_times, 1, mpi_solving_time, 0, 0, MPI_COMM_WORLD );
+		MPI_Send( solving_times, SOLVING_TIME_LEN, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD );
 	}
-
+	
 	if ( solver_type == 4 )
 		delete S;
 
@@ -480,8 +601,7 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 		if ( !IsPB ) {
 			int current_task_index = 0;
 			cout << endl << endl << "Standart mode of SAT solving";
-			if ( !SolverRun( S, zero_mask, zero_mask, zero_mask, process_sat_count, 
-				             current_obj_val, cnf_time_from_node, solving_times, current_task_index ) )
+			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index ) )
 			{ cout << endl << "Error in SolverRun"; return false; }
 			if ( process_sat_count ) {
 				if ( !AnalyzeSATset( ) ) {
@@ -559,14 +679,6 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	MPI_Init( &argc, &argv );
 	MPI_Comm_size( MPI_COMM_WORLD, &corecount );
 	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
-	
-	// new type for sending arrays by MPI
-	MPI_Type_contiguous( FULL_MASK_LEN, MPI_UNSIGNED, &mpi_mask );
-	MPI_Type_commit( &mpi_mask );
-	
-	// new type with info about solving time of tasks
-	MPI_Type_contiguous( SOLVING_TIME_LEN, MPI_DOUBLE, &mpi_solving_time );
-	MPI_Type_commit( &mpi_solving_time );
 
 	IsPredict = false;
 
@@ -713,8 +825,6 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 		for ( int i = 1; i < corecount; i++ )
 			MPI_Send( &break_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
 
-		MPI_Type_free( &mpi_mask );
-		MPI_Type_free( &mpi_solving_time );
 		MPI_Finalize( );
 		
 		//MPI_Abort( MPI_COMM_WORLD, 0 );
