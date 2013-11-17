@@ -1479,25 +1479,21 @@ bool MPI_Predicter :: GetPredict()
 bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_sec )
 {
 // Write info about predict to file
-	ofstream predict_file;
-	double med_cnf_time, min_cnf_time, max_cnf_time;
-	double sample_variance; // sample variance for estimation of derivation
-	
+	ofstream predict_file;	
 	predict_file.open( predict_file_name.c_str( ), ios :: out ); // create and open for writing
 	if ( !( predict_file.is_open( ) ) )
-	{ cout << "\n Error in opening of predict_file " << predict_file_name << endl; return false; }
+	{ cout << "Error in opening of predict_file " << predict_file_name << endl; return false; }
 
 	stringstream sstream;
-	sstream << "Predict from "               << predict_from
-		    << "\nPredict to "               << predict_to 
-			<< "\nProcessor count "          << proc_count
-			<< "\nCount of CNF in set "      << cnf_in_set_count
-			<< "\nCount of CNF in all sets " << all_tasks_count
-			<< "\nCount of core-variables "  << core_len
-			<< "\nSolver type "              << solver_type
-			<< "\nSchema type "              << schema_type
-			<< "\nstart activity "           << start_activity
-			<< endl;
+	sstream << "Predict from "             << predict_from << endl
+		    << "Predict to "               << predict_to << endl
+			<< "Processor count "          << proc_count << endl
+			<< "Count of CNF in set "      << cnf_in_set_count << endl
+			<< "Count of CNF in all sets " << all_tasks_count << endl
+			<< "Count of core-variables "  << core_len << endl
+			<< "Solver type "              << solver_type << endl
+			<< "Schema type "              << schema_type << endl
+			<< "start activity "           << start_activity << endl;
 
 	if ( deep_predict ) {
 		sstream << "\ndeep_predict "     << deep_predict;
@@ -1505,14 +1501,15 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 	}
 	
 	predict_file << sstream.rdbuf( );
-	
-	unsigned int max_time_cnf_value_mask = 0;
+
+	double med_cnf_time, min_cnf_time, max_cnf_time;
+	double sample_variance; // sample variance for estimation of derivation
+	unsigned max_time_cnf_value_mask = 0;
 	for ( unsigned i = 0; i < decomp_set_count; i++ ) {
 		med_cnf_time = 0; 
 		min_cnf_time = 0; 
 		max_cnf_time = 0;
 		sample_variance = 0;
-
 		sstream.str( "" );
 		sstream.clear();
 		sstream << "\n ";

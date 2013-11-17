@@ -7,6 +7,9 @@
 
 class MPI_Solver : public MPI_Base
 {
+private:
+	double *solving_times;
+	vector<double> total_solving_times;
 public:
 	// Constructor/Destructor:
     MPI_Solver( );
@@ -17,9 +20,6 @@ public:
 	int exch_activ;
 	unsigned skip_tasks;
 	string solving_info_file_name;
-
-	double *solving_times;
-	vector<double> total_solving_times;
 	
 	bool MPI_Solve( int argc, char **argv );
 	bool MPI_ConseqSolve( int argc, char **argv );
@@ -33,9 +33,8 @@ public:
 
 	void PrintParams( );
 
-	void WriteSolvingTimeInfo( double *solving_times, vector<double> total_solving_times, 
-							   unsigned solved_tasks_count, unsigned sat_count, 
-							   double finding_first_sat_time );
+	void WriteSolvingTimeInfo( double *solving_times, unsigned solved_tasks_count, 
+					           unsigned sat_count, double finding_first_sat_time );
 
 	void AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
 		                        double *solving_times );

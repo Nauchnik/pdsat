@@ -44,6 +44,14 @@ enum ProblemStates{ Solved, SolvedOnPreprocessing, Interrupted };
 
 class MPI_Base
 {
+protected:
+	vector< vector<int> > clause_array;
+	vector<int> clause_lengths;
+	vector< vector<int> >lits_clause_array;
+	vector<unsigned> lits_clause_lengths;
+	vector<int> b_SAT_set_array;
+	vector< vector<unsigned> > values_arr;
+	vector<int> var_choose_order;
 public:
     MPI_Base( );
     ~MPI_Base( );
@@ -99,14 +107,6 @@ public:
 	int max_nof_restarts;
 	
 	char *input_cnf_name;
-
-	vector< vector<int> > clause_array;
-	vector<int> clause_lengths;
-	vector< vector<int> >lits_clause_array;
-	vector<unsigned> lits_clause_lengths;
-	vector<int> b_SAT_set_array;
-	vector< vector<unsigned> > values_arr;
-	vector<int> var_choose_order;
 	
 	// Read header "p cnf [var_count] [clause_count]" from DIMACS file
 	bool ReadVarCount( );
@@ -115,7 +115,7 @@ public:
 	
 	// Make array var_choose_order with vars sorted by given rule
 	bool MakeVarChoose( );
-	bool MakeStandartMasks( unsigned &part_var_power );
+	bool MakeStandardMasks( unsigned &part_var_power );
 	bool GetMainMasksFromVarChoose( vector<int> &var_choose_order );
 	bool GetValuesFromVarChoose( unsigned &part_var_power );
 	

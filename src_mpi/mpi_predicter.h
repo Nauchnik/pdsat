@@ -42,6 +42,16 @@ struct decomp_set
 
 class MPI_Predicter : public MPI_Base
 {
+private:
+	vector<decomp_set> decomp_set_arr;
+	vector< vector<unsigned> > part_mask_arr;
+	vector< vector<unsigned> > all_values_arr;
+	vector<double> cnf_real_time_arr;
+	vector<char> cnf_status_arr;
+	vector<double> total_var_activity;
+	// array of block sum lengths for mass predict. in fact it is count of vars for paralleling
+	vector<int> sum_block_lens_arr;
+	vector<int> sorted_index_array;
 public:
 	// Constructor/Destructor:
     MPI_Predicter( );
@@ -104,19 +114,6 @@ public:
 	bool IsRecordUpdated;
 	unsigned max_L2_hamming_distance;
 	unsigned slow_cnf_mask_index;
-
-	vector<double> total_var_activity;
-
-	vector<decomp_set> decomp_set_arr;
-	vector< vector<unsigned> > part_mask_arr;
-	vector< vector<unsigned> > all_values_arr;
-	vector<double> cnf_real_time_arr;
-	vector<char> cnf_status_arr;
-
-	// array of block sum lengths for mass predict
-	// in fact it is count of vars for paralleling
-	vector<int> sum_block_lens_arr;
-	vector<int> sorted_index_array;
 
 	bool MPI_Predict( int argc, char **argv );
 	bool ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control );

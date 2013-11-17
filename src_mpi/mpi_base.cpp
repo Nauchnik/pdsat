@@ -274,7 +274,7 @@ bool MPI_Base :: GetValuesFromVarChoose( unsigned &part_var_power )
 }
 
 //---------------------------------------------------------
-bool MPI_Base :: MakeStandartMasks( unsigned &part_var_power )
+bool MPI_Base :: MakeStandardMasks( unsigned &part_var_power )
 {		
 	if ( !GetMainMasksFromVarChoose( var_choose_order ) ) { 
 		cout << "Error in GetMainMasksFromVarChoose" << endl; 

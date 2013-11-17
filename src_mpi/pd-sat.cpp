@@ -654,10 +654,10 @@ void TestDeepPredict( )
 	for ( unsigned i = 0; i < mpi_p.core_len; i ++ )
 		ua.center.set(i);
 	mpi_p.L2.push_back( ua );
-	boost::dynamic_bitset<> bs = IntVecToBitset( mpi_p.core_len, mpi_p.var_choose_order );
+	//boost::dynamic_bitset<> bs = IntVecToBitset( mpi_p.core_len, mpi_p.var_choose_order );
 	stringstream sstream;
-	mpi_p.AddNewUncheckedArea( bs, sstream );
-	mpi_p.current_unchecked_area.center = bs;
+	//mpi_p.AddNewUncheckedArea( bs, sstream );
+	//mpi_p.current_unchecked_area.center = bs;
 	mpi_p.cur_vars_changing = 1;
 	mpi_p.IsFirstPoint = true;
 	//mpi_p.schema_type = "bivium_Ending2"
