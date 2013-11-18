@@ -119,14 +119,12 @@ public:
 	bool ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control );
 	bool ComputeProcessPredict( );
 	bool GetPredict( );
-
+	
 	bool DeepPredictMain( );
 	bool DeepPredictFindNewUncheckedArea( stringstream &sstream );
 	bool GetDeepPredictTasks( );
 	void GetInitPoint( );
 	void NewRecordPoint( int set_index );
-	void DecVarLinerDeepMode( stringstream &sstream, fstream &deep_predict_file, int &ProcessListNumber );
-	void GetDecDeepPredictTasks( );
 	bool IsPointInCheckedArea( boost::dynamic_bitset<> &point );
 	bool IsPointInUnCheckedArea( boost::dynamic_bitset<> &point );
 	void AddNewUncheckedArea( boost::dynamic_bitset<> &point, stringstream &sstream );
@@ -136,11 +134,7 @@ public:
 		                       unsigned current_var_count, vector<int> &new_var_choose_order );
 	void GetNewHammingPoint( vector<int> var_choose_order, int change_var_count, int &current_var_count, 
 		                     vector<int> diff_vec, vector<int> &new_var_choose_order );
-
 	bool PrepareForPredict( );
-	bool GetStandartPredictTasks( );
-
-	void GetValuesBasedOnPartMask( unsigned shortcnf_count, int &all_values_arr_index );
 	bool GetRandomValuesArray( unsigned shortcnf_count, vector< vector<unsigned> > &values_arr );
 	bool IfSimulatedGranted( double predict_time );
 	bool WritePredictToFile( int all_skip_count, double whole_time_sec );

@@ -104,10 +104,12 @@ bool MPI_Base :: GetMainMasksFromVarChoose( vector<int> &var_choose_order )
 		return false;
 	}
 
-	cout << "made part_mask" << endl;
-	for( unsigned i = 0; i < FULL_MASK_LEN; ++i )
-		cout << part_mask[i] << " ";
-	cout << endl;
+	if ( verbosity > 0 ) {
+		cout << "made part_mask" << endl;
+		for( unsigned i = 0; i < FULL_MASK_LEN; ++i )
+			cout << part_mask[i] << " ";
+		cout << endl;
+	}
 
 	if ( verbosity > 1 )
 		cout << "GetMainMasksFromVarChoose() end" << endl;
@@ -188,13 +190,13 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 
 bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask, 
 									   unsigned *part_mask, 
-									   unsigned *value,
+									   unsigned *mask_value,
 									   vec< vec<Lit> > &dummy_vec )
 {
 // for predict with minisat2.2. convert masks to vector of Literals
 	unsigned full_mask_var_count = 0, variate_vars_count = 0;
 	for ( unsigned i = 1; i < FULL_MASK_LEN; i++ ) {
-		variate_vars_count += BitCount( full_mask[i] ^ part_mask[i] );
+		variate_vars_count  += BitCount( full_mask[i] ^ part_mask[i] );
 		full_mask_var_count += BitCount( full_mask[i] );
 	}
 	
@@ -220,7 +222,7 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask,
 				cur_var_ind = ( i-1 ) * UINT_LEN + j;
 				IsAddingLiteral = false;
 				if ( part_mask[i] & mask ) { // one common vector send by control process
-					IsPositiveLiteral = ( value[i] & mask ) ? true : false;
+					IsPositiveLiteral = ( mask_value[i] & mask ) ? true : false;
 					IsAddingLiteral = true;
 				}
 				else if ( full_mask[i] & mask ) { // set of vectors

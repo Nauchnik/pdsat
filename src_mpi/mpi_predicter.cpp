@@ -65,8 +65,6 @@ struct points_class
 bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control )
 {
 // Predicting of compute cost
-	double *var_activity = new double[activity_vec_len];
-
 	if ( verbosity > 0 ) {
 		cout << "Start ControlProcessPredict()" << endl;
 		unsigned count = 0;
@@ -108,6 +106,12 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 
 	// send to all cores (except # 0) first tasks and then go to 2nd phase - for every resulted node send new task
 	for ( int i = 0; i < corecount-1; i++ ) {	
+		// get start part_mask_arr[0]
+		if ( next_task_index % cnf_in_set_count == 0 ) { // if new sample then new part_mask
+			copy( part_mask_arr[part_mask_index].begin(), part_mask_arr[part_mask_index].end(), part_mask );
+			part_mask_index++;
+		}
+		
 		if ( verbosity > 2 ) {
 			for ( unsigned j = 0; j < FULL_MASK_LEN; j++ )
 				cout << "Sending part_mask"<< j << " " << part_mask[j] << endl;
@@ -117,7 +121,6 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		node_list[i] = i + 1; // fix node where SAT problem will be solved
 		// send new index of task
 		MPI_Send( &i,     1, MPI_INT,  i + 1, ProcessListNumber, MPI_COMM_WORLD );
-		//MPI_Send( &part_mask, 1, mpi_mask, i + 1, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( part_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, ProcessListNumber, MPI_COMM_WORLD );
 		if ( verbosity > 2 )
 			cout << "task # " << i << " was send to core # " << i + 1 << endl;
@@ -190,17 +193,15 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		// then get 1 more mes
 		MPI_Recv( &process_sat_count,  1, MPI_INT,    current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		MPI_Recv( &cnf_time_from_node, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		//MPI_Recv( &var_activity, 1, mpi_var_activity, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		/*double *var_activity = new double[activity_vec_len];
 		MPI_Recv( var_activity, activity_vec_len, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		cout << "current total_var_activity" << endl;
-		for( unsigned i=0; i < activity_vec_len; ++i )
-			cout << var_activity[i] << " ";
-		cout << endl;
+
 		for( unsigned i=0; i < total_var_activity.size(); ++i ) {
 			if( ( total_var_activity[i] += var_activity[i] ) > 1e100 )
 				for( unsigned j=0; j < total_var_activity.size(); ++j ) // Rescale:
 					total_var_activity[j] *= 1e-100;
 		}
+		delete[] var_activity;*/
 		
 		// skip old message
 		if ( current_status.MPI_TAG < ProcessListNumber ) {
@@ -231,11 +232,11 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		
 		if ( next_task_index < all_tasks_count ) {
 			// skip sending stopped tasks
-			while ( ( next_task_index < all_tasks_count ) && ( cnf_status_arr[next_task_index] == 1 ) ) {
+			while ( ( cnf_status_arr[next_task_index] == 1 ) && ( next_task_index < all_tasks_count ) ) {
 				solved_tasks_count++;
-				if ( verbosity > 2 ) {
-					cout << "\n skipped sending of task # " << next_task_index    << endl;
-					cout << "\n solved_tasks_count "       << solved_tasks_count << endl;
+				if ( verbosity > 1 ) {
+					cout << "skipped sending of task # " << next_task_index    << endl;
+					cout << "solved_tasks_count "        << solved_tasks_count << endl;
 				}
 				next_task_index++;
 				//cnf_real_time_arr[next_task_index] = 0.0; // real time of solving
@@ -284,15 +285,13 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 
-	delete[] var_activity;
-
 	return true;
 }
 
 bool MPI_Predicter :: ComputeProcessPredict( )
 {
-	Problem cnf;
 	// read file with CNF once
+	Problem cnf;
 	if ( solver_type == 4 ) {
 		minisat22_wrapper m22_wrapper;
 		ifstream in( input_cnf_name );
@@ -306,65 +305,51 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	MPI_Recv( &activity_vec_len, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	cout << "Received core_len "         << core_len         << endl;
 	cout << "Received activity_vec_len " << activity_vec_len << endl;
-
-	double *var_activity = new double[activity_vec_len];
 	
 	int current_task_index;
-	int process_sat_count = 0;
 	double cnf_time_from_node = 0.0;
 	int ProcessListNumber;
 	vec< vec<Lit> > dummy_vec;
 	Solver *S;
 	lbool ret;
 	unsigned *part_mask_prev = new unsigned[FULL_MASK_LEN];
+	double *var_activity = new double[activity_vec_len];
+	part_mask_prev[0] = 0; // init to make it differ from part_mask
 	bool IsFirstTaskReceived = false;
-	bool IsNewPartMask = true;
+	bool IsNewPartMask;
+	int process_sat_count;
 
 	for (;;) {	
 		if ( verbosity > 2 )
 			cout << "Before MPI_Recv()" << endl;
 		
-		// get index of current task missing stop-messages
-		do 
+		do // get index of current task missing stop-messages
 		{ 
 			if ( verbosity > 0 )
 				cout << "on node " << rank << " stop-message was skipped" << endl;
 			MPI_Recv( &current_task_index, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		} while ( current_task_index == -1 ); // skip stop-messages
 
-		if ( verbosity > 2 )
+		if ( verbosity > 0 )
 			cout << "current_task_index" << current_task_index << endl;
 		ProcessListNumber = status.MPI_TAG;
 		// receive data from o-rank core in format of minisat input masks
 		MPI_Recv( part_mask, FULL_MASK_LEN, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-
-		if ( ( part_mask < 0 ) || ( current_task_index < 0 ) ) {
-			cerr << "Error. negative values";
-			return false;
-		}
 		
 		if ( verbosity > 2) {
-			for ( unsigned j = 0; j < FULL_MASK_LEN; j++ )
-				cout << "\n Received part_mask"<< j << " " << part_mask[j] << endl;
+			for ( unsigned i = 0; i < FULL_MASK_LEN; ++i )
+				cout << "Received part_mask" << i << " " << part_mask[i] << endl;
 		}
-		// in predict full and part masks are equal
-		copy( part_mask, part_mask + FULL_MASK_LEN, full_mask );
-		for ( unsigned i = 1; i < FULL_MASK_LEN; i++ )
-			mask_value[i] = uint_rand(); // make rand values as assumptions
 		
-		if ( IsFirstTaskReceived ) {
-			IsNewPartMask = false;
-			for ( unsigned i = 0; i < FULL_MASK_LEN; i++ )
-				if ( part_mask[i] != part_mask_prev[i] ) {
-					IsNewPartMask = true;
-					break;
-				}
-		}
+		IsNewPartMask = false;
+		for ( unsigned i = 0; i < FULL_MASK_LEN; ++i )
+			if ( part_mask[i] != part_mask_prev[i] ) {
+				IsNewPartMask = true;
+				break;
+			}
 		
 		if ( IsNewPartMask ) {
-			// read CNF onc for every part_mask and make solver ready for iterative using
 			copy( part_mask, part_mask + FULL_MASK_LEN, part_mask_prev );
-			
 			if ( solver_type == 4 ) {
 				if ( IsFirstTaskReceived ) // if not first time, delete old data
 					delete S;
@@ -377,11 +362,15 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 				S->max_solving_time = max_solving_time;
 				S->rank             = rank;
 			}
-			if ( !IsFirstTaskReceived ) IsFirstTaskReceived = true;
+			IsFirstTaskReceived = true;
 		}
+
+		// in predict full and part masks are equal
+		copy( part_mask, part_mask + FULL_MASK_LEN, full_mask );
+		for ( unsigned i = 1; i < FULL_MASK_LEN; i++ )
+			mask_value[i] = uint_rand(); // make rand values as assumptions
 		
 		process_sat_count = 0;
-		
         if ( solver_type == 4 ) {
 			MakeAssignsFromMasks( full_mask, part_mask, mask_value, dummy_vec );
 			if ( dummy_vec.size() > 1 ) {
@@ -418,12 +407,11 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		MPI_Send( &process_sat_count,  1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &cnf_time_from_node, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
 		//MPI_Send( &var_activity,       1, mpi_var_activity, 0, ProcessListNumber, MPI_COMM_WORLD );
-		MPI_Send( var_activity, activity_vec_len, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
+		//MPI_Send( var_activity, activity_vec_len, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
 	}
 
 	delete[] var_activity;
 	delete[] part_mask_prev;
-	//delete[] b_SAT_set_array;
 	delete S;
 	MPI_Finalize( );
 	return true;
@@ -545,61 +533,6 @@ void MPI_Predicter :: GetInitPoint( )
 	for ( unsigned i = 0; i < var_choose_order.size(); i++ )
 		cout << var_choose_order[i] << " ";
 	cout << endl << endl;
-}
-
-void MPI_Predicter :: DecVarLinerDeepMode( stringstream &sstream, fstream &deep_predict_file, 
-										   int &ProcessListNumber )
-{
-	int stop_message = -1;
-	MPI_Request request;
-	stringstream sstream_control;
-
-	cout << "\n Extra stop sending " << endl;
-	for ( int i = 1; i < corecount; i++ ) {
-		MPI_Isend( &stop_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &request );
-		//cout << "\n stop-message was send to node # " << i << endl;
-	}
-
-	sstream << endl << "*Starting DecDeepPredictDecomp()" << endl;
-	deep_predict_file << sstream.rdbuf();
-	deep_predict_file.close();
-	sstream.str( "" ); sstream.clear( );
-
-	// don't use Dec for last iteration
-	if ( deep_predict_cur_var == predict_from )
-		exit(1);
-
-	// Move to new dimension (-1)
-	GetDecDeepPredictTasks();
-	IsDecDecomp = true;
-	if ( !PrepareForPredict( ) )
-	{ cout << "\n Error in PrepareForPredict" << endl; exit(1); }
-						
-	if ( !ControlProcessPredict( ProcessListNumber++, sstream_control ) ) {
-		cout << endl << "Error in ControlProcessPredict" << endl;
-		MPI_Abort( MPI_COMM_WORLD, 0 );
-	}
-	IsDecDecomp = false;
-
-	if ( best_predict_time < real_best_predict_time ) {
-	// update real best point
-		real_best_predict_time = best_predict_time;
-		real_best_var_num = best_var_num;
-		real_var_choose_order = var_choose_order;
-		sstream << "***new real_best_predict_time " << real_best_predict_time << endl;
-	}
-	else {
-		// update only time because old vector has larger dimension
-		sstream << endl << "*** After decreasing of dimension "
-				<< "best_predict_time > real_best_predict_time " << endl
-				<< best_predict_time << " > " << real_best_predict_time << endl
-				<< "best_predict_time updated" << endl;
-		best_predict_time = real_best_predict_time;
-	}
-	deep_predict_file.open( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
-	deep_predict_file << sstream.rdbuf();
-	sstream.str( "" ); sstream.clear( );
-	deep_predict_file.close();
 }
 
 bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream ) 
@@ -861,10 +794,9 @@ bool MPI_Predicter :: DeepPredictMain( )
 
 		current_time = MPI_Wtime( );
 		if ( !PrepareForPredict( ) )
-			{ cout << "\n Error in PrepareForPredict" << endl; return false; }
+			{ cout << "Error in PrepareForPredict" << endl; return false; }
 		if ( verbosity > 0 )
 			cout << "PrepareForPredict() done" << endl;
-		//cout << "PrepareForPredict() time " << MPI_Wtime( ) - current_time << endl;
 
 		if ( !ControlProcessPredict( ProcessListNumber++, sstream_control ) ) {
 			cout << endl << "Error in ControlProcessPredict" << endl;
@@ -1025,17 +957,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "IsFirstStage " << IsFirstStage << endl;
 		cout << "max_L2_hamming_distance " << max_L2_hamming_distance << endl;
 		
-		if ( !deep_predict ) {
-			GetStandartPredictTasks( );
-
-			// make all_tasks_count, arrays with part_mask, array with values
-			if ( !PrepareForPredict( ) ) 
-				{ cout << "Error in PrepareForPredict" << endl; return false; }
-			if ( !ControlProcessPredict( 0, sstream_control ) ) // ProcessListNumber == 0;
-				{ cout << endl << "Error in ControlProcessPredict" << endl; return false; }
-		}
-		else
-			DeepPredictMain( );
+		DeepPredictMain( );
 	}
 	else { // if rank != 0
 		if ( !ComputeProcessPredict( ) ) {
@@ -1054,11 +976,9 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 bool MPI_Predicter :: GetRandomValuesArray( unsigned shortcnf_count, vector< vector<unsigned> > &values_arr )
 { 
 // get [shortcnf_count] of unique int values that >= 0 and < cnf_count
-	unsigned i, j;
-
 	// clear after GetIntValuesForMinisat
-	for( i = 0; i < shortcnf_count; i++ )
-		for( j = 0; j < FULL_MASK_LEN; j++ )
+	for( unsigned i = 0; i < shortcnf_count; i++ )
+		for( unsigned j = 0; j < FULL_MASK_LEN; j++ )
 			values_arr[i][j] = 0;
 
 	vector< vector<unsigned> > rand_arr;
@@ -1070,8 +990,8 @@ bool MPI_Predicter :: GetRandomValuesArray( unsigned shortcnf_count, vector< vec
 	unsigned mask;
 	for( unsigned uint = 0; uint < shortcnf_count; uint++ ) { // for every CNF from random set
 		value_index = 0;
-		for ( i = 1; i < FULL_MASK_LEN; i++ ) { // for every 32-bit group of vars
-			for( j = 0; j < UINT_LEN; j++ ) {
+		for ( unsigned i = 1; i < FULL_MASK_LEN; i++ ) { // for every 32-bit group of vars
+			for( unsigned j = 0; j < UINT_LEN; j++ ) {
 				mask = ( 1 << j );
 				if ( part_mask[i] & mask ) { // if part_mask bit is 1
 					if ( rand_arr[uint][i-1] & mask )
@@ -1085,7 +1005,7 @@ bool MPI_Predicter :: GetRandomValuesArray( unsigned shortcnf_count, vector< vec
 	rand_arr.clear();
 
 	for( unsigned uint = 0; uint < shortcnf_count; uint++ ) {
-		for( i = 1; i < FULL_MASK_LEN; i++ ) {
+		for( unsigned i = 1; i < FULL_MASK_LEN; i++ ) {
 			if ( values_arr[uint][i] )
 				values_arr[uint][0] += 1 << ( i-1 );
 		}
@@ -1252,12 +1172,14 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	var_activity_file << record_count << endl;
 	//for( auto &x : total_var_activity )
 	//	var_activity_file << x << " ";
-	cout << "total_var_activity" << endl;
-	for( vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it ) {
-		cout << *it << " ";
-		var_activity_file << *it << " ";
+	if ( verbosity > 2 ) {
+		cout << "total_var_activity" << endl;
+		for( vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it ) {
+			cout << *it << " ";
+			var_activity_file << *it << " ";
+		}
+		cout << endl;
 	}
-	cout << endl;
 	
 	var_activity_file << endl;
 	
@@ -1624,50 +1546,6 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 	return true;
 }
 
-// To delete
-void MPI_Predicter :: GetValuesBasedOnPartMask( unsigned shortcnf_count, int &all_values_arr_index )
-{
-// for [part_mask_var_count] make [shortcnf_count] random values 
-	vector< vector<unsigned> > values_arr;
-	unsigned j;
-	int j2;
-	unsigned long long int part_var_power;
-
-	if ( verbosity > 1 )
-		cout << "GetValuesBasedOnPartMask() start" << endl;
-
-	values_arr.resize( shortcnf_count );
-	for( j = 0; j < shortcnf_count; j++ ) { // max length of array is part_var_power
-		values_arr[j].resize(FULL_MASK_LEN);
-		for( j2 = 0; j2 < FULL_MASK_LEN; j2++ )
-			values_arr[j][j2] = 0;		  // in case if other part_mask == 0
-	}
-
-	// get 64-bit value
-	// part_var_power here is a range of possible values
-	// values wiil be choosed from 2^60, enough for getting set of random points
-	if ( part_mask_var_count <= MAX_VAR_FOR_RANDOM )
-		shl64( part_var_power, part_mask_var_count );
-	else
-		shl64( part_var_power, MAX_VAR_FOR_RANDOM );
-		
-	// get [shortcnf_count] random values for tasks
-	if ( !GetRandomValuesArray( shortcnf_count, values_arr ) ) 
-		{ cout << "\n Error in GetRandomArray " << endl; }
-		
-	for ( unsigned j = 0; j < shortcnf_count; j++ ) {
-		for ( j2 = 0; j2 < FULL_MASK_LEN; j2++ ) {
-			all_values_arr[all_values_arr_index][j2] = values_arr[j][j2];
-			// part_mask was created in MakeStandartMasks
-			part_mask_arr[all_values_arr_index][j2]  = part_mask[j2];
-		}
-		all_values_arr_index++;
-	}
-	
-	if ( verbosity > 1 )
-		cout << "GetValuesBasedOnPartMask() finish" << endl;
-}
-
 void MPI_Predicter :: ChangeVarChooseOrder( vector<int> var_choose_order, unsigned change_var_count, 
 	                                        unsigned current_var_count, vector<int> &new_var_choose_order )
 {
@@ -1731,7 +1609,7 @@ void MPI_Predicter :: GetNewHammingPoint( vector<int> var_choose_order, int cur_
 
 void MPI_Predicter :: AllocatePredictArrays( int &cur_tasks_count )
 {
-	unsigned int uint;
+	unsigned uint;
 
 	if ( deep_predict_cur_var > MAX_STEP_CNF_IN_SET ) // if too many vars
 		cur_tasks_count = cnf_in_set_count;
@@ -1750,87 +1628,11 @@ void MPI_Predicter :: AllocatePredictArrays( int &cur_tasks_count )
 	part_mask_arr.resize( decomp_set_count );
 	//all_values_arr.resize( all_tasks_count );
 	
-	for( unsigned i = 0; i < part_mask_arr.size(); i++ ) {
+	for( unsigned i = 0; i < part_mask_arr.size(); ++i ) {
 		part_mask_arr[i].resize( FULL_MASK_LEN );
-		for( unsigned j = 0; j < part_mask_arr[i].size(); j++ )
+		for( unsigned j = 0; j < part_mask_arr[i].size(); ++j )
 			part_mask_arr[i][j] = 0;
 	}
-	
-	/*for( int i = 0; i < all_values_arr.size(); i++ ) {
-		all_values_arr[i].resize( FULL_MASK_LEN );
-		part_mask_arr[i].resize( FULL_MASK_LEN );
-		for( unsigned int j = 0; j < FULL_MASK_LEN; j++ ) {
-			all_values_arr[i][j] = 0;
-			part_mask_arr[i][j] = 0;
-		}
-	}*/
-}
-
-void MPI_Predicter :: GetDecDeepPredictTasks( )
-{
-// move to new dimension
-// try to remove all variants of 1 var. for ex. (2,4,6,7) -> (4,6,7), (2,6,7), (2,4,6)
-	vector<int> new_var_choose_order;
-	// save current real best point
-	real_best_predict_time = best_predict_time;
-	real_best_var_num = best_var_num;
-	real_var_choose_order = var_choose_order;
-
-	stringstream sstream;
-	sstream << "In GetDecDeepPredictTasks() " << endl;
-	sstream << "real_best_predict_time " << real_best_predict_time << endl;
-	sstream << "real_best_var_num " << real_best_var_num << endl;
-	sstream << "real_var_choose_order" << endl;
-	for ( int j = 0; j <real_best_var_num; j++ )
-	    sstream << real_var_choose_order[j] << " ";
-	sstream << endl;
-  
-	// make best_time == 0 for checking all deep_predict_cur_var variants of sets of new dimension (current dim - 1)
-	// 1st point of lower dimension wiil become new best point regardless 
-	best_predict_time = 0;
-	
-	deep_predict_cur_var--;
-	decomp_set_count = deep_predict_cur_var + 1;
-	// array of count of known vars in sets
-
-	//for ( int i = 0; i < decomp_set_count; i++ )
-	//	set_var_count_arr.push_back( deep_predict_cur_var );
-	
-	int cur_tasks_count;
-	// Common for all procedures of getting deep tasks
-	AllocatePredictArrays( cur_tasks_count );
-
-	global_count_var_changing.resize(1); // how many better points while changing 1 var
-	global_count_var_changing[0] = 0; // init of counter
-	//for ( int i = 0; i < decomp_set_count; i++ )
-	//	cur_var_changing[i] = 1;
-
-	int all_values_arr_index = 0;
-
-	sstream << "*** DecDeepPredictDecomp" << endl;
-	//for ( int i = 0; i < deep_predict_cur_var + 1; i++ ) {
-	for ( int i = deep_predict_cur_var; i >= 0; i-- ) {
-		// get all variables except var # i
-		for ( int j = 0; j < i; j++ )
-			new_var_choose_order[j] = var_choose_order[j];
-		for ( int j = i + 1; j < deep_predict_cur_var + 1; j++ )
-			new_var_choose_order[j - 1] = var_choose_order[j];
-
-		//sstream << "new_var_choose_order in DecDeepPredictDecomp " << endl;
-		//var_choose_arr.push_back( new_var_choose_order );
-		//sstream << new_var_choose_order[j] << " ";
-		//sstream << endl;
-		
-		// get current [part_mask]
-		part_mask_var_count = full_mask_var_count = deep_predict_cur_var;
-		if ( !GetMainMasksFromVarChoose( new_var_choose_order ) ) 
-			{ cout << "\n Error in GetMainMasksFromVarChoose" << endl; }
-		// Get values_arr and add it to [all_values_arr]
-		GetValuesBasedOnPartMask( cur_tasks_count, all_values_arr_index );
-	}
-	fstream deep_predict_file( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
-	deep_predict_file << sstream.rdbuf();
-	deep_predict_file.close();
 }
 
 bool MPI_Predicter :: IsPointInCheckedArea( boost::dynamic_bitset<> &point )
@@ -1969,15 +1771,9 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, strin
 
 	if ( !IsExists )*/
 	L2.push_back( new_ua );
-
-	/*sstream << "Added new point to L2" << endl;
-	sstream << "center" << endl;
-	sstream << new_ua.center.to_string() << endl;
-	sstream << "checked_points" << endl;
-	sstream << "L2 size " << L2.size() << endl;
 	
 	to_string( new_ua.checked_points, str );
-	sstream << str << endl;*/
+	sstream << str << endl;
 	if ( ( new_ua.checked_points.count() == 0 ) && ( !IsFirstPoint ) )
 		sstream << "***Error. new_ua.center.count() == 0" << endl;
 	if ( verbosity > 1 )
@@ -2066,11 +1862,6 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 				new_var_choose_order = BitsetToIntVec( point );
 				cur_var_count = new_var_choose_order.size();
 			}
-
-			/*cout << "combination # " << global_deep_point_index + i << endl;
-			for ( unsigned t = 0; t < combinations[global_deep_point_index + i].size(); t++ )
-				cout << combinations[global_deep_point_index + i][t] << " ";
-			cout << endl;*/
 		}
 		
 		d_s.var_choose_order = new_var_choose_order;
@@ -2134,31 +1925,24 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 		sstream << "best_predict_time " << best_predict_time << endl;
 	}
 
-	//if ( deep_predict == 6 )
-	//	sstream << "Start adding points to L2. Area vectors: " << endl;
-
-	//cout << "GetDeepPredictTasks() info writing done" << endl;
-
 	int all_values_arr_index = 0;
 
 	if ( verbosity > 0 )
 		cout << sstream.str();
 
 	// Make predict part and value mask arrays
-	for ( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
+	for ( unsigned i = 0; i < decomp_set_arr.size(); ++i ) {
 		// get current [part_mask]
 		part_mask_var_count = full_mask_var_count = decomp_set_arr[i].set_var_count;
 		if ( !GetMainMasksFromVarChoose( decomp_set_arr[i].var_choose_order ) )
-			{ cout << "\n Error in GetMainMasksFromVarChoose" << endl; return false; }
+			{ cout << "Error in GetMainMasksFromVarChoose" << endl; return false; }
 		for ( unsigned j = 0; j < FULL_MASK_LEN; j++ )
 			part_mask_arr[all_values_arr_index][j] = part_mask[j];
 		all_values_arr_index++;
 	}
 	
 	global_deep_point_index += decomp_set_count + current_skipped;
-	//cout << "global_deep_point_index " << global_deep_point_index << endl;
-	//cout << "decomp_set_count " << decomp_set_count << endl;
-
+	
 	if ( verbosity > 0 )
 		cout << "After main loop in GetDeepPredictTasks()" << endl;
 	
@@ -2166,59 +1950,6 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	fstream deep_predict_file( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
 	deep_predict_file << sstream.rdbuf();
 	deep_predict_file.close();
-
-	return true;
-}
-
-//---------------------------------------------------------
-bool MPI_Predicter :: GetStandartPredictTasks( )
-{
-// Get full_mask_arr, part_mask arr. values_arr, all_tasks_count
-	unsigned val = 0;
-	unsigned uint;
-	int cur_tasks_count;
-	// var count for predicting
-	decomp_set_count = predict_to - predict_from + 1;
-
-	set_len_arr.resize( decomp_set_count ); // array of random set lengths 
-	int k = 0;
-	all_tasks_count = 0;
-	// count lengths of all sets, for ex predict from 2 to 7: 4, 8, 16, 32, 32, 32
-	for ( unsigned i = 0; i < decomp_set_count; i++ ) {
-		if ( ( predict_to - i ) > MAX_STEP_CNF_IN_SET ) // if too many vars
-			cur_tasks_count = cnf_in_set_count; 
-		else {
-			uint = 1 << ( predict_to - i ); // current count of all tasks
-			cur_tasks_count = ( cnf_in_set_count < (int)uint ) ? cnf_in_set_count : uint; 
-		}
-
-		set_len_arr[k++] = cur_tasks_count;
-		all_tasks_count += cur_tasks_count;
-	}
-	cout << "all_tasks_count is " << all_tasks_count << endl;
-	// count of tasks doesn't depend on corecount
-	part_mask_arr.resize( all_tasks_count );
-	all_values_arr.resize( all_tasks_count );
-		
-	for( unsigned i = 0; i < all_tasks_count; i++ ) {
-		part_mask_arr[i].resize( FULL_MASK_LEN );
-		all_values_arr[i].resize( FULL_MASK_LEN );
-		for( unsigned j = 0; j < FULL_MASK_LEN; j++ ){
-			part_mask_arr[i][j]  = 0;
-			all_values_arr[i][j] = 0;
-		}
-	}
-
-	int all_values_arr_index = 0;
-	for ( unsigned i = 0; i < decomp_set_count; i++ ) {
-		part_mask_var_count = full_mask_var_count = predict_to - i; // 1 CNF in 1 task 
-		if ( !MakeVarChoose( ) ) // make current [part_mask]
-			{ cout << "\n Error in MakeVarChoose" << endl; return false; }
-		if ( !GetMainMasksFromVarChoose( var_choose_order ) ) 
-			{ cout << "\n Error in GetMainMasksFromVarChoose" << endl; return false; }
-		// Get values_arr and add it (and part_mask) to all_values_arr
-		GetValuesBasedOnPartMask( set_len_arr[i], all_values_arr_index );
-	} // for ( i = predict_from; i < predict_to + 1; i++ )
 
 	return true;
 }

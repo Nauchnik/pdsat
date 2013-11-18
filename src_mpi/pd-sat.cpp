@@ -583,8 +583,9 @@ void TestPredict( )
 
 void TestSolve()
 {
-	char *input_cnf_name = "../src_common/tresh72_0.cnf";
-	
+	Solver S;
+
+	char *input_cnf_name = "../src_common/tresh72_0.cnf";	
 	string rslos_table_name = "../src_common/bits_4_1/1010.txt";
 	int process_sat_count = 0;
 	unsigned int full_mask[FULL_MASK_LEN];
@@ -598,7 +599,6 @@ void TestSolve()
 	mpi_s.MakeVarChoose();
 	double cnf_time_from_node;
 	int current_task_index = 0;
-	Solver *S;
 	
 	for ( unsigned i=0; i < FULL_MASK_LEN; i++ )
 		full_mask[i] = part_mask[i] = 0;
@@ -608,7 +608,7 @@ void TestSolve()
 
 	mpi_s.all_tasks_count = 16;
 	//mpi_s.verbosity = 2;
-	mpi_s.SolverRun( S, process_sat_count, cnf_time_from_node,current_task_index );
+	//mpi_s.SolverRun( S, process_sat_count, cnf_time_from_node,current_task_index );
 	int solver_type = 1;
 	int core_len = 64;
 	double corevars_activ_type = 1;
