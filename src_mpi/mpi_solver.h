@@ -14,7 +14,7 @@ public:
 	// Constructor/Destructor:
     MPI_Solver( );
     ~MPI_Solver( );
- 
+	
 	int orig_tasks_count;
 	int full_mask_tasks_count;
 	int exch_activ;
@@ -23,23 +23,17 @@ public:
 	
 	bool MPI_Solve( int argc, char **argv );
 	bool MPI_ConseqSolve( int argc, char **argv );
-
 	bool WriteTimeToFile( double whole_time_sec );
 	bool cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, 
 		                 int &real_seconds );
-
-	bool ControlProcessSolve( vector< vector<unsigned> > &values_arr );
+	bool ControlProcessSolve( );
 	bool ComputeProcessSolve( );
-
 	void PrintParams( );
-
 	void WriteSolvingTimeInfo( double *solving_times, unsigned solved_tasks_count, 
 					           unsigned sat_count, double finding_first_sat_time );
-
 	void AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
 		                        double *solving_times );
-
-	bool SolverRun( Solver *&S, int &process_sat_count, double &cnf_time_from_node, 
+		bool SolverRun( Solver *&S, int &process_sat_count, double &cnf_time_from_node, 
 				    int current_task_index );
 };
 

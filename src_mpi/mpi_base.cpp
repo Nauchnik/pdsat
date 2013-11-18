@@ -69,47 +69,45 @@ MPI_Base :: ~MPI_Base( )
 //---------------------------------------------------------
 bool MPI_Base :: GetMainMasksFromVarChoose( vector<int> &var_choose_order )
 {
-	if ( verbosity > 1 ) {
+	if ( verbosity > 0 ) {
 		cout << "GetMainMasksFromVarChoose() start with var_choose_order " << endl;
 		for ( unsigned i = 0; i < var_choose_order.size(); i++ )
 			cout << var_choose_order[i] << " ";
 		cout << endl;
+		cout << "part_mask_var_count " << part_mask_var_count << endl;
+		cout << endl;
 	}
-
-	for ( unsigned i = 0; i < FULL_MASK_LEN; i++ ) {	
-		full_mask[i] = 0;
-		part_mask[i] = 0;
-	}
-
+	
 	unsigned cur_uint_ind, var_index;
-	for( unsigned i = 0; i < full_mask_var_count; i++ ) {
+	for ( unsigned i = 0; i < var_choose_order.size(); ++i ) {
 		var_index = var_choose_order[i] - 1;
 		cur_uint_ind = var_index / UINT_LEN;
 		full_mask[cur_uint_ind + 1] += 1 << ( var_index % UINT_LEN );
 	}
 
 	// get first full_mask_var_count vars from  array var_choose_order
-	for( unsigned i = 0; i < part_mask_var_count; i++ ) {
+	for( unsigned i = 0; i < part_mask_var_count; ++i ) {
 		var_index = var_choose_order[i] - 1;
 		cur_uint_ind = var_index / UINT_LEN;
 		part_mask[cur_uint_ind + 1] += 1 << ( var_index % UINT_LEN );
 	}
 
 	// full_mask[0] is mask of existing all 32 uint values
-	for( unsigned i = 1; i < FULL_MASK_LEN; i++ ) { // fill full_mask[0]
-		if ( full_mask[i] )
-			full_mask[0] += 1 << ( i-1 );
-	}
-
-	for( unsigned i = 1; i < FULL_MASK_LEN; i++ ) { // fill part_mask[0]
-		if ( part_mask[i] )
-			part_mask[0] += 1 << ( i-1 );
-	}
+	for( unsigned i = 1; i < FULL_MASK_LEN; ++i ) // fill full_mask[0]
+		if ( full_mask[i] ) full_mask[0] += 1 << ( i-1 );
+	
+	for( unsigned i = 1; i < FULL_MASK_LEN; ++i ) // fill part_mask[0]
+		if ( part_mask[i] ) part_mask[0] += 1 << ( i-1 );
 
 	if ( ( !full_mask[0] ) && ( full_mask_var_count != 0 ) ) {
 		cout << "Error. full_mask[0] == 0. full_mask_var_count != 0";
 		return false;
 	}
+
+	cout << "made part_mask" << endl;
+	for( unsigned i = 0; i < FULL_MASK_LEN; ++i )
+		cout << part_mask[i] << " ";
+	cout << endl;
 
 	if ( verbosity > 1 )
 		cout << "GetMainMasksFromVarChoose() end" << endl;
@@ -278,7 +276,7 @@ bool MPI_Base :: MakeStandardMasks( unsigned &part_var_power )
 {		
 	if ( !GetMainMasksFromVarChoose( var_choose_order ) ) { 
 		cout << "Error in GetMainMasksFromVarChoose" << endl; 
-		return false; 
+		return false;
 	}
 	cout << "Correct end of GetMasksFromVarChoose" << endl;
 		

@@ -93,10 +93,12 @@ void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, doubl
 	}
 }
 
-bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_time_from_node, 
-							  int current_task_index )
+bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_time_from_node, int current_task_index )
 {
-// Run needed solver
+// Run solver
+	if ( verbosity > 1 )
+		cout << "start SolverRun()" << endl;
+
 	process_sat_count = 0;
 	stringstream sstream;
 	vec< vec<Lit> > dummy_vec;
@@ -104,9 +106,6 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 	double total_time = 0;
 	unsigned current_tasks_solved = 0;
 	ProblemStates cur_problem_state;
-	
-	if ( verbosity > 1 )
-		cout << "start SolverRun()" << endl;
 
 	solving_times[0] = 1 << 30; // start min len
 	for ( unsigned i = 1; i < SOLVING_TIME_LEN; i++ )
@@ -195,7 +194,7 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_
 		total_solving_times[0] = solving_times[0];
 	if ( solving_times[1] > total_solving_times[1] ) // update max time
 		total_solving_times[1] = solving_times[1];
-	total_solving_times[2] += solving_times[2] / all_tasks_count;
+	total_solving_times[2] += solving_times[2] / all_tasks_count; // update median time
 	if ( ( total_solving_times[3] == 0 ) && ( solving_times[3] != 0 ) ) // update sat time
 		total_solving_times[3] = solving_times[3];
 	
@@ -264,10 +263,73 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_
 	sstream.clear(); sstream.str("");
 }
 
-bool MPI_Solver :: ControlProcessSolve( vector< vector<unsigned> > &values_arr )
+bool MPI_Solver :: ControlProcessSolve( )
 {
-	double start_time = MPI_Wtime();
 	cout << "ControlProcessSolve is running" << endl;
+
+	if ( !ReadIntCNF( ) ) { // Read original CNF
+		cerr << "Error in ReadIntCNF" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+	}
+
+	if ( !MakeVarChoose( ) ) { 
+		cerr << "Error in MakeVarChoose" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+	}
+	
+	unsigned max_possible_tasks_count = (unsigned)(pow( 2, ceil( log(corecount - 1)/log(2) ))) * koef_val;
+	cout << "max_possible_tasks_count " << max_possible_tasks_count << endl;
+	part_mask_var_count = log(max_possible_tasks_count)/log(2);
+	if ( part_mask_var_count > var_choose_order.size() )
+		part_mask_var_count = var_choose_order.size();
+	
+	// change batch size to treshold value if needed
+	if ( var_choose_order.size() - part_mask_var_count > RECOMMEND_BATCH_VAR_COUNT ) {
+		part_mask_var_count = var_choose_order.size() - RECOMMEND_BATCH_VAR_COUNT;
+		cout << "part_mask_var_count changed to " << part_mask_var_count << endl;
+	}
+	if ( part_mask_var_count > MAX_PART_MASK_VAR_COUNT )
+		part_mask_var_count = MAX_PART_MASK_VAR_COUNT;
+	if ( var_choose_order.size() - part_mask_var_count > MAX_BATCH_VAR_COUNT ) {
+		cerr << "Error. var_choose_order.size() - part_mask_var_count > MAX_BATCH_VAR_COUNT" << endl;
+		cerr << var_choose_order.size() - part_mask_var_count << " < " << MAX_BATCH_VAR_COUNT << endl;
+		MPI_Abort( MPI_COMM_WORLD, 0 );
+	}
+	cout << "part_mask_var_count " << part_mask_var_count << endl;
+
+	// get default count of tasks = power of part_mask_var_count
+	unsigned part_var_power = ( 1 << part_mask_var_count );
+	cout << "part_var_power "    << part_var_power    << endl;
+	// TODO add extended tasks counting
+	all_tasks_count = part_var_power;
+	cout << "all_tasks_count "   << all_tasks_count   << endl;
+	
+	if ( (int)all_tasks_count < corecount-1 ) {
+		cerr << "Error. all_tasks_count < corecount-1" << endl; 
+		cerr << all_tasks_count << " < " << corecount-1 << endl;
+		MPI_Abort( MPI_COMM_WORLD, 0 );
+	}
+	
+	PrintParams( );
+		
+	if ( skip_tasks >= all_tasks_count ) {
+		cerr << "Error. skip_tasks >= all_tasks_count " << endl;
+		cerr << skip_tasks << " >= " << all_tasks_count << endl;
+		MPI_Abort( MPI_COMM_WORLD, 0 );
+	}
+	
+	values_arr.resize( all_tasks_count );
+	for ( unsigned i = 0; i < values_arr.size(); ++i )
+		values_arr[i].resize( FULL_MASK_LEN );
+	
+	if ( !MakeStandardMasks( part_var_power ) ) {
+		cerr << "Error in MakeStandartMasks" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+	}
+	cout << "Correct end of MakeStandartMasks" << endl;
+
+	// send core_len once to every compute process
+	for ( int i=0; i < corecount-1; ++i )
+		MPI_Send( &core_len, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
+
+	double start_time = MPI_Wtime();
 	unsigned next_task_index = 0;
 	
 	// send to all cores (except # 0) tasks from 1st range
@@ -284,7 +346,7 @@ bool MPI_Solver :: ControlProcessSolve( vector< vector<unsigned> > &values_arr )
 		MPI_Send( mask_value,FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 		next_task_index++;
 	}
-
+	
 	unsigned solved_tasks_count = 0;
 	double finding_first_sat_time = 0;
 	// write init info
@@ -381,6 +443,21 @@ bool MPI_Solver :: ComputeProcessSolve( )
 				IsFirstTaskRecieved = true;
 			}
 			MPI_Recv( mask_value, FULL_MASK_LEN, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
+		}
+
+		if ( verbosity > 2 ){
+			cout << "full_mask" << endl;
+			for( unsigned i=0; i<FULL_MASK_LEN; ++i )
+				cout << full_mask[i] << " ";
+			cout << endl;
+			cout << "part_mask" << endl;
+			for( unsigned i=0; i<FULL_MASK_LEN; ++i )
+				cout << part_mask[i] << " ";
+			cout << endl;
+			cout << "mask_value" << endl;
+			for( unsigned i=0; i<FULL_MASK_LEN; ++i )
+				cout << mask_value[i] << " ";
+			cout << endl;
 		}
 		
 		if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index ) ) { 
@@ -522,6 +599,7 @@ void MPI_Solver :: PrintParams( )
 	cout << endl << "IsSolveAll exch_activ is " << IsSolveAll;
 	cout << endl << "max_solving_time "         << max_solving_time;
 	cout << endl << "max_nof_restarts "         << max_nof_restarts;
+	cout << endl;
 }
 
 //---------------------------------------------------------
@@ -534,116 +612,27 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
 
 	IsPredict = false;
-
+	double start_sec = MPI_Wtime( ); // get init time
+	
 	if ( corecount < 2 ) { 
-		printf( "Error. corecount < 2" ); return false; 
+		printf( "Error. corecount < 2" ); MPI_Abort( MPI_COMM_WORLD, 0 );; 
 	}
 
 	if ( rank != 0 ) {
 		if ( !ComputeProcessSolve() ) {
-			cerr << "Error in ComputeProcessSovle" << endl;
-			MPI_Finalize();
+			cerr << "Error in ComputeProcessSovle" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 	}
 	else { // rank == 0
-		double start_sec = 0.0,
-			   final_sec = 0.0,
-			   whole_time_sec = 0.0;
-		start_sec = MPI_Wtime( ); // get init time
-
 		cout << "*** MPI_Solve is running ***" << endl;
 
-		if ( !ReadIntCNF( ) ) { // Read original CNF
-			cout << "Error in ReadIntCNF" << endl; return 1; 
-		}
-
-		if ( !MakeVarChoose( ) ) { 
-			cerr << "Error in MakeVarChoose" << endl; 
-			MPI_Finalize( );
-		}
-
-		int temp_corecount = -1,
-		   max_possible_tasks_count = 0,
-		   process_sat_count = 0,
-		   temp_tasks_count = -1;
-		unsigned part_var_power = 0;
-
-		// get power of 2 that >= corecount
-		// 1 core == control core, hence if corecount == 129, temp_corecount == 128
-		temp_corecount = 1;
-		while ( temp_corecount < ( corecount - 1 ) )
-			temp_corecount <<= 1;
-		// get maximum possible count of tasks, that >= koef_val*corecount
-		max_possible_tasks_count = temp_corecount * koef_val;
-		part_mask_var_count = 0;
-		// get count of part mask variables
-		temp_tasks_count = max_possible_tasks_count;
-		while ( temp_tasks_count > 1 ) {
-			part_mask_var_count++;
-			temp_tasks_count >>= 1;
-		}
-		if ( part_mask_var_count > var_choose_order.size() )
-			part_mask_var_count = var_choose_order.size();
-		cout << "part_mask_var_count " << part_mask_var_count << endl;
-		// change batch size to treshold value if needed
-		if ( var_choose_order.size() - part_mask_var_count > RECOMMEND_BATCH_VAR_COUNT ) {
-			part_mask_var_count = var_choose_order.size() - RECOMMEND_BATCH_VAR_COUNT;
-			cout << "part_mask_var_count changed to " << part_mask_var_count << endl;
-		}
-		if ( part_mask_var_count > MAX_PART_MASK_VAR_COUNT )
-			part_mask_var_count = MAX_PART_MASK_VAR_COUNT;
-		if ( var_choose_order.size() - part_mask_var_count > MAX_BATCH_VAR_COUNT ) {
-			cerr << "Error. var_choose_order.size() - part_mask_var_count > MAX_BATCH_VAR_COUNT" << endl;
-			cerr << var_choose_order.size() - part_mask_var_count << " < " << MAX_BATCH_VAR_COUNT << endl;
-			return false;
-		}
-
-		// get default count of tasks = power of part_mask_var_count
-		part_var_power = ( 1 << part_mask_var_count );
-		// TODO add extended tasks counting
-		all_tasks_count = part_var_power;
-
-		cout << "max_possible_tasks_count is " << max_possible_tasks_count << endl;
-		PrintParams( );
-		
-		cout << "part_var_power is "    << part_var_power    << endl;
-		cout << "all_tasks_count is "   << all_tasks_count   << endl;
-		if ( skip_tasks >= all_tasks_count ) {
-			cerr << "Error. skip_tasks >= all_tasks_count " << endl;
-			cerr << skip_tasks << " >= " << all_tasks_count << endl;
-			return false;
-		}
-		
-		values_arr.resize( all_tasks_count );
-		for( unsigned i = 0; i < values_arr.size(); ++i )
-			values_arr[i].resize( FULL_MASK_LEN );
-		
-		if ( !MakeStandardMasks( part_var_power ) ) {
-			cerr << "Error in MakeStandartMasks" << endl;
-			MPI_Finalize( );
-		}
-		cout << "Correct end of MakeStandartMasks" << endl;
-		
-		if ( (int)all_tasks_count < corecount-1 ) {
-			cerr << "Error. all_tasks_count < corecount-1" << endl;
-			return false;
-		}
-
-		// send core_len once to every compute process
-		for( int i=0; i < corecount-1; ++i )
-			MPI_Send( &core_len,         1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
-
-		if ( !IsPB ) // common CNF mode
-			ControlProcessSolve( values_arr );
+		ControlProcessSolve( );
 		// get time of solving
-		// int final_sec = cpuTimeInSec( ) - start_sec;
-		final_sec = MPI_Wtime( );
-		whole_time_sec = final_sec - start_sec;
+		double whole_time_sec = MPI_Wtime( ) - start_sec;
 		cout << endl << "That took %f seconds" << whole_time_sec << endl;
 		// write time of solving
 		if ( !WriteTimeToFile( whole_time_sec ) ) {
-			cerr << "Error in WriteTimeToFile" << endl;
-			MPI_Finalize( );
+			cerr << "Error in WriteTimeToFile" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 
 		cout << "sat_count " << sat_count << endl;

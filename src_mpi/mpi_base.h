@@ -59,7 +59,7 @@ public:
 	int rank;
 	int corecount;
 	int solver_type;    
-	int koef_val;
+	unsigned koef_val;
 	string schema_type; 
 	unsigned core_len;
 	double start_activity;
