@@ -129,6 +129,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	double start_sec = MPI_Wtime( ); // get init time
 	int int_cur_time = 0, prev_int_cur_time = 0;
 	double get_predict_time;
+	unsigned cur_get_predict_count = 0;
 	// send tasks if needed
 	while ( solved_tasks_count < all_tasks_count ) {
 		for( ; ; ) { // get predict every PREDICT_EVERY_SEC seconds	
@@ -138,8 +139,9 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 			{
 				get_predict_time = MPI_Wtime();
 				prev_int_cur_time = int_cur_time;
-				if ( !GetPredict( ) ) 
-					{ cout << "Error in GetPredict " << endl; return false; }
+				if ( !GetPredict( ) ) { 
+					cout << "Error in GetPredict " << endl; return false; 
+				}
 
 				if ( IsRestartNeeded ) {
 					cout << "Fast exit in ControlProcessPredict cause of IsRestartNeeded" << endl;
@@ -167,10 +169,13 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 					cout << "get_predict_time " << get_predict_time << endl;
 					cout << "predict_every_sec timed to 2. new value " << predict_every_sec << endl;
 				}
-			
-				if ( !WritePredictToFile( all_skip_count, whole_time_sec ) ) {
-					cout << "\n Error in WritePredictToFile" << endl;
-					MPI_Abort( MPI_COMM_WORLD, 0 );
+				
+				if ( cur_get_predict_count++ == 5 ) { // write to file every 5 GetPredict()
+					if ( !WritePredictToFile( all_skip_count, whole_time_sec ) ) {
+						cout << "Error in WritePredictToFile" << endl;
+						MPI_Abort( MPI_COMM_WORLD, 0 );
+					}
+					cur_get_predict_count = 0;
 				}
 			}
 			MPI_Iprobe( MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &iprobe_message, &status );
