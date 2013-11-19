@@ -76,7 +76,10 @@ public:
 	string known_point_file_name;
 	string known_assumptions_file_name;
 
-	// PB input data
+	bool IsPB; //  pseudo Boolean mode. if 0 then common CNF mode
+	int PB_mode; // Pseudo Boolean mode. 1 - inequality mode, 2 - equality mode
+	int best_lower_bound;
+	int upper_bound;
 	int constr_clauses_count;
 	int obj_clauses_count;
 	int obj_vars_count;
@@ -94,10 +97,6 @@ public:
 	vector<int> rslos_lengths;
 
 	int sat_count;
-	bool IsPB; //  pseudo Boolean mode. if 0 then common CNF mode
-	int PB_mode; // Pseudo Boolean mode. 1 - inequality mode, 2 - equality mode
-	int best_lower_bound;
-	int upper_bound;
 	int verbosity;
 	bool IsSolveAll;
 	double max_solving_time; // max time in seconds for solving particular SAT subproblem

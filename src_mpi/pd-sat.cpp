@@ -66,10 +66,9 @@ int main( int argc, char** argv )
 	char *input_cnf_name;
 
 #ifdef _DEBUG
-	TestSolve( );
-	//TestDeepPredict( );
+	//TestSolve( );
+	TestDeepPredict( );
 	//TestSolveQAP( );
-	//TestPredict( );
 	//TestPBSolve( );
 	//TestSATSolve( );
 #endif
@@ -122,8 +121,6 @@ int main( int argc, char** argv )
 			mpi_p.core_len            = myflags.core_len;
 		if ( myflags.cnf_in_set_count != -1 )
 			mpi_p.cnf_in_set_count    = myflags.cnf_in_set_count;
-		if ( myflags.max_sat_problems != -1 )
-			mpi_p.max_sat_problems    = myflags.max_sat_problems;
 		if ( myflags.start_activity != -1 )
 			mpi_p.start_activity = myflags.start_activity;
 		if ( myflags.verbosity > 0 )
@@ -520,67 +517,6 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	return true;
 }
 
-//---------------------------------------------------------
-void TestPredict( )
-{
-// Testing predicter
-	cout << "*** DEBUG MODE" << endl;
-	MPI_Predicter mpi_p;
-
-	mpi_p.input_cnf_name = "D:\\ForCopy\\a5_144_1_64.cnf";
-	//mpi_s.input_cnf_name = "D:\\ForCopy\\test3.cnf";
-
-	vec< vec<Lit> > dummy_vec;
-	unsigned part_mask[FULL_MASK_LEN];
-	unsigned full_mask[FULL_MASK_LEN];
-	unsigned value[FULL_MASK_LEN];
-	for ( unsigned i = 0; i < FULL_MASK_LEN; i++ ) {
-		part_mask[i] = 0;
-		full_mask[i] = 0;
-		value[i] = 0;
-	}
-
-	part_mask[1] = 3;
-	full_mask[1] = 7;
-	value[1] = 5;
-	//mpi_p.MakeAssignsFromMasks( full_mask, part_mask, value, dummy_vec );
-
-	cout << "dummy_vec" << endl;
-	for ( int i = 0; i < dummy_vec.size(); i++ ) {
-		for ( int j=0; j < dummy_vec[i].size(); j++ )
-			cout << dummy_vec[i][j].x << " ";
-		cout << endl;
-	}
-
-	mpi_p.solver_type  = 0;
-	mpi_p.schema_type  = "10";
-	mpi_p.core_len     = 64;
-	mpi_p.predict_from = 25;
-	mpi_p.predict_to   = 31;
-	mpi_p.cnf_in_set_count = 4;
-
-	mpi_p.ReadVarCount( );
-	mpi_p.decomp_set_count = mpi_p.predict_to - mpi_p.predict_from + 1;
-	mpi_p.PrepareForPredict( );
-
-	int process_sat_count = 0;
-	double cnf_time_from_node = 0;
-	
-	/*
-	for ( i = 2; i < mpi_p.decomp_set_count; i++ )
-	{
-		mpi_p.cnf_real_time_arr[i] = 100 * ( 1 << i );
-		mpi_p.cnf_status_arr[i]    = 0;
-	}
-	*/
-
-	mpi_p.GetPredict( );
-
-	//mpi_p.WritePredictToFile( 0 );
-
-	mpi_p.~MPI_Predicter( );
-}
-
 void TestSolve()
 {
 	Solver S;
@@ -659,10 +595,9 @@ void TestDeepPredict( )
 	//mpi_p.AddNewUncheckedArea( bs, sstream );
 	//mpi_p.current_unchecked_area.center = bs;
 	mpi_p.cur_vars_changing = 1;
-	mpi_p.IsFirstPoint = true;
+	mpi_p.IsFirstPoint = false;
 	//mpi_p.schema_type = "bivium_Ending2"
 	mpi_p.deep_predict_cur_var = mpi_p.predict_to;
-	mpi_p.GetDeepPredictTasks( );
 	mpi_p.GetDeepPredictTasks( );
 	mpi_p.cur_vars_changing = 1;
 }

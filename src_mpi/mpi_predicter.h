@@ -94,7 +94,6 @@ public:
 	unchecked_area current_unchecked_area; // for creating list of points for checking
 	// TODO ? vector of unchecked areas where vector of checked must be changed cause of last point 
 	unsigned ts_strategy;
-	unsigned max_sat_problems;
 	double current_predict_start_time;
 	double current_predict_time;
 	double whole_deep_time;
@@ -105,7 +104,6 @@ public:
 	double start_sample_varianse_limit;
 	
 	unsigned cnf_in_set_count;
-	unsigned decomp_set_count;
 	unsigned total_decomp_set_count;
 	unsigned solved_tasks_count;
 	string predict_file_name;
