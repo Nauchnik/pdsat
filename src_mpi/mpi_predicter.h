@@ -42,16 +42,6 @@ struct decomp_set
 
 class MPI_Predicter : public MPI_Base
 {
-private:
-	vector<decomp_set> decomp_set_arr;
-	vector< vector<unsigned> > part_mask_arr;
-	vector< vector<unsigned> > all_values_arr;
-	vector<double> cnf_real_time_arr;
-	vector<char> cnf_status_arr;
-	vector<double> total_var_activity;
-	// array of block sum lengths for mass predict. in fact it is count of vars for paralleling
-	vector<int> sum_block_lens_arr;
-	vector<int> sorted_index_array;
 public:
 	// Constructor/Destructor:
     MPI_Predicter( );
@@ -102,16 +92,6 @@ public:
 	double whole_add_new_unchecked_area_time;
 	int predict_every_sec;
 	double start_sample_varianse_limit;
-	
-	unsigned cnf_in_set_count;
-	unsigned total_decomp_set_count;
-	unsigned solved_tasks_count;
-	string predict_file_name;
-	unsigned record_count;
-	bool IsFirstStage;
-	bool IsRecordUpdated;
-	unsigned max_L2_hamming_distance;
-	unsigned slow_cnf_mask_index;
 
 	bool MPI_Predict( int argc, char **argv );
 	bool ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control );
@@ -137,9 +117,30 @@ public:
 	bool IfSimulatedGranted( double predict_time );
 	bool WritePredictToFile( int all_skip_count, double whole_time_sec );
 
+	unsigned cnf_in_set_count;
+	bool IsFirstStage;
+	unsigned max_L2_hamming_distance;
+
 private:
+	vector<decomp_set> decomp_set_arr;
+	vector< vector<unsigned> > part_mask_arr;
+	vector< vector<unsigned> > all_values_arr;
+	vector<double> cnf_real_time_arr;
+	vector<char> cnf_status_arr;
+	vector<double> total_var_activity;
+	// array of block sum lengths for mass predict. in fact it is count of vars for paralleling
+	vector<int> sum_block_lens_arr;
+	vector<int> sorted_index_array;
+
 	int best_var_num;
 	double best_predict_time;
+
+	unsigned total_decomp_set_count;
+	unsigned solved_tasks_count;
+	string predict_file_name;
+	unsigned record_count;
+	bool IsRecordUpdated;
+	double *var_activity;
 
 	int real_best_var_num;
 	double real_best_predict_time;

@@ -1,7 +1,5 @@
 #include "mpi_predicter.h"
 
-void GetLiteralsFromMasks( unsigned int part_mask[FULL_MASK_LEN], unsigned int value[FULL_MASK_LEN] );
-
 MPI_Predicter :: MPI_Predicter( ) :
 	predict_from           ( 0 ),   
 	predict_to             ( 0 ), 
@@ -13,7 +11,6 @@ MPI_Predicter :: MPI_Predicter( ) :
 	real_best_var_num      ( 0 ),
 	real_best_predict_time ( 0.0 ),
 	block_count         ( 0 ),
-	slow_cnf_mask_index ( 0 ),
 	deep_predict_cur_var( 0 ),
 	deep_predict        ( 6 ),
 	IsRestartNeeded     ( false ),
@@ -189,7 +186,6 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		// then get 1 more mes
 		MPI_Recv( &process_sat_count,  1, MPI_INT,    current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		MPI_Recv( &cnf_time_from_node, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		/*double *var_activity = new double[activity_vec_len];
 		MPI_Recv( var_activity, activity_vec_len, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 
 		for( unsigned i=0; i < total_var_activity.size(); ++i ) {
@@ -197,7 +193,6 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 				for( unsigned j=0; j < total_var_activity.size(); ++j ) // Rescale:
 					total_var_activity[j] *= 1e-100;
 		}
-		delete[] var_activity;*/
 		
 		// skip old message
 		if ( current_status.MPI_TAG < ProcessListNumber ) {
@@ -318,7 +313,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	Solver *S;
 	lbool ret;
 	unsigned *part_mask_prev = new unsigned[FULL_MASK_LEN];
-	double *var_activity = new double[activity_vec_len];
+	var_activity = new double[activity_vec_len];
 	part_mask_prev[0] = 0; // init to make it differ from part_mask
 	bool IsFirstTaskReceived = false;
 	bool IsNewPartMask;
@@ -384,17 +379,6 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			}
 
 			if ( ( verbosity > 2 ) && ( rank == 1 ) ) {
-				cout << "full_mask" << endl;
-				for( unsigned i=0; i<FULL_MASK_LEN; ++i )
-					cout << full_mask[i] << " ";
-				cout << endl;
-				cout << "part_mask" << endl;
-				for( unsigned i=0; i<FULL_MASK_LEN; ++i )
-					cout << part_mask[i] << " ";
-				cout << endl;
-				cout << "mask_value" << endl;
-				for( unsigned i=0; i<FULL_MASK_LEN; ++i )
-					cout << mask_value[i] << " ";
 				cout << endl;
 				cout << "dummy_vec[0] size " << dummy_vec[0].size() << endl;
 				for ( int i=0; i < dummy_vec[0].size(); ++i )
@@ -430,8 +414,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		MPI_Send( &current_task_index, 1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &process_sat_count,  1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &cnf_time_from_node, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
-		//MPI_Send( &var_activity,       1, mpi_var_activity, 0, ProcessListNumber, MPI_COMM_WORLD );
-		//MPI_Send( var_activity, activity_vec_len, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
+		MPI_Send( var_activity, activity_vec_len, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
 	}
 
 	delete[] var_activity;
@@ -439,34 +422,6 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	delete S;
 	MPI_Finalize( );
 	return true;
-}
-
-// ----------------
-void GetLiteralsFromMasks( unsigned *part_mask, unsigned *mask_value )
-{
-// Get onelitetal clauses to make CNF which is hard for solver
-	int k = 0;
-	stringstream sstream;
-	unsigned int cur_var_ind, mask;
-
-	for ( unsigned int i = 1; i < FULL_MASK_LEN; i++ ) {
-		for ( int j = 0; j < UINT_LEN; j++ ){
-			mask = ( 1 << j );
-			if ( part_mask[i] & mask ) {
-				cur_var_ind = ( i - 1 ) * UINT_LEN + j + 1;
-				if ( mask_value[i] & mask )
-					sstream << cur_var_ind;
-				else
-					sstream << "-" << cur_var_ind;
-				sstream << " 0" << endl;
-				k++;
-			}
-		}
-	}
-	ofstream out_file;
-	out_file.open( "literals_slow_cnf", ios :: out );
-	out_file << sstream.rdbuf( );
-	out_file.close();
 }
 
 void MPI_Predicter :: GetInitPoint( )
@@ -924,14 +879,16 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
 	
 	IsPredict = true;
-	if ( corecount < 2 )
-		{ cout << "Error. corecount < 2" << endl; return false; }
+	if ( corecount < 2 ) { 
+		cout << "Error. corecount < 2" << endl; return false; 
+	}
 
 	if ( rank == 0 ) { // control node
 		cout << "MPI_Predict is running " << endl;
 		
-		if ( !ReadIntCNF( ) )
-		{ cout << "Error in ReadIntCNF" << endl; return 1; }
+		if ( !ReadIntCNF( ) ) { 
+			cout << "Error in ReadIntCNF" << endl; return 1; 
+		}
 
 		if ( predict_to > MAX_CORE_LEN ) {
 			cerr << "Warning. predict_to > MAX_PREDICT_TO. Changed to MAX_PREDICT_TO" << endl;
@@ -951,7 +908,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		}
 
 		activity_vec_len = core_len;
-		// array of var activity
+		var_activity = new double[activity_vec_len];
 		total_var_activity.resize( activity_vec_len );
 		//for( auto &x : total_var_activity ) x = 0;
 		for( vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it )
@@ -982,6 +939,8 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "max_L2_hamming_distance " << max_L2_hamming_distance << endl;
 		
 		DeepPredictMain( );
+
+		delete[] var_activity;
 	}
 	else { // if rank != 0
 		if ( !ComputeProcessPredict( ) ) {
@@ -1196,15 +1155,8 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	var_activity_file << record_count << endl;
 	//for( auto &x : total_var_activity )
 	//	var_activity_file << x << " ";
-	if ( verbosity > 2 ) {
-		cout << "total_var_activity" << endl;
-		for( vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it ) {
-			cout << *it << " ";
-			var_activity_file << *it << " ";
-		}
-		cout << endl;
-	}
-	
+	for( vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it )
+		var_activity_file << *it << " ";
 	var_activity_file << endl;
 	
 	graph_file << record_count << " " << best_var_num << " " << best_predict_time << " " 
@@ -1214,16 +1166,14 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 
 	if ( ( IsFirstStage ) && ( !IsFirstPoint ) && ( best_var_num > old_best_var_num ) ) {
 		IsFirstStage = false;
-		//cnf_in_set_count *= 10; // increase power of Monte Carlo samples 
-		//best_predict_time *= 2; // make new theshold
 		cout << "IsFirstStage "      << IsFirstStage      << endl;
 		cout << "best_var_num "      << best_var_num      << endl;
 		cout << "best_predict_time " << best_predict_time << endl;
 		sstream << endl << " *** First stage done ***" << best_predict_time << endl;
 		graph_file << " first stage done";
 	}
-
 	graph_file << endl;
+	
 	graph_file.close();
 	var_activity_file.close();
 }

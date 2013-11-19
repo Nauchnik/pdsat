@@ -77,6 +77,10 @@ bool MPI_Base :: GetMainMasksFromVarChoose( vector<int> &var_choose_order )
 		cout << "part_mask_var_count " << part_mask_var_count << endl;
 		cout << endl;
 	}
+
+	// init masks every launch
+	for ( unsigned i = 0; i < FULL_MASK_LEN; ++i )
+		part_mask[i] = full_mask[i] = 0;
 	
 	unsigned cur_uint_ind, var_index;
 	for ( unsigned i = 0; i < var_choose_order.size(); ++i ) {
