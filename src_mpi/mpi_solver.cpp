@@ -68,9 +68,8 @@ void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, doubl
 	if( cur_problem_state != Interrupted ){
 		if ( cnf_time_from_node < solving_times[0] )
 			solving_times[0] = cnf_time_from_node;
-		if ( cnf_time_from_node > solving_times[1] ) {
+		if ( cnf_time_from_node > solving_times[1] )
 			solving_times[1] = cnf_time_from_node;
-		}
 	}
 	switch( cur_problem_state ){ 
 		case Solved :
@@ -194,6 +193,7 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_
 		total_solving_times[0] = solving_times[0];
 	if ( solving_times[1] > total_solving_times[1] ) // update max time
 		total_solving_times[1] = solving_times[1];
+	// TODO check and fix
 	total_solving_times[2] += solving_times[2] / all_tasks_count; // update median time
 	if ( ( total_solving_times[3] == 0 ) && ( solving_times[3] != 0 ) ) // update sat time
 		total_solving_times[3] = solving_times[3];
