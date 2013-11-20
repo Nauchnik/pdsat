@@ -44,7 +44,8 @@ MPI_Predicter :: MPI_Predicter( ) :
 	IsRecordUpdated ( false ),
 	predict_every_sec ( 2 ),
 	max_L2_hamming_distance ( 2 ),
-	start_sample_varianse_limit ( 0.000000001 )
+	start_sample_varianse_limit ( 0.000000001 ),
+	evaluation_type ( "time" )
 { }
 
 MPI_Predicter :: ~MPI_Predicter( )
@@ -388,7 +389,11 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			
 			cnf_time_from_node = MPI_Wtime( );
 			ret = S->solveLimited( dummy_vec[0] );
-			cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
+			if ( evaluation_type == "time" )
+				cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
+			else if ( evaluation_type == "propagation" )
+				cnf_time_from_node = (double)S->propagations;
+			
 			S->GetActivity( var_activity, activity_vec_len ); // get activity of Solver
 
 			if ( cnf_time_from_node < MIN_SOLVE_TIME ) // TODO. maybe 0 - but why?!
@@ -937,6 +942,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "ts_strategy " << ts_strategy << endl;
 		cout << "IsFirstStage " << IsFirstStage << endl;
 		cout << "max_L2_hamming_distance " << max_L2_hamming_distance << endl;
+		cout << "evaluation_type " << evaluation_type << endl;
 		
 		DeepPredictMain( );
 

@@ -68,6 +68,7 @@ TODO
 // Не запускать ReadCNF в режиме решения
 
 Version 0.96 08.11.2013
+[+] added evaluation of predictions via propagation
 [*] resizing of dummy_vec only if needed in MakeAssignsFromMasks()
 [+] Added RECOMMEND_BATCH_VAR_COUNT = 16. MAX_BATCH_VAR_COUNT changed to 31
 [*] Fixed counting numbers of problems solved on preprocessing in solving mode

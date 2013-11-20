@@ -33,7 +33,7 @@ public:
 					           unsigned sat_count, double finding_first_sat_time );
 	void AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
 		                        double *solving_times );
-		bool SolverRun( Solver *&S, int &process_sat_count, double &cnf_time_from_node, 
+	bool SolverRun( Solver *&S, int &process_sat_count, double &cnf_time_from_node, 
 				    int current_task_index );
 };
 

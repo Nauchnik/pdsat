@@ -46,6 +46,7 @@ struct Flags
 	int max_nof_restarts;
 	int skip_tasks;
 	string rslos_table_name;
+	string evaluation_type;
 };
 
 // prototypes
@@ -141,6 +142,8 @@ int main( int argc, char** argv )
 			mpi_p.max_L2_hamming_distance = myflags.max_L2_hamming_distance;
 		if ( myflags.max_solving_time > 0 )
 			mpi_p.max_solving_time = myflags.max_solving_time;
+		if ( myflags.evaluation_type != "" )
+			mpi_p.evaluation_type = myflags.evaluation_type;
 		mpi_p.IsFirstStage = myflags.IsFirstStage;
 
 		// Predict compute cost
@@ -265,6 +268,7 @@ void WriteUsage( )
 	"\n   -rslos_table - file name to table with possible values of rslos";
 	"\n   -max_nof_restarts - maximum number of restarts";
 	"\n   -skip_tasks - count of already solved tasks";
+	"\n   -eval - type of prediction evaluation {time, propagation}";
 }
 
 //---------------------------------------------------------
@@ -321,6 +325,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.rslos_table_name = "";
 	myflags.max_nof_restarts = 0;
 	myflags.skip_tasks = 0;
+	myflags.evaluation_type = "";
 
 	k = 0;
 
@@ -447,6 +452,8 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			IsSchemaFixed = true;
 			myflags.schema_type = value;
 		}
+		else if ( hasPrefix_String( argv_string, "-eval=", value ) )
+			myflags.evaluation_type = value;
 		else if ( hasPrefix_String( argv_string, "-pb_mode=",             value ) ) {
 			myflags.pb_mode = atoi( value.c_str( ) );
 			if ( myflags.pb_mode > 3 ) myflags.pb_mode = 1;

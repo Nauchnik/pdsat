@@ -51,6 +51,7 @@ public:
 	int predict_to;
 	int proc_count;
 	int block_count;
+	string evaluation_type;
 
 	// deep predict params
 	int deep_diff_decomp_set_count;
