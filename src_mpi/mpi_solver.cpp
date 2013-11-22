@@ -8,11 +8,6 @@ const int    MAX_LINE_LENGTH_2             = 8192;
 const int    MEDIUM_STRING_LEN             = 256;
 const double TRANSP_COAST                  = 0.000001;
 const int    NUM_KEY_BITS                  = 64;
-//const int MAX_VAR_IN_CNF		        = 65536;
-//const int MAX_SIZE_OF_FILE	        = 42949672;
-//const int MAX_CNF_IN_FOLDER		    = 65536;
-//const int MAX_STEP_CNF_COUNT	        = 30;
-//const int LITTLE_STRING_LEN           = 16;
 
 //=============================================================================
 // Constructor/Destructor:
@@ -22,7 +17,8 @@ MPI_Solver :: MPI_Solver( ) :
 	full_mask_tasks_count  ( 0 ),
 	exch_activ			   ( 1 ),
 	skip_tasks             ( 0 ),
-	solving_info_file_name ( "solving_info" )
+	solving_info_file_name ( "solving_info" ),
+	prev_med_time_sum      ( 0 )
 { 
 	solving_times = new double[SOLVING_TIME_LEN];
 	for( unsigned i=0; i < SOLVING_TIME_LEN; ++i )
@@ -193,8 +189,8 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_
 		total_solving_times[0] = solving_times[0];
 	if ( solving_times[1] > total_solving_times[1] ) // update max time
 		total_solving_times[1] = solving_times[1];
-	// TODO check and fix
-	total_solving_times[2] += solving_times[2] / all_tasks_count; // update median time
+	prev_med_time_sum += solving_times[2]; // sum of median time for solved batches
+	total_solving_times[2] = prev_med_time_sum  / solved_tasks_count; // update median time
 	if ( ( total_solving_times[3] == 0 ) && ( solving_times[3] != 0 ) ) // update sat time
 		total_solving_times[3] = solving_times[3];
 	

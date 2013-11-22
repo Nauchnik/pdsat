@@ -20,6 +20,7 @@ public:
 	int exch_activ;
 	unsigned skip_tasks;
 	string solving_info_file_name;
+	double prev_med_time_sum;
 	
 	bool MPI_Solve( int argc, char **argv );
 	bool MPI_ConseqSolve( int argc, char **argv );
