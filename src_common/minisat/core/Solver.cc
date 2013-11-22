@@ -793,6 +793,7 @@ lbool Solver::search(int nof_conflicts)
 	
     for (;;){
         CRef confl = propagate();
+
         if (confl != CRef_Undef){
             // CONFLICT
             conflicts++; conflictC++;
@@ -824,29 +825,6 @@ lbool Solver::search(int nof_conflicts)
                 learntsize_adjust_confl *= learntsize_adjust_inc;
                 learntsize_adjust_cnt    = (int)learntsize_adjust_confl;
                 max_learnts             *= learntsize_inc;
-
-#ifdef _MPI
-#ifndef _DEBUG
-			if ( IsPredict ) {
-				if ( verbosity > 0 ) {
-					std::cout << "try to MPI_Iprobe()" << std::endl;
-					std::cout << "rank " << rank << std::endl;
-				}
-				MPI_Iprobe( 0, 0, MPI_COMM_WORLD, &iprobe_message, &mpi_status );
-				if ( verbosity > 0 )
-					std::cout << "iprobe_message " << iprobe_message << std::endl;
-				if ( iprobe_message ) {
-					MPI_Irecv( &irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request );
-					MPI_Test( &mpi_request, &test_message, &mpi_status );
-					if ( test_message ) {
-						if ( verbosity > 0 )
-							std::cout << "m2.2 interrupted after " << conflicts << " conflicts" << std::endl;
-						return l_False;
-					}
-				}
-			}
-#endif
-#endif
 
 #ifndef _MPI
 				if (verbosity >= 1)
@@ -994,10 +972,31 @@ lbool Solver::solve_()
 		}
 
 #ifdef _MPI
-		if ( ( max_solving_time > 0 ) && ( MPI_Wtime() - start_solving_time > max_solving_time ) ) {
-			 cancelUntil(0);
-			 return l_Undef;
-		}
+#ifndef _DEBUG
+				if ( ( max_solving_time > 0 ) && ( MPI_Wtime() - start_solving_time > max_solving_time ) ) {
+					cancelUntil(0);
+					return l_False;
+				}
+
+				if ( IsPredict ) {
+					if ( verbosity > 0 ) {
+						std::cout << "try to MPI_Iprobe()" << std::endl;
+						std::cout << "rank " << rank << std::endl;
+					}
+					MPI_Iprobe( 0, 0, MPI_COMM_WORLD, &iprobe_message, &mpi_status );
+					if ( verbosity > 0 )
+						std::cout << "iprobe_message " << iprobe_message << std::endl;
+					if ( iprobe_message ) {
+						MPI_Irecv( &irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request );
+						MPI_Test( &mpi_request, &test_message, &mpi_status );
+						if ( test_message ) {
+							if ( verbosity > 0 )
+								std::cout << "m2.2 interrupted after " << conflicts << " conflicts" << std::endl;
+							return l_False;
+						}
+					}
+				}
+#endif
 #endif
 
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
