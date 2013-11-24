@@ -15,21 +15,20 @@ const double TRANSP_COAST                  = 0.000001;
 const int    NUM_KEY_BITS                  = 64;
 const int    MAX_VAR_FOR_RANDOM            = 60;
 const double MIN_STOP_TIME				   = 0.01;
-const int    MAX_DISTANCE_TO_RECORD        = 20;
+const int    MAX_DISTANCE_TO_RECORD        = 10;
 
 struct unchecked_area
 {
 	boost::dynamic_bitset<> center; // point - center of area. i here means variable # i
 	boost::dynamic_bitset<> checked_points; // i here corresponds to checked point with component # i
 	int radius;
-	int center_count; // count of 1s in center
+	double sum_var_activity;
 };
 
 struct checked_area
 {
 	boost::dynamic_bitset<> center; // point - center of area
 	int radius;
-	int center_count;
 };
 
 struct decomp_set
@@ -38,6 +37,12 @@ struct decomp_set
 	int set_var_count; // count of known vars - may be different for every set
 	int cur_var_changing; // how many vars were changed in current decomp_set relatively to last best point
 	bool IsAddedToL2;
+};
+
+struct point_struct
+{
+    unsigned ones_count;
+    unsigned size;
 };
 
 class MPI_Predicter : public MPI_Base

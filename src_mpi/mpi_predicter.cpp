@@ -51,11 +51,11 @@ MPI_Predicter :: MPI_Predicter( ) :
 MPI_Predicter :: ~MPI_Predicter( )
 { }
 
-struct points_class
+// comparison for sorting
+bool compareByActivity(const unchecked_area &a, const unchecked_area &b)
 {
-    unsigned ones_count;
-    unsigned size;
-};
+	return a.sum_var_activity > b.sum_var_activity;
+}
 
 bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control )
 {
@@ -526,8 +526,8 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 	bool IsAdding;
 	unsigned rand_power_value, rand_L2_start_search_index;
 	list<unchecked_area> L2_matches;
-	points_class points_class_cur;
-	vector<points_class> points_class_vec;
+	point_struct point_struct_cur;
+	vector<point_struct> point_struct_vec;
 	vector<int> power_values;
 	unsigned L2_index;
 	unsigned L2_erased_count = 0;
@@ -608,103 +608,116 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 			if ( verbosity > 0 )
 				cout << "finding new unchecked_area" << endl;
 			// find needed criteria and mathces points in neighborhood
-			if ( ts_strategy == 0 ) {
-				min_hamming_distance = (unsigned)core_len;
-				for ( L2_it = L2.begin(); L2_it != L2.end(); L2_it++ ) {
-					xor_bs = (*L2_it).center ^ bs;
-					if ( xor_bs.count() < min_hamming_distance )
-						min_hamming_distance = xor_bs.count(); 
-				    IsAdding = true;
-				    points_class_cur.ones_count = (*L2_it).center.count();
-				    points_class_cur.size = 0;
-				    for ( unsigned i=0; i<points_class_vec.size(); i++ ) {
-						if ( points_class_cur.ones_count == points_class_vec[i].ones_count ) {
-							IsAdding = false;
-						    points_class_vec[i].size++;
-						    break;    
+			switch ( ts_strategy ) 
+			{
+				case 0: 
+					min_hamming_distance = (unsigned)core_len;
+					for ( L2_it = L2.begin(); L2_it != L2.end(); L2_it++ ) {
+						xor_bs = (*L2_it).center ^ bs;
+						if ( xor_bs.count() < min_hamming_distance )
+							min_hamming_distance = xor_bs.count(); 
+						IsAdding = true;
+						point_struct_cur.ones_count = (*L2_it).center.count();
+						point_struct_cur.size = 0;
+						for ( unsigned i=0; i<point_struct_vec.size(); i++ ) {
+							if ( point_struct_cur.ones_count == point_struct_vec[i].ones_count ) {
+								IsAdding = false;
+								point_struct_vec[i].size++;
+								break;    
+							}
 						}
+						if ( IsAdding )
+						point_struct_vec.push_back( point_struct_cur );
 					}
-					if ( IsAdding )
-					points_class_vec.push_back( points_class_cur );
+					sstream << "min hamming distance from L2 " << min_hamming_distance << endl;
+					if ( min_hamming_distance > max_L2_hamming_distance ) {
+						cout << "min_hamming_distance > max_L2_hamming_distance " << endl;
+						cout << min_hamming_distance << " > " << max_L2_hamming_distance << endl;
+						return false;
+					}
+					// remember mathces
+					for ( L2_it = L2.begin(); L2_it != L2.end(); L2_it++ ) {
+						xor_bs = (*L2_it).center ^ bs;
+						if ( xor_bs.count() == min_hamming_distance )
+							L2_matches.push_back( *L2_it );
+					}
+					ofstream ofile("L2_list", ios_base :: out );
+				ofile << "point_struct # : ones_count : size" << endl;
+				for ( unsigned i=0; i < point_struct_vec.size(); i++ )
+					ofile << i << " : " << point_struct_vec[i].ones_count << " : " << point_struct_vec[i].size << endl;
+				ofile.close();
+				point_struct_vec.clear();
+
+				if ( L2_matches.size() == 0 ) {
+					cerr << "Error. L2_matches.size() == 0" << endl; exit(1);
 				}
-				sstream << "min hamming distance from L2 " << min_hamming_distance << endl;
-				if ( min_hamming_distance > max_L2_hamming_distance ) {
-					cout << "min_hamming_distance > max_L2_hamming_distance " << endl;
-					cout << min_hamming_distance << " > " << max_L2_hamming_distance << endl;
-					return false;
-				}
-				// remember mathces
-				for ( L2_it = L2.begin(); L2_it != L2.end(); L2_it++ ) {
-					xor_bs = (*L2_it).center ^ bs;
-					if ( xor_bs.count() == min_hamming_distance )
-						L2_matches.push_back( *L2_it );
-				}
-			}
-			ofstream ofile("L2_list", ios_base :: out );
-			ofile << "points_class_# : ones_count :  size" << endl;
-			for ( unsigned i=0; i < points_class_vec.size(); i++ )
-				ofile << i << " : " << points_class_vec[i].ones_count << " : " << points_class_vec[i].size << endl;
-			ofile.close();
-			points_class_vec.clear();
-			if ( L2_matches.size() == 0 ) {
-				cout << "Error. L2_matches.size() == 0" << endl;
-				exit(1);
-			}
-			if ( verbosity > 0 )
-				cout << "L2_matches.size() " << L2_matches.size() << endl;
-			sstream << "L2_matches.size() " << L2_matches.size() << endl;
-			if ( verbosity > 0 )
-				cout << "L2_matches.size() " << L2_matches.size() << endl;
-			for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
-				IsAdding = true;	
-				for ( unsigned i=0; i < power_values.size(); i++ )
-					if ( (*L2_it).center.count() == power_values[i] ) {
-						IsAdding = false;
-				    	break;    
-				    }
-				if ( IsAdding )
-				power_values.push_back( (*L2_it).center.count() );
-			}
-			rand_L2_start_search_index = uint_rand() % L2_matches.size();
-			rand_power_value           = uint_rand() % power_values.size();
-			L2_index = 0;
-			IsAdding = false;
-			// choose randomly area from randoml class of area center power
-			// start search from random part of L2 list, because random_shuffle() don't work for list
-			for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
-				if ( ( L2_index >= rand_L2_start_search_index ) &&
-				     ( (*L2_it).center.count() == power_values[rand_power_value] )
-					 )
-				{
-					IsAdding = true;
-					current_unchecked_area = *L2_it;
-					break;
-				}
-				L2_index++;
-			}
-			// try to find to another side if we hav not found point
-			if ( !IsAdding ) {
-				L2_index = 0;
+				if ( verbosity > 0 )
+					cout << "L2_matches.size() " << L2_matches.size() << endl;
+				sstream << "L2_matches.size() " << L2_matches.size() << endl;
+				if ( verbosity > 0 )
+					cout << "L2_matches.size() " << L2_matches.size() << endl;
 				for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
-					if ( ( L2_index < rand_L2_start_search_index ) &&
-						 ( (*L2_it).center.count() == power_values[rand_power_value] ) ) 
+					IsAdding = true;	
+					for ( unsigned i=0; i < power_values.size(); i++ )
+						if ( (*L2_it).center.count() == power_values[i] ) {
+							IsAdding = false;
+				    		break;    
+						}
+					if ( IsAdding )
+					power_values.push_back( (*L2_it).center.count() );
+				}
+				rand_L2_start_search_index = uint_rand() % L2_matches.size();
+				rand_power_value           = uint_rand() % power_values.size();
+				L2_index = 0;
+				IsAdding = false;
+				// choose randomly area from randoml class of area center power
+				// start search from random part of L2 list, because random_shuffle() don't work for list
+				for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
+					if ( ( L2_index >= rand_L2_start_search_index ) &&
+						 ( (*L2_it).center.count() == power_values[rand_power_value] )
+						 )
 					{
+						IsAdding = true;
 						current_unchecked_area = *L2_it;
 						break;
 					}
 					L2_index++;
 				}
-			}
-			sstream << "power_values ";
-			for ( unsigned i=0; i<power_values.size(); i++)
-				sstream << power_values[i] << " ";
-			sstream << endl;
-			sstream << "rand_power_value "           << rand_power_value           << endl;
-			sstream << "rand_L2_start_search_index " << rand_L2_start_search_index << endl;
-			sstream << "L2_index "					 << L2_index                   << endl;
+				// try to find to another side if we havn't found point
+				if ( !IsAdding ) {
+					L2_index = 0;
+					for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
+						if ( ( L2_index < rand_L2_start_search_index ) &&
+							 ( (*L2_it).center.count() == power_values[rand_power_value] ) ) 
+						{
+							current_unchecked_area = *L2_it;
+							break;
+						}
+						L2_index++;
+					}
+				}
+				sstream << "power_values ";
+				for ( unsigned i=0; i<power_values.size(); i++)
+					sstream << power_values[i] << " ";
+				sstream << endl;
+				sstream << "rand_power_value "           << rand_power_value           << endl;
+				sstream << "rand_L2_start_search_index " << rand_L2_start_search_index << endl;
+				sstream << "L2_index "					 << L2_index                   << endl;
 
-			power_values.clear();
-			L2_matches.clear();
+				power_values.clear();
+				L2_matches.clear();
+
+				break;
+				/*case 1: // sort areas from L2 by sum of var activities of centers
+					for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
+						for ( unsigned i=0; i < (*L2_it).center.size(); ++i )
+							if ( (*L2_it).center. )
+					}
+					sort( L2.begin(), L2.end(), compareByActivity );
+
+				break;*/
+			}
+
 			if ( verbosity > 0 )
 				cout << "bofore BitsetToIntVec()" << endl;
 
@@ -1672,13 +1685,12 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, strin
 	}
 
 	new_ua.center = point;
-	new_ua.center_count = new_ua.center.count();
 	new_ua.radius = 1;
 	new_ua.checked_points.resize( point.size() );
 
 	for ( L1_it = L1.begin(); L1_it != L1.end(); L1_it++ ) {
 		// necessary condition - points with close count of 1s
-		if ( abs((*L1_it).center_count - new_ua.center_count) <= (*L1_it).radius ) { 
+		if ( abs( (int)(*L1_it).center.count() - (int)new_ua.center.count() ) <= (*L1_it).radius ) { 
 			xor_bs = new_ua.center ^ (*L1_it).center;
 			// sufficient condition - points in radius
 			if ( (int)xor_bs.count() <= (*L1_it).radius ) {
@@ -1696,7 +1708,7 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, strin
 	
 	for ( L2_it = L2.begin(); L2_it != L2.end(); L2_it++ ) {
 		// necessary condition - points with close count of 1s
-		if ( abs((*L2_it).center_count - new_ua.center_count) <= (*L2_it).radius ) { 
+		if ( abs( (int)(*L2_it).center.count() - (int)new_ua.center.count() ) <= (*L2_it).radius ) { 
 			xor_bs = new_ua.center ^ (*L2_it).center;
 			// sufficient condition - points in radius
 			if ( (int)xor_bs.count() <= (*L2_it).radius ) {
@@ -1720,7 +1732,6 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, strin
 		L2_it = vec_it[i];
 		if ( (*L2_it).checked_points.count() == core_len ) {
 			new_ca.center = (*L2_it).center;
-			new_ca.center_count = (*L2_it).center.count();
 			new_ca.radius = (*L2_it).radius;
 			L1.push_back( new_ca );
 			if ( current_unchecked_area.center == (*L2_it).center ) {
