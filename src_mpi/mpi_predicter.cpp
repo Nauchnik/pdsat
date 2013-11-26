@@ -54,7 +54,7 @@ MPI_Predicter :: ~MPI_Predicter( )
 // comparison for sorting
 bool compareByActivity(const unchecked_area &a, const unchecked_area &b)
 {
-	return a.sum_var_activity > b.sum_var_activity;
+	return a.med_var_activity > b.med_var_activity;
 }
 
 bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control )
@@ -650,18 +650,19 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 				case 1: // sort areas from L2 by  median of var activities of centers
 					for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
 						(*L2_it).med_var_activity = 0;
-						for ( unsigned i=0; i < (*L2_it).center.size(); ++i ) {
+						for ( unsigned i=0; i < (*L2_it).center.size(); ++i )
 							if ( (*L2_it).center[i] )
 								(*L2_it).med_var_activity += total_var_activity[i];
-							(*L2_it).med_var_activity /= (*L2_it).center.size();
-						}
+						(*L2_it).med_var_activity /= (*L2_it).center.count();
 					}
 					L2.sort( compareByActivity );
-					sstream << "L2 after sorting. total_var_activity : center.count()";
-					for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it )
-						sstream << (*L2_it).med_var_activity << " : " << (*L2_it).center.count() << endl;
-					current_unchecked_area = (*L2.begin());
-					break;
+					if ( verbosity > 0 ) { 
+						cout << "L2 after sorting. total_var_activity : center.count()";
+						for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it )
+							cout << (*L2_it).med_var_activity << " : " << (*L2_it).center.count() << endl;
+						current_unchecked_area = (*L2.begin());
+						break;
+					}
 			}
 			
 			map<unsigned, unsigned> point_map; // set count of points + count of such points
@@ -674,7 +675,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 					(*point_map_it).second++;
 			}
 			ofstream ofile("L2_list", ios_base :: out );
-			ofile << "point_struct # : ones_count : size" << endl;
+			ofile << "L2 point # : set_count : size" << endl;
 			unsigned k = 1;
 			for ( point_map_it = point_map.begin(); point_map_it != point_map.end(); ++point_map_it )
 				ofile << k++ << " : " << (*point_map_it).first << " : " << (*point_map_it).second << endl;
@@ -1726,8 +1727,8 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, strin
 	if ( !IsExists )*/
 	L2.push_back( new_ua );
 	
-	to_string( new_ua.checked_points, str );
-	sstream << str << endl;
+	//to_string( new_ua.checked_points, str );
+	//sstream << str << endl;
 	if ( ( new_ua.checked_points.count() == 0 ) && ( !IsFirstPoint ) )
 		sstream << "***Error. new_ua.center.count() == 0" << endl;
 	if ( verbosity > 1 )
