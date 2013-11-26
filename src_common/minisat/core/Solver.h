@@ -58,7 +58,8 @@ public:
 	double last_time;
 	int rank;
 	void clearDB();
-	void GetActivity( double *&var_activity, unsigned activity_vec_len );
+	void getActivity( double *&var_activity, unsigned activity_vec_len );
+	int pdsat_verbosity;
 	//void saveState();
 	//void loadState();
 

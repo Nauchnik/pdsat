@@ -16,6 +16,7 @@
 #include <string>
 #include <list>
 #include <vector>
+#include <map>
 #include <ctime>
 #include <cmath>
 #include <algorithm>

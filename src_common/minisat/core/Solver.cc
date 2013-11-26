@@ -124,6 +124,7 @@ Solver::Solver() :
   , max_solving_time   ( 0 )
   , last_time          ( 0 )
   , rank               ( -1 )
+  , pdsat_verbosity    ( 0 )
 {}
 
 
@@ -145,11 +146,16 @@ void Solver::clearDB()
     checkGarbage();
 }
 
-void Solver :: GetActivity( double *&var_activity, unsigned activity_vec_len )
+void Solver :: getActivity( double *&var_activity, unsigned activity_vec_len )
 {
 	unsigned size = activity_vec_len < nVars() ? activity_vec_len : nVars();
 	for( unsigned i=0; i < size; ++i )
 		var_activity[i] = activity[i];
+	for( unsigned i=0; i < size; ++i ) {
+		if( var_activity[i] > 1e10 )
+			for( unsigned j=0; j < size; ++j ) // Rescale:
+				var_activity[j] *= 1e-10;
+	}
 }
 
 // save state of Solver
@@ -777,16 +783,6 @@ lbool Solver::search(int nof_conflicts)
     vec<Lit>    learnt_clause;
     starts++;
 
-#ifdef _MPI
-#ifndef _DEBUG
-	MPI_Status mpi_status;
-	MPI_Request mpi_request;
-	int iprobe_message,
-		irecv_message,
-		test_message;
-#endif
-#endif
-
 	// BOINC mode - added to speedup solving Latin square problems
 	if ( ( max_nof_restarts ) && ( !core_len ) ) 
 		reduceDB();
@@ -826,13 +822,11 @@ lbool Solver::search(int nof_conflicts)
                 learntsize_adjust_cnt    = (int)learntsize_adjust_confl;
                 max_learnts             *= learntsize_inc;
 
-#ifndef _MPI
 				if (verbosity >= 1)
                     printf("| %9d | %7d %8d %8d | %8d %8d %6.0f | %6.3f %% |\n", 
                            (int)conflicts, 
                            (int)dec_vars - (trail_lim.size() == 0 ? trail.size() : trail_lim[0]), nClauses(), (int)clauses_literals, 
                            (int)max_learnts, nLearnts(), (double)learnts_literals/nLearnts(), progressEstimate()*100);
-#endif
 			}
 
         }else{
@@ -944,14 +938,12 @@ lbool Solver::solve_()
     learntsize_adjust_cnt     = (int)learntsize_adjust_confl;
     lbool   status            = l_Undef;
 
-#ifndef _MPI
     if (verbosity >= 1){
         printf("============================[ Search Statistics ]==============================\n");
         printf("| Conflicts |          ORIGINAL         |          LEARNT          | Progress |\n");
         printf("|           |    Vars  Clauses Literals |    Limit  Clauses Lit/Cl |          |\n");
         printf("===============================================================================\n");
     }
-#endif
 
 	// added
 	if ( ( core_len <= nVars() ) && ( start_activity > 0 ) )
@@ -959,6 +951,11 @@ lbool Solver::solve_()
 			varBumpActivity(v, start_activity);
 #ifdef _MPI
 #ifndef _DEBUG
+	MPI_Status mpi_status;
+	MPI_Request mpi_request;
+	int iprobe_message,
+		irecv_message,
+		test_message;
 	start_solving_time = MPI_Wtime();
 #endif
 #endif
@@ -979,18 +976,18 @@ lbool Solver::solve_()
 				}
 
 				if ( IsPredict ) {
-					if ( verbosity > 0 ) {
+					if ( pdsat_verbosity > 0 ) {
 						std::cout << "try to MPI_Iprobe()" << std::endl;
 						std::cout << "rank " << rank << std::endl;
 					}
 					MPI_Iprobe( 0, 0, MPI_COMM_WORLD, &iprobe_message, &mpi_status );
-					if ( verbosity > 0 )
+					if ( pdsat_verbosity > 0 )
 						std::cout << "iprobe_message " << iprobe_message << std::endl;
 					if ( iprobe_message ) {
 						MPI_Irecv( &irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request );
 						MPI_Test( &mpi_request, &test_message, &mpi_status );
 						if ( test_message ) {
-							if ( verbosity > 0 )
+							if ( pdsat_verbosity > 0 )
 								std::cout << "m2.2 interrupted after " << conflicts << " conflicts" << std::endl;
 							return l_False;
 						}
@@ -1005,10 +1002,8 @@ lbool Solver::solve_()
         curr_restarts++;
     }
 
-#ifndef _MPI
     if (verbosity >= 1)
         printf("===============================================================================\n");
-#endif
 
     if (status == l_True){
         // Extend & copy model:
@@ -1121,10 +1116,8 @@ void Solver::toDimacs(FILE* f, const vec<Lit>& assumps)
     for (int i = 0; i < clauses.size(); i++)
         toDimacs(f, ca[clauses[i]], map, max);
 
-#ifndef _MPI
     if (verbosity > 0)
         printf("Wrote DIMACS with %d variables and %d clauses.\n", max, cnt);
-#endif
 }
 
 
@@ -1199,10 +1192,8 @@ void Solver::garbageCollect()
     ClauseAllocator to(ca.size() - ca.wasted()); 
 
     relocAll(to);
-#ifndef _MPI
     if (verbosity >= 2)
         printf("|  Garbage collection:   %12d bytes => %12d bytes             |\n", 
                ca.size()*ClauseAllocator::Unit_Size, to.size()*ClauseAllocator::Unit_Size);
-#endif
     to.moveTo(ca);
 }

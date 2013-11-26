@@ -91,7 +91,7 @@ vector<int> Addit_func :: BitsetToIntVec( boost::dynamic_bitset<> &bs )
 {
 	vector<int> vec_int;
 	for ( unsigned i=0; i<bs.size(); i++ )
-		if ( (int)bs[i] == 1 )
+		if ( bs[i] )
 			vec_int.push_back( (int)(i+1) );
 	return vec_int;
 }

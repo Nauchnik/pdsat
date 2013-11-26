@@ -190,9 +190,9 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		MPI_Recv( var_activity, activity_vec_len, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 
 		for( unsigned i=0; i < total_var_activity.size(); ++i ) {
-			if( ( total_var_activity[i] += var_activity[i] ) > 1e100 )
+			if( ( total_var_activity[i] += var_activity[i] ) > 1e50 )
 				for( unsigned j=0; j < total_var_activity.size(); ++j ) // Rescale:
-					total_var_activity[j] *= 1e-100;
+					total_var_activity[j] *= 1e-50;
 		}
 		
 		// skip old message
@@ -355,7 +355,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 					delete S;
 				S = new Solver();
 				S->addProblem(cnf);
-				S->verbosity        = verbosity;
+				S->pdsat_verbosity  = verbosity;
 				S->IsPredict        = IsPredict;
 				S->core_len         = core_len;
 				S->start_activity   = start_activity;
@@ -394,8 +394,8 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			else if ( evaluation_type == "propagation" )
 				cnf_time_from_node = (double)S->propagations;
 			
-			S->GetActivity( var_activity, activity_vec_len ); // get activity of Solver
-
+			S->getActivity( var_activity, activity_vec_len ); // get activity of Solver
+			
 			if ( cnf_time_from_node < MIN_SOLVE_TIME ) // TODO. maybe 0 - but why?!
 				cnf_time_from_node = MIN_SOLVE_TIME;
 			if ( ret == l_True ) {
@@ -439,99 +439,50 @@ void MPI_Predicter :: GetInitPoint( )
 	stringstream temp_sstream, sstream;
 	known_point_file.open( known_point_file_name.c_str(), ios_base::in );
 
-	if ( known_point_file.is_open() ) { 
-		string str;
-		while ( getline( known_point_file, str ) ) {
-			temp_sstream.str( "" ); temp_sstream.clear( );
-			temp_sstream << str;
-			temp_sstream >> str; // get first word
-			if ( str == "best_predict_time" )
-				temp_sstream >> best_predict_time;
-			if ( str == "cur_temperature" )
-				temp_sstream >> cur_temperature;
-
-			if ( cur_temperature == 0 )
-				cur_temperature = best_predict_time * start_temperature_koef;
-
-			if ( best_predict_time > 0.0 )
-				IsFirstPoint = false; // don't compute known point
-
-			best_var_num = var_choose_order.size(); 
-			// Report about known point once
-			sstream << "*** Known init point" << endl << endl;
-			sstream << "IsFirstPoint " << IsFirstPoint << endl;
-			sstream << "best_predict_time " << best_predict_time << " s" << endl;
-			sstream << "cur_temperature " << cur_temperature << endl;
-			sstream << "best_var_num " << best_var_num << endl;
-			sstream << "best_var_choose_order" << endl;
-			for ( unsigned i = 0; i < var_choose_order.size(); i++ )
-				sstream << var_choose_order[i] << " ";
-			sstream << endl;
-
-			deep_predict_file.open( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
-			deep_predict_file << sstream.rdbuf();
-			deep_predict_file.close();
-		}
-
+	if ( known_point_file.is_open() ) { // get known point
+		int ival;
+		while ( known_point_file >> ival )
+			var_choose_order.push_back( ival );
+		best_var_num = var_choose_order.size(); 
 		known_point_file.close();
-		/*if ( deep_predict == 3 ) {
-		    if ( best_var_num < predict_from ) {
-				cout << "Error. best_var_num < predict_from " << endl;
-				cout << best_var_num << " < " << predict_from << endl;
-				MPI_Abort( MPI_COMM_WORLD, 0 );
-		    }
-		    if ( best_var_num < predict_to ) {
-				cout << "Warning. best_var_num < predict_to " << endl;
-				cout << "predict_to changed to best_var_num" << endl;
-				predict_to = best_var_num;
-		    }
-		    else if ( best_var_num > predict_to ) {
-				cout << "Warning. best_var_num < predict_to " << endl;
-				cout << "predict_to changed to best_var_num" << endl;
-				predict_to = best_var_num;
-		    }
-		}*/
 	}
-	
-	if ( schema_type != "rand" ) { // if schema_type was set by user
-		full_mask_var_count = predict_to;
-		MakeVarChoose();
-	}
-	else { // if no file with known point then get random init point
-		vector <unsigned> rand_arr;
-		if ( core_len < ( unsigned )predict_to ) {
-		    core_len = predict_to;
-			cout << "core_len changed to predict_to : " << endl;
-			cout << core_len << "changed to " << predict_to << endl;
+	else {
+		sstream << "schema_type " << schema_type << endl;
+		if ( schema_type != "rand" ) { // if schema_type was set by user
+			full_mask_var_count = predict_to;
+			MakeVarChoose();
 		}
-		MakeUniqueRandArr( rand_arr, predict_to, core_len );
-		cout << "random init point" << endl;
-		var_choose_order.resize( predict_to );
-		for ( unsigned i = 0; i < var_choose_order.size(); i++ )
-			var_choose_order[i] = ( int )rand_arr[i] + 1;
-		
-		rand_arr.clear();
+		else { // if no file with known point then get random init point
+			vector<unsigned> rand_arr;
+			if ( core_len < ( unsigned )predict_to ) {
+				core_len = predict_to;
+				cout << "core_len changed to predict_to : " << endl;
+				cout << core_len << "changed to " << predict_to << endl;
+			}
+			MakeUniqueRandArr( rand_arr, predict_to, core_len );
+			cout << "random init point" << endl;
+			var_choose_order.resize( predict_to );
+			for ( unsigned i = 0; i < var_choose_order.size(); i++ )
+				var_choose_order[i] = ( int )rand_arr[i] + 1;
+			rand_arr.clear();
+		}
 	}
 	sort( var_choose_order.begin(), var_choose_order.end() );
-	cout << "var_choose_order" << endl;
+	sstream << "var_choose_order" << endl;
 	for ( unsigned i = 0; i < var_choose_order.size(); i++ )
-		cout << var_choose_order[i] << " ";
-	cout << endl << endl;
+		sstream << var_choose_order[i] << " ";
+	sstream << endl << endl;
+	deep_predict_file.open( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
+	deep_predict_file << sstream.rdbuf();
+	deep_predict_file.close();
 }
 
 bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream ) 
 {
 	string str;
-	unsigned max_checked, min_hamming_distance;
-	bool IsAdding;
-	unsigned rand_power_value, rand_L2_start_search_index;
-	list<unchecked_area> L2_matches;
-	point_struct point_struct_cur;
-	vector<point_struct> point_struct_vec;
-	vector<int> power_values;
-	unsigned L2_index;
-	unsigned L2_erased_count = 0;
 	unsigned L1_erased_count = 0;
+	unsigned L2_erased_count = 0;
+	list<unchecked_area> :: iterator L2_it;
 
 	if ( IsRecordUpdated ) {
 		sstream << endl << "---Record Updated---" << endl;
@@ -549,7 +500,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 		bool IsCorrectAddingArea = false;
 		// remove points from L2 that too far from record
 		// and find L2 for current record
-		list<unchecked_area> :: iterator L2_it = L2.begin();
+		L2_it = L2.begin();
 		while ( L2_it != L2.end() ) {
 			if ( ( (*L2_it).center.count() > bs.count() ) && 
 				 ( (*L2_it).center.count() - bs.count() > MAX_DISTANCE_TO_RECORD )
@@ -593,41 +544,36 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 	} else { // if there were no better points in checked area
 		sstream << endl << "---Record not updated---" << endl;
 		checked_area c_a;
-		list<unchecked_area>::iterator L2_it;
 		if ( cur_vars_changing < max_var_deep_predict ) {
 			cur_vars_changing++; // try larger Hamming distance
 			return true;
 		}
 		if ( deep_predict == 6 ) { // tabu search mode
 			boost::dynamic_bitset<> bs, xor_bs;
+			unsigned min_hamming_distance;
+			bool IsAdding;
+			unsigned rand_power_value, rand_L2_start_search_index;
+			list<unchecked_area> L2_matches;
+			point_struct point_struct_cur;
+			vector<point_struct> point_struct_vec;
+			vector<int> power_values;
+			unsigned L2_index;
 			bs = IntVecToBitset( core_len, real_var_choose_order );
-			max_checked = 0;
+			unsigned max_checked = 0;
 			// find new unchecked area
 			sstream << "finding new unchecked_area" << endl;
 			sstream << "ts_strategy " << ts_strategy << endl;
 			if ( verbosity > 0 )
 				cout << "finding new unchecked_area" << endl;
-			// find needed criteria and mathces points in neighborhood
-			switch ( ts_strategy ) 
-			{
-				case 0: 
+			// find needed criteria and mathced points in neighborhood
+			switch ( ts_strategy ) {
+				case 0:
+					// find min hamming distance of points in L2 from current record point
 					min_hamming_distance = (unsigned)core_len;
-					for ( L2_it = L2.begin(); L2_it != L2.end(); L2_it++ ) {
+					for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
 						xor_bs = (*L2_it).center ^ bs;
 						if ( xor_bs.count() < min_hamming_distance )
-							min_hamming_distance = xor_bs.count(); 
-						IsAdding = true;
-						point_struct_cur.ones_count = (*L2_it).center.count();
-						point_struct_cur.size = 0;
-						for ( unsigned i=0; i<point_struct_vec.size(); i++ ) {
-							if ( point_struct_cur.ones_count == point_struct_vec[i].ones_count ) {
-								IsAdding = false;
-								point_struct_vec[i].size++;
-								break;    
-							}
-						}
-						if ( IsAdding )
-						point_struct_vec.push_back( point_struct_cur );
+							min_hamming_distance = xor_bs.count();
 					}
 					sstream << "min hamming distance from L2 " << min_hamming_distance << endl;
 					if ( min_hamming_distance > max_L2_hamming_distance ) {
@@ -635,89 +581,106 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 						cout << min_hamming_distance << " > " << max_L2_hamming_distance << endl;
 						return false;
 					}
-					// remember mathces
+					// remember matches
 					for ( L2_it = L2.begin(); L2_it != L2.end(); L2_it++ ) {
 						xor_bs = (*L2_it).center ^ bs;
 						if ( xor_bs.count() == min_hamming_distance )
 							L2_matches.push_back( *L2_it );
 					}
-					ofstream ofile("L2_list", ios_base :: out );
-				ofile << "point_struct # : ones_count : size" << endl;
-				for ( unsigned i=0; i < point_struct_vec.size(); i++ )
-					ofile << i << " : " << point_struct_vec[i].ones_count << " : " << point_struct_vec[i].size << endl;
-				ofile.close();
-				point_struct_vec.clear();
 
-				if ( L2_matches.size() == 0 ) {
-					cerr << "Error. L2_matches.size() == 0" << endl; exit(1);
-				}
-				if ( verbosity > 0 )
-					cout << "L2_matches.size() " << L2_matches.size() << endl;
-				sstream << "L2_matches.size() " << L2_matches.size() << endl;
-				if ( verbosity > 0 )
-					cout << "L2_matches.size() " << L2_matches.size() << endl;
-				for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
-					IsAdding = true;	
-					for ( unsigned i=0; i < power_values.size(); i++ )
-						if ( (*L2_it).center.count() == power_values[i] ) {
-							IsAdding = false;
-				    		break;    
-						}
-					if ( IsAdding )
-					power_values.push_back( (*L2_it).center.count() );
-				}
-				rand_L2_start_search_index = uint_rand() % L2_matches.size();
-				rand_power_value           = uint_rand() % power_values.size();
-				L2_index = 0;
-				IsAdding = false;
-				// choose randomly area from randoml class of area center power
-				// start search from random part of L2 list, because random_shuffle() don't work for list
-				for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
-					if ( ( L2_index >= rand_L2_start_search_index ) &&
-						 ( (*L2_it).center.count() == power_values[rand_power_value] )
-						 )
-					{
-						IsAdding = true;
-						current_unchecked_area = *L2_it;
-						break;
+					if ( L2_matches.size() == 0 ) {
+						cerr << "Error. L2_matches.size() == 0" << endl; exit(1);
 					}
-					L2_index++;
-				}
-				// try to find to another side if we havn't found point
-				if ( !IsAdding ) {
-					L2_index = 0;
+					if ( verbosity > 0 )
+						cout << "L2_matches.size() " << L2_matches.size() << endl;
+					sstream << "L2_matches.size() " << L2_matches.size() << endl;
+					if ( verbosity > 0 )
+						cout << "L2_matches.size() " << L2_matches.size() << endl;
 					for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
-						if ( ( L2_index < rand_L2_start_search_index ) &&
-							 ( (*L2_it).center.count() == power_values[rand_power_value] ) ) 
+						IsAdding = true;	
+						for ( unsigned i=0; i < power_values.size(); i++ )
+							if ( (*L2_it).center.count() == power_values[i] ) {
+								IsAdding = false;
+				    			break;    
+							}
+						if ( IsAdding )
+						power_values.push_back( (*L2_it).center.count() );
+					}
+					rand_L2_start_search_index = uint_rand() % L2_matches.size();
+					rand_power_value           = uint_rand() % power_values.size();
+					L2_index = 0;
+					IsAdding = false;
+					// choose randomly area from randoml class of area center power
+					// start search from random part of L2 list, because random_shuffle() don't work for list
+					for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
+						if ( ( L2_index >= rand_L2_start_search_index ) &&
+							 ( (*L2_it).center.count() == power_values[rand_power_value] )
+							 )
 						{
+							IsAdding = true;
 							current_unchecked_area = *L2_it;
 							break;
 						}
 						L2_index++;
 					}
-				}
-				sstream << "power_values ";
-				for ( unsigned i=0; i<power_values.size(); i++)
-					sstream << power_values[i] << " ";
-				sstream << endl;
-				sstream << "rand_power_value "           << rand_power_value           << endl;
-				sstream << "rand_L2_start_search_index " << rand_L2_start_search_index << endl;
-				sstream << "L2_index "					 << L2_index                   << endl;
-
-				power_values.clear();
-				L2_matches.clear();
-
-				break;
-				/*case 1: // sort areas from L2 by sum of var activities of centers
-					for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
-						for ( unsigned i=0; i < (*L2_it).center.size(); ++i )
-							if ( (*L2_it).center. )
+					// try to find to another side if we havn't found point
+					if ( !IsAdding ) {
+						L2_index = 0;
+						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it ) {
+							if ( ( L2_index < rand_L2_start_search_index ) &&
+								 ( (*L2_it).center.count() == power_values[rand_power_value] ) ) 
+							{
+								current_unchecked_area = *L2_it;
+								break;
+							}
+							L2_index++;
+						}
 					}
-					sort( L2.begin(), L2.end(), compareByActivity );
+					sstream << "power_values ";
+					for ( unsigned i=0; i<power_values.size(); i++)
+						sstream << power_values[i] << " ";
+					sstream << endl;
+					sstream << "rand_power_value "           << rand_power_value           << endl;
+					sstream << "rand_L2_start_search_index " << rand_L2_start_search_index << endl;
+					sstream << "L2_index "					 << L2_index                   << endl;
 
-				break;*/
+					power_values.clear();
+					L2_matches.clear();
+					break;
+				case 1: // sort areas from L2 by  median of var activities of centers
+					for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
+						(*L2_it).med_var_activity = 0;
+						for ( unsigned i=0; i < (*L2_it).center.size(); ++i ) {
+							if ( (*L2_it).center[i] )
+								(*L2_it).med_var_activity += total_var_activity[i];
+							(*L2_it).med_var_activity /= (*L2_it).center.size();
+						}
+					}
+					L2.sort( compareByActivity );
+					sstream << "L2 after sorting. total_var_activity : center.count()";
+					for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it )
+						sstream << (*L2_it).med_var_activity << " : " << (*L2_it).center.count() << endl;
+					current_unchecked_area = (*L2.begin());
+					break;
 			}
-
+			
+			map<unsigned, unsigned> point_map; // set count of points + count of such points
+			map<unsigned, unsigned> :: iterator point_map_it;
+			for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ){
+				point_map_it = point_map.find( (*L2_it).center.count() );
+				if ( point_map_it == point_map.end() )
+					point_map.insert( pair<unsigned,unsigned>( (*L2_it).center.count(), 1) );
+				else
+					(*point_map_it).second++;
+			}
+			ofstream ofile("L2_list", ios_base :: out );
+			ofile << "point_struct # : ones_count : size" << endl;
+			unsigned k = 1;
+			for ( point_map_it = point_map.begin(); point_map_it != point_map.end(); ++point_map_it )
+				ofile << k++ << " : " << (*point_map_it).first << " : " << (*point_map_it).second << endl;
+			ofile.close();
+			point_map.clear();
+			
 			if ( verbosity > 0 )
 				cout << "bofore BitsetToIntVec()" << endl;
 

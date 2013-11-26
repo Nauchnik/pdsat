@@ -22,7 +22,7 @@ struct unchecked_area
 	boost::dynamic_bitset<> center; // point - center of area. i here means variable # i
 	boost::dynamic_bitset<> checked_points; // i here corresponds to checked point with component # i
 	int radius;
-	double sum_var_activity;
+	double med_var_activity;
 };
 
 struct checked_area

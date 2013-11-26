@@ -67,7 +67,11 @@ TODO
 // В режиме прогнозирования отправлять part_mask только когда начинается новая выборка
 // Не запускать ReadCNF в режиме решения
 
-Version 0.96 08.11.2013
+Version 0.97 26.11.2013
+[+] Added ts_strategy == 1 : based on summation of total var activities
+[*] Checking stop-messsages in Minisat moved from search() to solve_ to speed up
+
+Version 0.96 20.11.2013
 [*] MAX_DISTANCE_TO_RECORD changed from 20 to 10
 [+] added evaluation of predictions via propagation
 [*] resizing of dummy_vec only if needed in MakeAssignsFromMasks()
