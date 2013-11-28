@@ -565,37 +565,36 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 			sstream << "ts_strategy " << ts_strategy << endl;
 			if ( verbosity > 0 )
 				cout << "finding new unchecked_area" << endl;
+			// find min hamming distance of points in L2 from current record point
+			min_hamming_distance = (unsigned)core_len;
+			for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
+				xor_bs = (*L2_it).center ^ bs;
+				if ( xor_bs.count() < min_hamming_distance )
+					min_hamming_distance = xor_bs.count();
+			}
+			sstream << "min hamming distance from L2 " << min_hamming_distance << endl;
+			if ( min_hamming_distance > max_L2_hamming_distance ) {
+				cout << "min_hamming_distance > max_L2_hamming_distance " << endl;
+				cout << min_hamming_distance << " > " << max_L2_hamming_distance << endl;
+				return false;
+			}
+			// remember matches
+			for ( L2_it = L2.begin(); L2_it != L2.end(); L2_it++ ) {
+				xor_bs = (*L2_it).center ^ bs;
+				if ( xor_bs.count() == min_hamming_distance )
+					L2_matches.push_back( *L2_it );
+			}
+			
+			if ( L2_matches.size() == 0 ) {
+				cerr << "Error. L2_matches.size() == 0" << endl; exit(1);
+			}
+			if ( verbosity > 0 )
+				cout << "L2_matches.size() " << L2_matches.size() << endl;
+			sstream << "L2_matches.size() " << L2_matches.size() << endl;
+			
 			// find needed criteria and mathced points in neighborhood
 			switch ( ts_strategy ) {
 				case 0:
-					// find min hamming distance of points in L2 from current record point
-					min_hamming_distance = (unsigned)core_len;
-					for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
-						xor_bs = (*L2_it).center ^ bs;
-						if ( xor_bs.count() < min_hamming_distance )
-							min_hamming_distance = xor_bs.count();
-					}
-					sstream << "min hamming distance from L2 " << min_hamming_distance << endl;
-					if ( min_hamming_distance > max_L2_hamming_distance ) {
-						cout << "min_hamming_distance > max_L2_hamming_distance " << endl;
-						cout << min_hamming_distance << " > " << max_L2_hamming_distance << endl;
-						return false;
-					}
-					// remember matches
-					for ( L2_it = L2.begin(); L2_it != L2.end(); L2_it++ ) {
-						xor_bs = (*L2_it).center ^ bs;
-						if ( xor_bs.count() == min_hamming_distance )
-							L2_matches.push_back( *L2_it );
-					}
-
-					if ( L2_matches.size() == 0 ) {
-						cerr << "Error. L2_matches.size() == 0" << endl; exit(1);
-					}
-					if ( verbosity > 0 )
-						cout << "L2_matches.size() " << L2_matches.size() << endl;
-					sstream << "L2_matches.size() " << L2_matches.size() << endl;
-					if ( verbosity > 0 )
-						cout << "L2_matches.size() " << L2_matches.size() << endl;
 					for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
 						IsAdding = true;	
 						for ( unsigned i=0; i < power_values.size(); i++ )
@@ -643,28 +642,27 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 					sstream << "rand_power_value "           << rand_power_value           << endl;
 					sstream << "rand_L2_start_search_index " << rand_L2_start_search_index << endl;
 					sstream << "L2_index "					 << L2_index                   << endl;
-
 					power_values.clear();
-					L2_matches.clear();
 					break;
 				case 1: // sort areas from L2 by  median of var activities of centers
-					for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
+					for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it ) {
 						(*L2_it).med_var_activity = 0;
 						for ( unsigned i=0; i < (*L2_it).center.size(); ++i )
 							if ( (*L2_it).center[i] )
 								(*L2_it).med_var_activity += total_var_activity[i];
 						(*L2_it).med_var_activity /= (*L2_it).center.count();
 					}
-					L2.sort( compareByActivity );
+					L2_matches.sort( compareByActivity );
 					if ( verbosity > 0 ) { 
 						cout << "L2 after sorting. total_var_activity : center.count()";
-						for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it )
+						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it )
 							cout << (*L2_it).med_var_activity << " : " << (*L2_it).center.count() << endl;
-						current_unchecked_area = (*L2.begin());
+						current_unchecked_area = (*L2_matches.begin());
 						break;
 					}
 			}
 			
+			L2_matches.clear();
 			map<unsigned, unsigned> point_map; // set count of points + count of such points
 			map<unsigned, unsigned> :: iterator point_map_it;
 			for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ){
