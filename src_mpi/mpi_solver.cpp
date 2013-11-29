@@ -322,8 +322,10 @@ bool MPI_Solver :: ControlProcessSolve( )
 	cout << "Correct end of MakeStandartMasks" << endl;
 
 	// send core_len once to every compute process
-	for ( int i=0; i < corecount-1; ++i )
-		MPI_Send( &core_len, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
+	for ( int i=0; i < corecount-1; ++i ) {
+		MPI_Send( &core_len,                 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &assumptions_string_count, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
+	}
 
 	double start_time = MPI_Wtime();
 	unsigned next_task_index = 0;
@@ -398,8 +400,10 @@ bool MPI_Solver :: ControlProcessSolve( )
 bool MPI_Solver :: ComputeProcessSolve( )
 {
 	MPI_Status status;
-	MPI_Recv( &core_len, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
+	MPI_Recv( &core_len,                 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
+	MPI_Recv( &assumptions_string_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
 	cout << "Received core_len " << core_len << endl;
+	cout << "Received assumptions_string_count " << assumptions_string_count << endl;
 
 	minisat22_wrapper m22_wrapper;
 	Problem cnf;

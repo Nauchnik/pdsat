@@ -129,7 +129,6 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 {
 	ifstream in;
 	string str;
-	//in.open( rslos_table_name.c_str() );
 	in.open( known_assumptions_file_name.c_str() );
 	if ( !in.is_open() ) {
 		cerr << "Error. !in.is_open(). file name " << known_assumptions_file_name << endl;
@@ -182,14 +181,8 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 			if ( str[intval] == '1' ) {
 				dummy_vec[i].push( mkLit( cur_var_ind ) );
 				//cout << cur_var_ind << " ";
-			} else {
+			} else 
 				dummy_vec[i].push( ~mkLit( cur_var_ind ) );
-				//cout << "-" << cur_var_ind << " ";
-			}
-			/*if ( k == keybit_count - 1 ) {
-				rslos_num++;
-				k = 0;
-			} else k++;*/
 		}
 	}
 	in.close();
@@ -310,17 +303,6 @@ bool MPI_Base :: MakeVarChoose( )
 	string str;
 	stringstream sstream;
 	int val;
-
-	ifstream known_assumptions_file( known_assumptions_file_name.c_str() );
-	if ( known_assumptions_file.is_open() ) {
-		IsFileAssumptions = true;
-		string str;
-		while ( getline( known_assumptions_file, str ) ) {
-			if ( str.size() > 1 ) // skip empty strings
-			assumptions_string_count++;
-		}
-		known_assumptions_file.close();
-	}
 	
 	// if file with decomposition set exists
 	ifstream known_point_file( known_point_file_name.c_str() );
@@ -334,21 +316,30 @@ bool MPI_Base :: MakeVarChoose( )
 		known_point_file.close();
 		schema_type = "known_point";
 	}
-	
-	if ( ( schema_type == "rslos_end" ) && ( rslos_lengths.size() > 0 ) ) {
-		IsFileAssumptions = true;
-		known_assumptions_file_name = rslos_table_name;
-		cout << "schema_type " << schema_type << endl;
-		int keybit_table = 4; // TODO change to variable
-		int prev_lengths_sum = 0;
-		full_mask_var_count = rslos_lengths.size() * keybit_table; 
-		for ( unsigned i=0; i < rslos_lengths.size(); ++i ) {
-			for ( int j=0; j < keybit_table; ++j )
-				var_choose_order.push_back( prev_lengths_sum + rslos_lengths[i] - j );
-			prev_lengths_sum += rslos_lengths[i];
-		}
-	}
 
+	ifstream known_assumptions_file( known_assumptions_file_name.c_str() );
+	if ( known_assumptions_file.is_open() ) {
+		cout << "known_assumptions_file" << endl;
+		if ( schema_type != "known_point" ) {
+			cerr << "schema_type != known_point" << endl;
+			return false;
+		}
+		IsFileAssumptions = true;
+		string str;
+		while ( getline( known_assumptions_file, str ) ) {
+			if ( str.size() == 0 ) // skip empty strings
+				continue;
+			if ( str.size() == var_choose_order.size() )
+				assumptions_string_count++;
+			else {
+				cerr << "str.size() != var_choose_order.size()" << endl;
+				return false;
+			}
+		}
+		cout << "assumptions_string_count " << assumptions_string_count << endl;
+		known_assumptions_file.close();
+	}
+	
 	cout << "full_mask_var_count " << full_mask_var_count << endl;
 	var_choose_order.resize( full_mask_var_count );
 
@@ -388,97 +379,6 @@ bool MPI_Base :: MakeVarChoose( )
 			var_choose_order[k++] = i + 19 + 1;
 		for ( unsigned i = 0; i < 11; i++ )
 			var_choose_order[k++] = i + 41 + 1;
-	}
-	else if ( schema_type == "2" ) {
-			// Literal count
-			// init before sorting
-			for ( unsigned  i = 0; i < core_len; i++ )
-				var_choose_order[i] = i + 1;
-			var_literal_count_weights = new unsigned[core_len];
-			for ( unsigned i = 0; i < core_len; i++ )
-				var_literal_count_weights[i] = lits_clause_lengths[i*2] + lits_clause_lengths[i*2 + 1];
-			/*for ( i = 0; i < core_len; i++ )
-				cout << var_literal_count_weights[i] << endl;
-			cout << endl;*/
-			/*for ( int i = core_len - 1; i > -1 ; --i) // bubble sort
-				for ( int j = 0; j < i; j++ )
-					if ( var_literal_count_weights[j] < var_literal_count_weights[j + 1] ) {
-						tmp = var_literal_count_weights[j];
-						var_literal_count_weights[j] = var_literal_count_weights[j + 1];
-						var_literal_count_weights[j + 1] = tmp;
-						tmp = var_choose_order[j];
-						var_choose_order[j] = var_choose_order[j + 1];
-						var_choose_order[j + 1] = tmp;
-					}*/
-			/*cout << "var_literal_count_weights" << endl;
-			for ( i = 0; i < core_len; i++ )
-				cout << var_literal_count_weights[i] << " ";
-			cout << endl;*/
-			delete[] var_literal_count_weights;
-		}
-	else if ( schema_type == "3" ) { // Jeroslaw-Wang heruistic, sum(1/2^len(clauses))
-			// init before sorting
-			for ( unsigned i = 0; i < core_len; i++ )
-				var_choose_order[i] = i + 1;
-			var_jeroslaw_count_weights = new double[core_len];
-
-			for ( unsigned i = 0; i < core_len; i++ ) {
-				var_jeroslaw_count_weights[i] = 0;
-				for ( unsigned j = 0; j < lits_clause_lengths[i*2]; j++ ) // sum for positiv literal
-					var_jeroslaw_count_weights[i] += 1/( pow( ( double)2, clause_lengths[lits_clause_array[i*2][j]] ) );
-				for ( unsigned j = 0; j < lits_clause_lengths[i*2 + 1]; j++ ) // // sum for negative literal
-					var_jeroslaw_count_weights[i] += 1/( pow( ( double)2, clause_lengths[lits_clause_array[i*2 + 1][j]] ) );
-			}
-
-			/*for ( int i = core_len - 1; i > -1 ; --i) // bubble sort
-				for ( int j = 0; j < i; j++)
-					if ( var_jeroslaw_count_weights[j] < var_jeroslaw_count_weights[j + 1] ) {
-						double_tmp = var_jeroslaw_count_weights[j];
-						var_jeroslaw_count_weights[j] = var_jeroslaw_count_weights[j + 1];
-						var_jeroslaw_count_weights[j + 1] = double_tmp;
-						tmp = var_choose_order[j];
-						var_choose_order[j] = var_choose_order[j + 1];
-						var_choose_order[j + 1] = tmp;
-					}*/
-
-			delete[] var_jeroslaw_count_weights;
-	}
-	else if ( schema_type == "4" ) {
-	// Implicant count heruistic, for z =  count of literals that are not in same clause
-			// init before sorting
-			for ( unsigned i = 0; i < core_len; i++ )
-				var_choose_order[i] = i + 1;
-			var_implicant_count_weights = new unsigned[core_len];
-			
-			for ( unsigned i = 0; i < core_len; i++ ) { // sum for positiv literal
-				var_implicant_count_weights[i] = lit_count - 1; // minus contrar literal
-				for ( unsigned j = 0; j < lits_clause_lengths[i*2]; j++ ) // for all clauses which has literal # (i + 1)*2
-					var_implicant_count_weights[i] -= clause_lengths[lits_clause_array[i*2][j]];
-			}
-
-			for ( unsigned i = 0; i < core_len; i++ ) // sum for negativ literal
-			{
-				var_implicant_count_weights[i] += lit_count - 1; // minus contrar literal
-				for ( unsigned j = 0; j < lits_clause_lengths[i*2 + 1]; j++ ) // for all clauses which has literal # (i + 1)*2 + 1
-					var_implicant_count_weights[i] -= clause_lengths[lits_clause_array[i*2 + 1][j]];
-			}
-
-			/*cout << "var_implicant_count_weights_weights" << endl;
-			for ( i = 0; i < core_len; i++ )
-				cout << var_implicant_count_weights[i] << " ";
-			cout << endl;*/
-
-			/*for ( int i = core_len - 1; i > -1 ; --i) // bubble sort
-				for ( int j = 0; j < i; j++)
-					if ( var_implicant_count_weights[j] < var_implicant_count_weights[j + 1] ) {
-						tmp = var_implicant_count_weights[j];
-						var_implicant_count_weights[j] = var_implicant_count_weights[j + 1];
-						var_implicant_count_weights[j + 1] = tmp;
-						tmp = var_choose_order[j];
-						var_choose_order[j] = var_choose_order[j + 1];
-						var_choose_order[j + 1] = tmp;
-					}*/
-			delete[] var_implicant_count_weights;
 	}
 
 	sort( var_choose_order.begin(), var_choose_order.end() );
