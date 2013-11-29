@@ -132,6 +132,7 @@ private:
 	vector< vector<unsigned> > part_mask_arr;
 	vector< vector<unsigned> > all_values_arr;
 	vector<double> cnf_real_time_arr;
+	vector<int> cnf_prepr_arr;
 	vector<char> cnf_status_arr;
 	vector<double> total_var_activity;
 	// array of block sum lengths for mass predict. in fact it is count of vars for paralleling

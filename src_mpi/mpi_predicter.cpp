@@ -84,6 +84,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	unsigned cur_task_index = 0; 
 	unsigned part_mask_index = 0;
 	unsigned bit_count;
+	int IsSolvedOnPreprocessing;
 
 	// send to all cores (except # 0) first tasks and then go to 2nd phase - for every resulted node send new task
 	for ( int i = 0; i < corecount-1; ++i ) {	
@@ -181,14 +182,15 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		} // for( ; ; )
 		
 		// recieve from core message about solved task    
-		MPI_Recv( &current_task_index, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status ); 
+		MPI_Recv( &current_task_index,         1, MPI_INT,    MPI_ANY_SOURCE,            MPI_ANY_TAG, MPI_COMM_WORLD, &status ); 
 		// if 1st message from core # i then get 2nd message from that core
 		current_status = status;
 		// then get 1 more mes
-		MPI_Recv( &process_sat_count,  1, MPI_INT,    current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		MPI_Recv( &cnf_time_from_node, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		MPI_Recv( &process_sat_count,          1, MPI_INT,    current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		MPI_Recv( &cnf_time_from_node,         1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		MPI_Recv( &IsSolvedOnPreprocessing,    1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		MPI_Recv( var_activity, activity_vec_len, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-
+		
 		for( unsigned i=0; i < total_var_activity.size(); ++i ) {
 			if( ( total_var_activity[i] += var_activity[i] ) > 1e50 )
 				for( unsigned j=0; j < total_var_activity.size(); ++j ) // Rescale:
@@ -207,13 +209,14 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 
 		// SAT-problem was solved
 		cnf_real_time_arr[current_task_index] = cnf_time_from_node; // real time of solving
+		cnf_prepr_arr[current_task_index] = IsSolvedOnPreprocessing;
 		
-		if ( process_sat_count ) {
+		if ( process_sat_count == 1 ) {
 			total_sat_count += process_sat_count;
 			cout << "total_sat_count " << total_sat_count << endl;
 			cnf_status_arr[current_task_index] = 3; // status of CNF is SAT
 		}
-		else {
+		else if ( process_sat_count == 0 ) {
 			if ( cnf_status_arr[current_task_index] == 0 ) // if status of CNF is not STOPPED
 				cnf_status_arr[current_task_index] = 2; // then status of CNF is UNSAT
 		}
@@ -319,6 +322,8 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	bool IsFirstTaskReceived = false;
 	bool IsNewPartMask;
 	int process_sat_count;
+	uint64_t prev_starts, prev_conflicts, prev_decisions;
+	int IsSolvedOnPreprocessing;
 	
 	for (;;) {		
 		do // get index of current task missing stop-messages
@@ -387,12 +392,18 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 				cout << endl;
 			}
 			
+			prev_starts    = S->starts;
+			prev_conflicts = S->conflicts;
+			prev_decisions = S->decisions;
+			IsSolvedOnPreprocessing = 0;
 			cnf_time_from_node = MPI_Wtime( );
 			ret = S->solveLimited( dummy_vec[0] );
 			if ( evaluation_type == "time" )
 				cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
 			else if ( evaluation_type == "propagation" )
 				cnf_time_from_node = (double)S->propagations;
+			if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) && ( S->decisions == prev_decisions ) )
+				IsSolvedOnPreprocessing = 1;  // solved by BCP
 			
 			S->getActivity( var_activity, activity_vec_len ); // get activity of Solver
 			
@@ -419,6 +430,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		MPI_Send( &current_task_index, 1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &process_sat_count,  1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &cnf_time_from_node, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
+		MPI_Send( &IsSolvedOnPreprocessing, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( var_activity, activity_vec_len, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
 	}
 
@@ -657,9 +669,9 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 						cout << "L2 after sorting. total_var_activity : center.count()";
 						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it )
 							cout << (*L2_it).med_var_activity << " : " << (*L2_it).center.count() << endl;
-						current_unchecked_area = (*L2_matches.begin());
-						break;
 					}
+					current_unchecked_area = (*L2_matches.begin());
+						break;
 			}
 			
 			L2_matches.clear();
@@ -674,9 +686,10 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 			}
 			ofstream ofile("L2_list", ios_base :: out );
 			ofile << "L2 point # : set_count : size" << endl;
+			map<unsigned, unsigned> :: reverse_iterator point_map_rit;
 			unsigned k = 1;
-			for ( point_map_it = point_map.begin(); point_map_it != point_map.end(); ++point_map_it )
-				ofile << k++ << " : " << (*point_map_it).first << " : " << (*point_map_it).second << endl;
+			for ( point_map_rit = point_map.rbegin(); point_map_rit != point_map.rend(); ++point_map_rit )
+				ofile << k++ << " : " << (*point_map_rit).first << " : " << (*point_map_rit).second << endl;
 			ofile.close();
 			point_map.clear();
 			
@@ -995,11 +1008,13 @@ bool MPI_Predicter :: PrepareForPredict( )
 	cnf_start_time_arr.resize( all_tasks_count );
 	// array of real time of CNF solving
 	cnf_real_time_arr.resize( all_tasks_count );
+	cnf_prepr_arr.resize( all_tasks_count );
 
 	for( unsigned i = 0; i < all_tasks_count; i++ ) {
 		cnf_status_arr[i]     = 0; // status WAIT
 		cnf_start_time_arr[i] = 0.0;
 		cnf_real_time_arr[i]  = 0.0;
+		cnf_prepr_arr[i] = 0;
 	}
 
 	// sum times
@@ -1394,7 +1409,7 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 		sample_variance = 0;
 		sstream.str( "" );
 		sstream.clear();
-		sstream << "\n ";
+		sstream << endl << " ";
 
 		if ( deep_predict )
 			sstream << decomp_set_arr[i].set_var_count;
@@ -1414,7 +1429,7 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 		med_cnf_time = 0;
 		// prepare start min and max values
 		bool IsFirstNonNullFinded = false;
-		unsigned count1 = 0, count2 = 0, count3 = 0, count4 = 0, count5 = 0, count6 = 0, count7 = 0;
+		unsigned count0 = 0, count1 = 0, count2 = 0, count3 = 0, count4 = 0, count5 = 0, count6 = 0, count7 = 0;
 		for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; ++j ) {
 			if ( cnf_status_arr[j] <= 1 ) // skip unsolved and stopped
 				continue;
@@ -1428,7 +1443,8 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 			if ( cnf_real_time_arr[j] > max_cnf_time ) {
 				max_cnf_time = cnf_real_time_arr[j];
 			}
-			if      ( cnf_real_time_arr[j] < 0.01 ) count1++;
+			if ( cnf_prepr_arr[j] )                 count0++;
+			else if ( cnf_real_time_arr[j] < 0.01 ) count1++;
 			else if ( cnf_real_time_arr[j] < 0.1  ) count2++;
 			else if ( cnf_real_time_arr[j] < 1    ) count3++;
 			else if ( cnf_real_time_arr[j] < 10   ) count4++;
@@ -1437,7 +1453,7 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 			else count7++;
 		}
 		
-		// compute sample_variance
+		// compute sample_variancse
 		if ( solved_cnf_count_arr[i] ) {
 			med_cnf_time /= solved_cnf_count_arr[i];
 			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ ) {
@@ -1476,6 +1492,7 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 		sstream << " skipped " << skipped_cnf_count_arr[i];
 		sstream << " solved "  << solved_cnf_count_arr[i];
 		
+		sstream << " prepr: "       << count0;
 		sstream << " (0, 0.01): "   << count1;
 		sstream << " (0.01, 0.1): " << count2;
 		sstream << " (0.1, 1): "    << count3;
