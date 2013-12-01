@@ -37,6 +37,7 @@ struct decomp_set
 	int set_var_count; // count of known vars - may be different for every set
 	int cur_var_changing; // how many vars were changed in current decomp_set relatively to last best point
 	bool IsAddedToL2;
+	double med_var_activity;
 };
 
 struct point_struct

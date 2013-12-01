@@ -52,7 +52,12 @@ MPI_Predicter :: ~MPI_Predicter( )
 { }
 
 // comparison for sorting
-bool compareByActivity(const unchecked_area &a, const unchecked_area &b)
+bool ua_compareByActivity(const unchecked_area &a, const unchecked_area &b)
+{
+	return a.med_var_activity > b.med_var_activity;
+}
+
+bool ds_compareByActivity(const decomp_set &a, const decomp_set &b)
 {
 	return a.med_var_activity > b.med_var_activity;
 }
@@ -657,6 +662,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 					power_values.clear();
 					break;
 				case 1: // sort areas from L2 by  median of var activities of centers
+					// update activity of points from L2
 					for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it ) {
 						(*L2_it).med_var_activity = 0;
 						for ( unsigned i=0; i < (*L2_it).center.size(); ++i )
@@ -664,14 +670,14 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 								(*L2_it).med_var_activity += total_var_activity[i];
 						(*L2_it).med_var_activity /= (*L2_it).center.count();
 					}
-					L2_matches.sort( compareByActivity );
+					L2_matches.sort( ua_compareByActivity );
 					if ( verbosity > 0 ) { 
 						cout << "L2 after sorting. total_var_activity : center.count()";
 						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it )
 							cout << (*L2_it).med_var_activity << " : " << (*L2_it).center.count() << endl;
 					}
 					current_unchecked_area = (*L2_matches.begin());
-						break;
+					break;
 			}
 			
 			L2_matches.clear();
@@ -1755,7 +1761,6 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, strin
 bool MPI_Predicter :: GetDeepPredictTasks( )
 {
 // Make tasks for checking neighbours of current point
-
 	// var_choose_order - current best decomosition (point)
 	cout << endl << "*** GetDeepPredictTasks" << endl;
 	cout << "global_deep_point_index " << global_deep_point_index << endl;
@@ -1806,7 +1811,6 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 			else if ( deep_predict != 6 )
 				GetNewHammingPoint( var_choose_order, cur_vars_changing, cur_var_count, combinations[cur_index],
 									new_var_choose_order );
-
 			if ( deep_predict == 6 ) {
 				if ( current_unchecked_area.checked_points[cur_index] == 1 ) {
 					current_skipped++;
@@ -1827,11 +1831,24 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 		d_s.IsAddedToL2      = false;
 		decomp_set_arr.push_back( d_s ); // add new decomp set
 	} // for ( int i = 0; i < decomp_set_count; i++ )
-	random_shuffle( decomp_set_arr.begin(), decomp_set_arr.end() ); // shuffle to erase not noly first variables in decomp set
 
-	if ( verbosity > 0 )
-		cout << "after decomp_set_arr creating" << endl;
-
+	// sort decomp sets by activity
+	vector<decomp_set> :: iterator dec_it;
+	vector<int> :: iterator vec_it;
+	for ( dec_it = decomp_set_arr.begin(); dec_it != decomp_set_arr.end(); ++dec_it ) {
+		(*dec_it).med_var_activity = 0;
+		for ( vec_it = (*dec_it).var_choose_order.begin(); vec_it != (*dec_it).var_choose_order.end(); ++vec_it )
+			(*dec_it).med_var_activity += total_var_activity[ (*vec_it) - 1 ];
+		(*dec_it).med_var_activity /= (*dec_it).var_choose_order.size();
+	}
+	sort( decomp_set_arr.begin(), decomp_set_arr.end(), ds_compareByActivity );
+	
+	if ( verbosity > 0 ) {
+		cout << "decomp_set_arr activity" << endl;
+		for ( dec_it = decomp_set_arr.begin(); dec_it != decomp_set_arr.end(); ++dec_it )
+			cout << (*dec_it).med_var_activity << endl;
+	}
+	
 	global_skipped_points_count += current_skipped;
 
 	// Common for all procedures of getting deep tasks
@@ -1886,7 +1903,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 		// get current part_mask
 		part_mask_var_count = full_mask_var_count = decomp_set_arr[i].set_var_count;
 		if ( !GetMainMasksFromVarChoose( decomp_set_arr[i].var_choose_order ) ) { 
-			cout << "Error in GetMainMasksFromVarChoose" << endl; return false; 
+			cerr << "Error in GetMainMasksFromVarChoose" << endl; return false; 
 		}
 		for ( unsigned j = 0; j < FULL_MASK_LEN; ++j )
 			part_mask_arr[all_values_arr_index][j] = part_mask[j];
