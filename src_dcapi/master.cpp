@@ -47,6 +47,7 @@ static int running_wus;
 char *dcapi_config_file_name = NULL;
 char *master_config_file_name = NULL;
 char *wu_id_file_name = NULL; // id of wu for additional creation
+char *pass_file_name = NULL;
 bool IsTasksFile;
 
 // Command line options
@@ -62,7 +63,7 @@ struct config_params {
 	int total_wus;
 	int created_wus;
 	int skip_values;
-	vector< vector<int>> known_values_vec;
+	vector< vector<int> > known_values_vec;
 };
 
 static void print_help(const char *prog);
@@ -79,7 +80,8 @@ static const struct option longopts[] =
 {
 	{ "dcapi_config",	 required_argument, NULL, 'c' },
 	{ "master_config",   required_argument, NULL, 'm' },
-	{ "master_config",   optional_argument, NULL, 'w' },
+	{ "wu_id",           optional_argument, NULL, 'w' },
+	{ "pass",            optional_argument, NULL, 'p' },
 	{ "help",	         no_argument,		NULL, 'h' },
 	{ NULL }
 };
@@ -92,7 +94,7 @@ int main( int argc, char *argv[] )
 	string str;
 	IsTasksFile= false;
 
-	while ( ( c = getopt_long( argc, argv, "c:m:w:h", longopts, NULL ) ) != -1 ) {
+	while ( ( c = getopt_long( argc, argv, "c:m:w:p:h", longopts, NULL ) ) != -1 ) {
 		switch ( c ) {
 			case 'c':
 				dcapi_config_file_name = optarg;
@@ -102,6 +104,9 @@ int main( int argc, char *argv[] )
 				break;
 			case 'w':
 				wu_id_file_name = optarg;
+				break;
+			case 'p':
+				pass_file_name = optarg;
 				break;
 			case 'h':
 				print_help( argv[0] );
@@ -169,7 +174,7 @@ static void print_help(const char *prog)
 	if (p)
 		prog = p;
 
-	printf("Usage: %s {-c|--config} <dcapi_config file> (-m|--master_config) <master_config_file>\n", prog);
+	printf("Usage: %s {-c|--config} <dcapi_config file> (-m|--master_config) <master_config_file> -p <login-passw file> \n", prog);
 	printf("Available options:\n");
 	printf("\t-c <file>, --config <file>\tUse the specified dcapi config. file\n");
 	printf("\t-h, --help\t\t\tThis help text\n");
@@ -418,8 +423,8 @@ void create_wus( latin_square &ls, stringstream &config_sstream, config_params &
 	if ( config_p.known_values_vec.size() > 0 )
 		ls.known_values_vec = config_p.known_values_vec;
 
-	ls.Make_Permutations_n_k( );
-	cout << "Make_Permutations_n_k() done" << endl;
+	ls.MakeLatinValues();
+	cout << "MakeLatinValue() done" << endl;
 
 	if ( IsTasksFile ) {
 		int assumption_index;
@@ -523,9 +528,13 @@ void create_wus( latin_square &ls, stringstream &config_sstream, config_params &
 		if ( config_p.known_values_vec.size() > 0 ) {
 			master_config_file << "known_values" << endl;
 			for ( unsigned i=0; i < config_p.known_values_vec.size(); ++i ) {
-				master_config_file << config_p.known_values_vec[i];
+				for ( unsigned j=0; j < config_p.known_values_vec[i].size(); ++j ) {
+					master_config_file << config_p.known_values_vec[i][j];
+					if ( j != config_p.known_values_vec[i].size() - 1 )
+						master_config_file << " ";
+				}
 				if ( i != config_p.known_values_vec.size() - 1 )
-					master_config_file << " ";
+					master_config_file << endl;
 			}
 		}
 		master_config_file.close();
@@ -630,21 +639,28 @@ void add_result_to_file( string output_filename, char *tag, char *id )
 void GetCountOfUnsentWUs( int &unsent_count )
 {
 	char *host = "localhost";
-    char *db = "boinc_pdsat";
+    char *db;
 	char *user;
     char *pass;
 	MYSQL *conn;
 	
-	ifstream pass_file("pass");
+	ifstream pass_file;
+	pass_file.open( pass_file_name );
 	if ( !pass_file.is_open() ) {
 		cerr << "psswd_file not open" << endl;
-		exit(1)
+		exit(1);
 	}
 	string str;
 	getline( pass_file, str );
-	user = str.c_str();
+	db = new char[str.length() + 1];
+	strcpy( db, str.c_str() );
 	getline( pass_file, str );
-	pass = str.c_str();
+	user = new char[str.length() + 1];
+	strcpy( user, str.c_str() );
+	getline( pass_file, str );
+	pass = new char[str.length() + 1];
+	strcpy( pass, str.c_str() );
+	cout << "db "   << db   << endl;
 	cout << "user " << user << endl;
 	cout << "pass " << pass << endl;
 	
@@ -652,11 +668,16 @@ void GetCountOfUnsentWUs( int &unsent_count )
 	if(conn == NULL)
 		cerr << "Error: can't create MySQL-descriptor\n";
 
-	if(!mysql_real_connect(conn, host, user, pass, db, 0, NULL, 0))
-		cerr << "Error: can't connect to MySQL server\n";
+	if(!mysql_real_connect(conn, host, user, pass, db, 0, NULL, 0)) {
+		cerr << "Error: can't connect to MySQL server" << endl;
+		exit(1);
+	}
+	delete[] db;
+	delete[] user;
+	delete[] pass;
 
 	vector< vector<stringstream *> > result_vec;
-	string str = "SELECT COUNT(*) FROM workunit WHERE id IN(SELECT workunitid FROM result WHERE server_state = 2)";
+	str = "SELECT COUNT(*) FROM workunit WHERE id IN(SELECT workunitid FROM result WHERE server_state = 2)";
 	cout << str << endl;
 
 	if ( ProcessQuery( conn, str, result_vec ) ) {

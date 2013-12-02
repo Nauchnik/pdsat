@@ -416,8 +416,10 @@ bool latin_square :: IsPossibleValue( vector<char> cur_vec )
 	vector< vector< vector<char> > > add_values;
 	known_rows.resize( rows_count - 1 );
 	add_values.resize( rows_count - 1 );
-	for ( auto &x : add_values )
-		x.resize( 1 );
+	//for ( auto &x : add_values )
+	//	x.resize( 1 );
+	for( unsigned i=0; i < add_values.size(); ++i )
+		add_values[i].resize( 1 );
 	// fill first possible value for every row
 	for ( unsigned i=0; i < known_rows.size(); i++ ) {
 		known_rows[i].resize( K );
@@ -437,8 +439,8 @@ bool latin_square :: IsPossibleValue( vector<char> cur_vec )
 			add_values[i].push_back( vec_ch );
 	}
 	vector<int> index_arr;
-	vector<vector<char>> cur_cartesian;
-	vector<vector<char>> cur_row_vecs;
+	vector< vector<char> > cur_cartesian;
+	vector< vector<char> > cur_row_vecs;
 	cur_row_vecs.resize( rows_count-1 );
 	for( unsigned i=0; i < cur_row_vecs.size(); ++i ){
 		cur_row_vecs[i] = known_rows[i];
@@ -572,21 +574,24 @@ void latin_square :: MakeLatinValues( )
 	final_values_size = ( max_final_values_size < max_values_len ) ? max_final_values_size : max_values_len;
 	cout << "max final values size " << final_values_size << endl;
 	
-	vector<vector<char>> row_set;
+	vector< vector<char> > row_set;
 	vector<char> cur_vec;
 	cur_vec.resize( (rows_count-1)*K );
 	final_values_index = 0;
 	values_checked = 0;
 	unsigned impossible_count=0;
 	vector<int> index_arr;
-	unsigned i;
+	unsigned k;
 	while( next_cartesian( row_values, index_arr, row_set ) ){
 		if ( ( skip_values ) && ( values_checked <= skip_values ) ) // skip some values
 			continue;
-		i = 0;
-		for( auto &x : row_set )
-			for( auto &y : x )
-				cur_vec[i++] = y;
+		//for( auto &x : row_set )
+		//	for( auto &y : x )
+		//		cur_vec[i++] = y;
+		k=0;
+		for( unsigned i=0; i < row_set.size(); ++i )
+			for( unsigned j=0; j < row_set[i].size(); ++j )
+				cur_vec[k++] = row_set[i][j];
 		if ( IsPossibleValue( cur_vec ) ) {
 			final_values.push_back( cur_vec );
 			if( final_values.size() % 100000 == 0 ) {
