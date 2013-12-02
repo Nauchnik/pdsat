@@ -1,8 +1,8 @@
 CPP = g++
 SRC_COMMON = ../src_common/
-MINISAT = ../src_common/minisat2-2_Jan2013/
+BOOST = ../../
 MYSQL = /usr/include/mysql
-INCDIRS  = -I${SRC_COMMON} -I${MINISAT} -I${MYSQL}
+INCDIRS  = -I${SRC_COMMON} -I${MYSQL} -I${BOOST}
 
 CPP_DEBUG_FLAGS = -O0 -DDEBUG_ALL -g ${INCDIRS}
 CPP_RELEASE_FLAGS = -O2 -D NDEBUG -D __STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS ${INCDIRS} 
@@ -20,14 +20,14 @@ debug: pdsat-master
 pdsat-master: master.o minisat22_wrapper.o latin_squares.o addit_func.o Solver.o System.o Options.o
 	${CPP} ${CPPFLAGS} master.o minisat22_wrapper.o latin_squares.o addit_func.o Solver.o System.o Options.o -o pdsat-master ${DCAPI_MASTER_LIBS} ${DCAPI_MASTER_FLAGS}
 	
-Options.o: ../src_common/minisat2-2_Jan2013/minisat/utils/Options.cc
-	${CPP} ${CPPFLAGS} ../src_common/minisat2-2_Jan2013/minisat/utils/Options.cc -c
+Options.o: ../src_common/minisat/utils/Options.cc
+	${CPP} ${CPPFLAGS} ../src_common/minisat/utils/Options.cc -c
 	
-System.o: ../src_common/minisat2-2_Jan2013/minisat/utils/System.cc
-	${CPP} ${CPPFLAGS} ../src_common/minisat2-2_Jan2013/minisat/utils/System.cc -c
+System.o: ../src_common/minisat/utils/System.cc
+	${CPP} ${CPPFLAGS} ../src_common/minisat/utils/System.cc -c
 
-Solver.o: ../src_common/minisat2-2_Jan2013/minisat/core/Solver.cc
-	${CPP} ${CPPFLAGS} ../src_common/minisat2-2_Jan2013/minisat/core/Solver.cc -c
+Solver.o: ../src_common/minisat/core/Solver.cc
+	${CPP} ${CPPFLAGS} ../src_common/minisat/core/Solver.cc -c
 
 minisat22_wrapper.o: ../src_common/minisat22_wrapper.cpp
 	${CPP} ${CPPFLAGS} ../src_common/minisat22_wrapper.cpp -c

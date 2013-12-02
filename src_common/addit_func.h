@@ -34,10 +34,10 @@ bool next_cartesian( vector<T> &vii, vector<int> &index_arr, T &cur_vi )
 {
 	if( index_arr.size() == 0 ) { // init
 		index_arr.resize( vii.size() );
-		for( vector<int> :: iterator it = index_arr.begin(); it != index_arr.end(); ++it )
-			*it = 0
 		//for( auto &x : index_arr )
 		//	x = 0;
+		for( vector<int> :: iterator it = index_arr.begin(); it != index_arr.end(); ++it )
+			*it = 0;
 	}
 	if( index_arr[0] == -1 )
 		return false;

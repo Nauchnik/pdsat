@@ -515,7 +515,7 @@ void latin_square :: Show_Values()
 // ---------- //
 void latin_square :: MakeLatinValues( )
 {
-	vector<vector<vector<char>>> row_values;
+	vector< vector< vector<char> > > row_values;
 	vector<char> first_row, cur_row;
 	vector< vector<int> > permutations;
 	
@@ -525,29 +525,40 @@ void latin_square :: MakeLatinValues( )
 		first_row[i] = (char)i + '0';
 	cur_row.resize(K);
 	
-	// Make possible values for every row
-	// 1st known row 1..N has row_index 0 and '0' in diagonal cell
-	if ( known_values_vec.size() < K ) {
-		MakePermutations(N, K, permutations); // make pemutations once
-		for( unsigned i=0; i < rows_count-1; ++i ) {
-			for ( vector<vector<int>> :: iterator it=permutations.begin(); it != permutations.end(); ++it ) {
-				for ( unsigned j=0; j < (*it).size(); ++j )
-					cur_row[j] = (char)(*it)[j] + '0'; // conver to char
-				if ( CompareWithFirstRow( cur_row, i+1, K ) )
-					row_values[i].push_back( cur_row );
-			}
-			cout << "row_values " << i << " size " << row_values[i].size() << endl;
-			cout << "***Permutation() # " << i << " done" << endl;
+	vector< vector<int> > :: iterator known_values_it, perm_it;
+	// Make possible values for every row. 1st known row 1..N has row_index 0 and
+	unsigned row_index = 0;
+	for ( known_values_it = known_values_vec.begin(); known_values_it != known_values_vec.end(); ++known_values_it ) {
+		if ( (*known_values_it).size() < K ) {
+			cerr << "Error. (*known_values_it).size() < K" << endl;
+			exit(1);
 		}
-	} else {
-		cout << "known_values_vec.size() == K" << endl;
-		cout << "known 2nd row of 1st square" << endl;
+		cout << "known_values_vec" << endl;
 		for ( unsigned i=0; i < K; ++i )
-			cout << known_values_vec[i] << " ";
+			cout << (*known_values_it)[i] << " ";
 		cout << endl;
-		row_values[0].resize(1);
+		row_values[row_index].resize(1);
 		for ( unsigned i=0; i < K; ++i )
-			row_values[0][0].push_back( (char)known_values_vec[i] + '0' );
+			row_values[row_index][0].push_back( (char)(*known_values_it)[i] + '0' );
+		row_index++;
+	}
+	
+	if ( row_index > rows_count-2 ) {
+		cerr << "row_index > rows_count-2" << endl;
+		exit(1);
+	}
+	
+	MakePermutations(N, K, permutations); // make pemutations once and use it for every row
+	while ( row_index < rows_count-1 ) {
+		for ( perm_it=permutations.begin(); perm_it != permutations.end(); ++perm_it ) {
+			for ( unsigned j=0; j < (*perm_it).size(); ++j )
+				cur_row[j] = (char)(*perm_it)[j] + '0'; // convert to char
+			if ( CompareWithFirstRow( cur_row, row_index+1, K ) )
+				row_values[row_index].push_back( cur_row );
+		}
+		cout << "row_values " << row_index << " size " << row_values[row_index].size() << endl;
+		cout << "***Permutation() # " << row_index << " done" << endl;
+		row_index++;
 	}
 	
 	cout << "short values created" << endl;
@@ -573,10 +584,9 @@ void latin_square :: MakeLatinValues( )
 		if ( ( skip_values ) && ( values_checked <= skip_values ) ) // skip some values
 			continue;
 		i = 0;
-		for( auto &x : row_set ) {
+		for( auto &x : row_set )
 			for( auto &y : x )
 				cur_vec[i++] = y;
-		}
 		if ( IsPossibleValue( cur_vec ) ) {
 			final_values.push_back( cur_vec );
 			if( final_values.size() % 100000 == 0 ) {

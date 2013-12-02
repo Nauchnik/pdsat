@@ -46,19 +46,20 @@ int main( int argc, char* argv[] )
 	stringstream sstream;
 	latin_square ls;
 	ifstream tasks_file, values_file;
-	vector<int> tasks_vec, known_values_vec;
+	vector<int> tasks_vec;
+	vector< vector<int> > known_values_vec;
 	bool IsTasksFile = false;
 	bool IsValuesFile = false;
 	int int_val;
 	
 #ifdef _DEBUG
-	argc = 5;
-	argv[1] = "5";
-	argv[2] = "3";
-	argv[3] = "3";
+	argc = 6;
+	argv[1] = "8";
+	argv[2] = "4";
+	argv[3] = "7";
 	argv[4] = "inc72";
-	//argv[6] = "values.txt";
-	//argv[7] = "tasks.txt";
+	argv[5] = "values.txt";
+	//argv[6] = "tasks.txt";
 	cout << "***DEBUG MODE***" << endl;
 #endif
 
@@ -80,12 +81,15 @@ int main( int argc, char* argv[] )
 	}
 	if ( argc > 5 ) {
 		IsValuesFile = true;
+		vector<int> vec_int;
 		cout << "IsValuesFile " << IsValuesFile << endl;
 		values_file.open( argv[5] );
 		while ( getline( values_file, str ) ) {
 			sstream << str;
 			while ( sstream >> int_val )
-				known_values_vec.push_back( int_val );
+				vec_int.push_back( int_val );
+			known_values_vec.push_back( vec_int );
+			vec_int.clear();
 			sstream.clear(); sstream.str("");
 		}
 		values_file.close();

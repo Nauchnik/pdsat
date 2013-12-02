@@ -62,7 +62,7 @@ struct config_params {
 	int total_wus;
 	int created_wus;
 	int skip_values;
-	vector<int> known_values_vec;
+	vector< vector<int>> known_values_vec;
 };
 
 static void print_help(const char *prog);
@@ -254,22 +254,25 @@ void ParseConfigFile( config_params &config_p, string &cnf_head, stringstream &c
 	getline( master_config_file, input_str );
 	sstream << input_str;
 	int int_val;
+	vector<int> vec_int;
 	if ( input_str.find("known_values") != string::npos ) {
 		cout << "known_values_vec" << endl;
-		getline( master_config_file, input_str );
-		sstream.str(""); sstream.clear();
-		sstream << input_str;
-		while ( sstream >> int_val )
-			config_p.known_values_vec.push_back( int_val );
-		for ( unsigned i=0; i < config_p.known_values_vec.size(); ++i )
-			cout << config_p.known_values_vec[i] << " ";
-		cout << endl;
-		sstream.str(""); sstream.clear();
-	}
-	else {
-		sstream.str(""); sstream.clear();
+		while( getline( master_config_file, input_str ) ) {
+			sstream.str(""); sstream.clear();
+			sstream << input_str;
+			while ( sstream >> int_val )
+				vec_int.push_back( int_val );
+			for ( unsigned i=0; i < vec_int.size(); ++i )
+				cout << vec_int[i] << " ";
+			cout << endl;
+			config_p.known_values_vec.push_back( vec_int );
+			vec_int.clear();
+			sstream.str(""); sstream.clear();
+		}
 	}
 	
+	sstream.str(""); sstream.clear();
+
 	// make cnf_head
 	sstream << "p cnf " << config_p.cnf_variables << " " << config_p.cnf_clauses;
 	cnf_head = sstream.str();
@@ -626,20 +629,29 @@ void add_result_to_file( string output_filename, char *tag, char *id )
 
 void GetCountOfUnsentWUs( int &unsent_count )
 {
-	//connection params
 	char *host = "localhost";
     char *db = "boinc_pdsat";
 	char *user;
     char *pass;
-	 // Дескриптор соединения
 	MYSQL *conn;
-
-	// Получаем дескриптор соединения
+	
+	ifstream pass_file("pass");
+	if ( !pass_file.is_open() ) {
+		cerr << "psswd_file not open" << endl;
+		exit(1)
+	}
+	string str;
+	getline( pass_file, str );
+	user = str.c_str();
+	getline( pass_file, str );
+	pass = str.c_str();
+	cout << "user " << user << endl;
+	cout << "pass " << pass << endl;
+	
 	conn = mysql_init(NULL);
 	if(conn == NULL)
 		cerr << "Error: can't create MySQL-descriptor\n";
 
-	// Устанавливаем соединение с базой данных
 	if(!mysql_real_connect(conn, host, user, pass, db, 0, NULL, 0))
 		cerr << "Error: can't connect to MySQL server\n";
 
@@ -658,20 +670,16 @@ void GetCountOfUnsentWUs( int &unsent_count )
 
 bool ProcessQuery( MYSQL *conn, string str, vector< vector<stringstream *> > &result_vec )
 {
-	// Дескриптор результирующей таблицы
 	MYSQL_RES *res;
-	// Дескриптор строки
 	MYSQL_ROW row;
 	int num_fields;
-
-	if(mysql_query(conn, str.c_str()) != 0) {
-		//cerr << "Error: can't execute SQL-query\n";
-		cout << "Error: can't execute SQL-query\n";
+	
+	if ( mysql_query(conn, str.c_str()) != 0 ) {
+		cerr << "Error: can't execute SQL-query\n";
 		return false;
 	}
 	
-	// Получаем дескриптор результирующей таблицы
-	res = mysql_store_result(conn);
+	res = mysql_store_result( conn );
 
 	if( res == NULL ) 
 		cerr << "Error: can't get the result description\n";
@@ -680,12 +688,9 @@ bool ProcessQuery( MYSQL *conn, string str, vector< vector<stringstream *> > &re
 	stringstream *sstream_p;
 	vector<stringstream *> result_data;
 
-	// Если имеется хотя бы одна запись - выводим список каталогов
-	if ( mysql_num_rows(res) > 0 ) {
-		// В цикле перебираем все записи результирующей таблицы
+	if ( mysql_num_rows( res ) > 0 ) {
 		while((row = mysql_fetch_row(res)) != NULL) {
-			for( int i = 0; i < num_fields; i++ ) {
-				//cout << row[i] << endl;
+			for( int i = 0; i < num_fields; ++i ) {
 				sstream_p = new stringstream();
 				*sstream_p << row[i]; // get value
 				result_data.push_back( sstream_p );
@@ -695,7 +700,6 @@ bool ProcessQuery( MYSQL *conn, string str, vector< vector<stringstream *> > &re
 		}
 	}
 
-	// Освобождаем память, занятую результирующей таблицей
 	mysql_free_result(res);
 
 	return true;

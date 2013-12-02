@@ -32,7 +32,7 @@ public:
 	unsigned values_checked;
 	unsigned max_nof_restarts;
 	unsigned long long max_values_len;
-	vector<int> known_values_vec;
+	vector< vector<int> > known_values_vec;
 	vector< vector<char> > final_values;
 	vector< vector<int> > positive_literals;
 	vector< vector<int> > interrupted_problems;
