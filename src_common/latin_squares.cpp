@@ -573,16 +573,17 @@ void latin_square :: MakeLatinValues( )
 	unsigned long long final_values_size;
 	final_values_size = ( max_final_values_size < max_values_len ) ? max_final_values_size : max_values_len;
 	cout << "max final values size " << final_values_size << endl;
+	final_values.reserve( final_values_size );
 	
 	vector< vector<char> > row_set;
 	vector<char> cur_vec;
 	cur_vec.resize( (rows_count-1)*K );
-	final_values_index = 0;
 	values_checked = 0;
 	unsigned impossible_count=0;
 	vector<int> index_arr;
 	unsigned k;
-	while( next_cartesian( row_values, index_arr, row_set ) ){
+	while( next_cartesian( row_values, index_arr, row_set ) ) {
+		values_checked++;
 		if ( ( skip_values ) && ( values_checked <= skip_values ) ) // skip some values
 			continue;
 		//for( auto &x : row_set )
@@ -594,20 +595,17 @@ void latin_square :: MakeLatinValues( )
 				cur_vec[k++] = row_set[i][j];
 		if ( IsPossibleValue( cur_vec ) ) {
 			final_values.push_back( cur_vec );
-			if( final_values.size() % 100000 == 0 ) {
-				cout << "final_values.size() " << final_values.size() <<  endl;
-				cout << "impossible_count " << impossible_count << endl;
-			}
-			if( final_values.size() == MAX_VALUE_COUNT ) {
-				cout << "final_values.size() == max_value_count" << endl;
+			if ( final_values.size() == final_values_size ) {
+				cout << "final_values.size() == final_values_size. break in next_cartesian()" << endl;
 				break;
 			}
 		}
 		else
 			impossible_count++;
-		values_checked++;
-		if( values_checked % 1000000 == 0 )
+		if( values_checked % 1000000 == 0 ) {
 			cout << "values_checked " << values_checked << endl;
+			cout << "impossible_count " << impossible_count << endl;
+		}
 	}
 
 	row_values.clear();
