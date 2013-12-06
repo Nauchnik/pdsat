@@ -15,6 +15,8 @@
 #include "minisat22_wrapper.h"
 #include "addit_func.h"
 
+const long long MAX_VALUES_LEN = 10000000;
+
 using namespace std;
 
 class latin_square

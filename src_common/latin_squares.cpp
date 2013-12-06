@@ -522,6 +522,8 @@ void latin_square :: MakeLatinValues( )
 	vector< vector<int> > permutations;
 	
 	row_values.resize( rows_count-1 );
+	if ( known_values_vec.size() > row_values.size() - 1 )
+		known_values_vec.resize( row_values.size() - 1 );
 	first_row.resize( N ); // N - order of squares
 	for ( int i = 0; i < N; i++ )
 		first_row[i] = (char)i + '0';

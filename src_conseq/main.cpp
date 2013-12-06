@@ -16,7 +16,6 @@
 #include "latin_squares.h"
 
 const int MAX_NOF_RESTARTS = 1000;
-const long long MAX_VALUES_LEN = 10000000;
 const int PROBLEMS_IN_WU = 20;
 
 #pragma warning( disable : 4996 )
@@ -54,9 +53,9 @@ int main( int argc, char* argv[] )
 	
 #ifdef _DEBUG
 	argc = 6;
-	argv[1] = "8";
-	argv[2] = "4";
-	argv[3] = "7";
+	argv[1] = "10";
+	argv[2] = "8";
+	argv[3] = "3";
 	argv[4] = "inc72";
 	argv[5] = "values.txt";
 	//argv[6] = "tasks.txt";
