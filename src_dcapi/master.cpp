@@ -62,7 +62,7 @@ struct config_params {
 	int unsent_needed_wus;
 	int total_wus;
 	int created_wus;
-	int skip_values;
+	long long int skip_values;
 	vector< vector<int> > known_values_vec;
 };
 

@@ -30,8 +30,8 @@ public:
 	string problem_type;
 	bool IsSATFinded;
 	unsigned verbosity;
-	unsigned skip_values;
-	unsigned values_checked;
+	long long int skip_values;
+	long long int values_checked;
 	unsigned max_nof_restarts;
 	unsigned long long max_values_len;
 	vector< vector<int> > known_values_vec;

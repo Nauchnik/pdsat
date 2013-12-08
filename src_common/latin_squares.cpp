@@ -385,7 +385,7 @@ void latin_square :: FindAdditValues( vector<char> cur_vec, unsigned row_index, 
 	unsigned count, index;
 	for ( int i = 0; i < N; i++ ) {
 		count = 0;
-		for ( int j = 0; j < K; j++ ) {
+		for ( unsigned j = 0; j < K; j++ ) {
 			index = (N-K) + K*row_index + j;
 			if ( ( index < cur_vec.size() ) && 
 			     ( cur_vec[index] != char(i) + '0' )
@@ -575,7 +575,7 @@ void latin_square :: MakeLatinValues( )
 	unsigned long long final_values_size;
 	final_values_size = ( max_final_values_size < max_values_len ) ? max_final_values_size : max_values_len;
 	cout << "max final values size " << final_values_size << endl;
-	final_values.reserve( final_values_size );
+	final_values.reserve( (unsigned)final_values_size );
 	
 	vector< vector<char> > row_set;
 	vector<char> cur_vec;

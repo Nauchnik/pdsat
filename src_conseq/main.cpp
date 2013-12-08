@@ -142,12 +142,12 @@ int main( int argc, char* argv[] )
 		cout << "Start IsTasksFile mode" << endl;
 		ofstream ofile( "out_assumptions.txt" );
 		int assumption_index;
-		for ( int i = 0; i < tasks_vec.size(); i++ )
-			for ( int j = 0; j < PROBLEMS_IN_WU; j++ ) {
+		for ( unsigned i = 0; i < tasks_vec.size(); i++ )
+			for ( unsigned j = 0; j < PROBLEMS_IN_WU; j++ ) {
 				assumption_index = (tasks_vec[i]-1) * PROBLEMS_IN_WU + j;
 				//ofile << "assumption_index" << assumption_index << endl; 
 				ofile << "c 1 12 23 34 45 56 67 78 89 100 "; 
-				for ( int j2=0; j2 < ls.positive_literals[assumption_index].size(); j2++ ) {
+				for ( unsigned j2=0; j2 < ls.positive_literals[assumption_index].size(); j2++ ) {
 					ofile << ls.positive_literals[assumption_index][j2];
 					if ( j2 < ls.positive_literals[assumption_index].size()-1 )
 						ofile << " ";
