@@ -22,6 +22,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <mpi.h>
 #endif
 
+#pragma warning(disable : 4996)
+
 #ifdef WIN32
 #pragma warning ( disable : 310 )
 #endif
@@ -958,6 +960,8 @@ lbool Solver::solve_()
 		test_message;
 	start_solving_time = MPI_Wtime();
 #endif
+#else
+	start_solving_time = cpuTime();
 #endif
 
     // Search:
@@ -994,6 +998,11 @@ lbool Solver::solve_()
 					}
 				}
 #endif
+#else
+				if ( ( max_solving_time > 0 ) && ( cpuTime() - start_solving_time > max_solving_time ) ) {
+					cancelUntil(0);
+					return l_False;
+				}
 #endif
 
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);

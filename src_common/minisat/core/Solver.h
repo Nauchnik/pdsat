@@ -91,6 +91,8 @@ public:
 
 	// win mode
 	bool    addProblem(const Problem& p);
+    bool    addProblem_modified(const Problem& p, int num_of_variables);
+
 
     // Iterate over clauses and top-level assignments:
     ClauseIterator clausesBegin() const;
@@ -392,6 +394,24 @@ inline bool     Solver::addProblem      (const Problem& p)
 		}
 		p[i]->copyTo(add_tmp);
 		if(!addClause_(add_tmp))
+			return false;
+	}
+	return true;
+}
+
+
+inline bool Solver::addProblem_modified(const Problem& p, int num_of_variables)
+{
+	if (num_of_variables > 0){
+		for (int j = 0; j < num_of_variables; j++)
+		{
+			newVar();		
+		}
+	}
+	for (size_t i = 0; i < p.size(); i++)
+	{		
+		p[i]->copyTo(add_tmp);
+		if (!addClause_(add_tmp))
 			return false;
 	}
 	return true;
