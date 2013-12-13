@@ -38,7 +38,7 @@ MPI_Base :: MPI_Base( ) :
 	verbosity			 ( 0 ),
 	check_every_conflict ( 2000 ),
 	known_point_file_name ( "known_point" ),
-	known_assumptions_file_name ( "known_assumptions" ),
+	base_known_assumptions_file_name ( "known_assumptions" ),
 	IsSolveAll           ( false ),
 	IsPredict            ( false ),
 	max_solving_time     ( 0 ),
@@ -134,7 +134,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 		cerr << "Error. !in.is_open(). file name " << known_assumptions_file_name << endl;
 		return false;
 	}
-
+	
 	int cur_var_ind, intval, k = 0;
 	// int rslos_num = 1; 
 	int strings_passed = 0;
@@ -169,19 +169,15 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 			cerr << "Error. !getline( in, str )" << endl;
 			return false;
 		}
-		//rslos_num = 1;
-		//k = 0;
 		if ( str.size() < var_choose_order.size() ) {
 			cerr << "Error. str.size() < var_choose_order.size()" << endl;
 			return false;
 		}
 		for ( unsigned j=0; j < var_choose_order.size(); j++ ) {
 			cur_var_ind = var_choose_order[j] - 1;
-			intval = j; //intval = keybit_count*rslos_num - k - 1;
-			if ( str[intval] == '1' ) {
+			if ( str[j] == '1' )
 				dummy_vec[i].push( mkLit( cur_var_ind ) );
-				//cout << cur_var_ind << " ";
-			} else 
+			else 
 				dummy_vec[i].push( ~mkLit( cur_var_ind ) );
 		}
 	}
@@ -332,8 +328,7 @@ bool MPI_Base :: MakeVarChoose( )
 			if ( str.size() == var_choose_order.size() )
 				assumptions_string_count++;
 			else {
-				cerr << "str.size() != var_choose_order.size()" << endl;
-				return false;
+				cerr << "str.size() != var_choose_order.size()" << endl; return false;
 			}
 		}
 		cout << "assumptions_string_count " << assumptions_string_count << endl;

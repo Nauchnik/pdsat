@@ -13,12 +13,14 @@ const int    NUM_KEY_BITS                  = 64;
 // Constructor/Destructor:
 
 MPI_Solver :: MPI_Solver( ) :
-	orig_tasks_count       ( 0 ),
-	full_mask_tasks_count  ( 0 ),
-	exch_activ			   ( 1 ),
-	skip_tasks             ( 0 ),
-	solving_info_file_name ( "solving_info" ),
-	prev_med_time_sum      ( 0 )
+	orig_tasks_count            ( 0 ),
+	full_mask_tasks_count       ( 0 ),
+	exch_activ			        ( 1 ),
+	skip_tasks                  ( 0 ),
+	base_solving_info_file_name ( "solving_info" ),
+	prev_med_time_sum           ( 0 ),
+	solving_iteration_count     ( 0 ),
+	interrupted_count           ( 0 )
 { 
 	solving_times = new double[SOLVING_TIME_LEN];
 	for( unsigned i=0; i < SOLVING_TIME_LEN; ++i )
@@ -31,27 +33,95 @@ MPI_Solver :: ~MPI_Solver( )
 	delete[] solving_times;
 }
 
-int make_QAP_values( int num_elements, unsigned comb_len, vector< vector<unsigned> > &values_arr, bool IsMakeArray )
+
+//---------------------------------------------------------
+bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 {
-	int comb_count  = 0;
-	int erase_count = 0;
-	int real_count  = 0;
+// Solve with MPI
+	MPI_Init( &argc, &argv );
+	MPI_Comm_size( MPI_COMM_WORLD, &corecount );
+	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
 
-	vector<int> elements(num_elements);
-
-	for ( int i = 0; i < num_elements; i++ )
-		elements[i] = i;
+	IsPredict = false;
+	double iteration_start_time, iteration_final_time;
+	double whole_final_time;
+	double whole_start_time = MPI_Wtime( ); // get init time
+	stringstream sstream;
 	
-	assert(comb_len > 0 && comb_len <= elements.size());
-	vector<unsigned long> positions(comb_len, 0);
-	// TODO update with new function for combinations
-	/*combinations_recursive( num_elements, comb_len, comb_count, erase_count, 
-		                    real_count, elements, comb_len, positions, 0, 0, 
-							values_arr, IsMakeArray );*/
-	cout << endl << "comb_count is "  << comb_count;
-	cout << endl << "erase_count is " << erase_count;
-	cout << endl << "real_count is "  << real_count;
-	return real_count;
+	if ( corecount < 2 ) { 
+		printf( "Error. corecount < 2" ); MPI_Abort( MPI_COMM_WORLD, 0 );; 
+	}
+
+	if ( rank != 0 ) {
+		if ( !ComputeProcessSolve() ) {
+			cerr << "Error in ComputeProcessSovle" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+		}
+	}
+	else { // rank == 0
+		cout << "*** MPI_Solve is running ***" << endl;
+
+		do {
+			sstream << base_solving_info_file_name << "_" << solving_iteration_count;
+			solving_info_file_name = sstream.str();
+			cout << "solving_info_file_name " << solving_info_file_name << endl; 
+			sstream.clear(); sstream.str("");
+			sstream << base_known_assumptions_file_name << "_" << solving_iteration_count;
+			known_assumptions_file_name = sstream.str();
+			cout << "known_assumptions_file_name " << known_assumptions_file_name << endl;
+			sstream.clear(); sstream.str("");
+			iteration_start_time = MPI_Wtime();
+
+			ControlProcessSolve();
+
+			iteration_final_time = MPI_Wtime() - iteration_start_time;
+			WriteTimeToFile( iteration_final_time );
+			solving_iteration_count++;
+			CollectAssumptionsFiles();
+		} while ( interrupted_count );
+		
+		whole_final_time = MPI_Wtime( ) - whole_start_time;
+		solving_info_file_name = base_solving_info_file_name + "_total";
+		WriteTimeToFile( whole_final_time );
+		
+		// send messages for finalizing
+		int break_message = -2;
+		for ( int i = 1; i < corecount; i++ )
+			MPI_Send( &break_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
+
+		MPI_Finalize( );
+	}
+
+	return 0;
+}
+
+void MPI_Solver :: CollectAssumptionsFiles( )
+{
+// write info from all known assumptions files to 1 new file
+	string dir = string(".");
+	string str;
+	vector<string> files = vector<string>();
+	vector<string> :: iterator it;
+	getdir( dir, files ); // get all files in current dir
+	stringstream sstream;
+	sstream << base_known_assumptions_file_name << "_" << (solving_iteration_count-1) ;
+	string old_known_assumptions_file_mask = sstream.str();
+	sstream.clear(); sstream.str("");
+	ofstream known_assumptions_file;
+	known_assumptions_file.open( known_assumptions_file_name.c_str() );
+	
+	for ( it = files.begin(); it != files.end(); ++it ) {
+		if ( (*it).find( old_known_assumptions_file_mask ) != string::npos ) {
+			ifstream ifile( (*it).c_str() );
+			while ( getline( ifile, str ) )
+				sstream << str << endl;
+			known_assumptions_file << sstream.rdbuf();
+			sstream.clear(); sstream.str("");
+			str = "rm " + (*it);
+			system( str.c_str() ); // remove file
+		}
+	}
+	
+	known_assumptions_file.close();
 }
 
 void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
@@ -148,7 +218,21 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 				cur_problem_state = Solved; // just solved
 			
 			AddSolvingTimeToArray( cur_problem_state, cnf_time_from_node, solving_times );
-			
+
+			if ( cur_problem_state == Interrupted ) {
+				ofstream ofile;
+				ofile.open( known_assumptions_file_name.c_str(), ios_base :: app );
+				stringstream sstream;
+				for ( unsigned i = 0; i < dummy_vec.size(); ++i ) {
+					for ( unsigned j = 0; j < dummy_vec[i].size(); ++j )
+						sstream << ( dummy_vec[i][j].x % 2 == 0 ) ? "1" : "0";
+					sstream << endl;
+				}
+				ofile << sstream.rdbuf();
+				sstream.clear(); sstream.str("");
+				ofile.close();
+			}
+
 			if ( ret == l_True ) {
 				process_sat_count++;
 				cout << "process_sat_count " << process_sat_count << endl;
@@ -333,15 +417,14 @@ bool MPI_Solver :: ControlProcessSolve( )
 	// send to all cores (except # 0) tasks from 1st range
 	for ( int i = 0; i < corecount-1; i++ ) {		
 		// send new index of task for reading tasks from file
-		MPI_Send( &i,         1,            MPI_INT,      i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &next_task_index, 1, MPI_INT, next_task_index + 1, 0, MPI_COMM_WORLD );
 		
-		if ( IsFileAssumptions ) // don't send valus when we have file with assimptions
-			continue;
-
-		copy( values_arr[i].begin(), values_arr[i].end(), mask_value );
-		MPI_Send( full_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( part_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( mask_value,FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+		if ( !IsFileAssumptions ) { // don't send values when we have file with assimptions
+			copy( values_arr[i].begin(), values_arr[i].end(), mask_value );
+			MPI_Send( full_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( part_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( mask_value,FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+		}
 		next_task_index++;
 	}
 	
@@ -382,14 +465,12 @@ bool MPI_Solver :: ControlProcessSolve( )
 		
 		if ( next_task_index < all_tasks_count ) {
 			// send new index of task
-
-			MPI_Send( &next_task_index, 1, MPI_INT, current_status.MPI_SOURCE, 0, 
-				      MPI_COMM_WORLD );
-			if ( IsFileAssumptions )
-				continue;
-			// send to free core new task in format of minisat input masks
-			copy( values_arr[next_task_index].begin(), values_arr[next_task_index].end(), mask_value );
-			MPI_Send( mask_value, FULL_MASK_LEN, MPI_UNSIGNED, current_status.MPI_SOURCE, 0, MPI_COMM_WORLD );
+			MPI_Send( &next_task_index, 1, MPI_INT, current_status.MPI_SOURCE, 0, MPI_COMM_WORLD );
+			if ( !IsFileAssumptions ) {
+				// send to free core new task in format of minisat input masks
+				copy( values_arr[next_task_index].begin(), values_arr[next_task_index].end(), mask_value );
+				MPI_Send( mask_value, FULL_MASK_LEN, MPI_UNSIGNED, current_status.MPI_SOURCE, 0, MPI_COMM_WORLD );
+			}
 			next_task_index++;
 		}
 	} // while ( solved_tasks_count < all_tasks_count )
@@ -427,6 +508,9 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	int process_sat_count = 0;
 	double cnf_time_from_node = 0.0;
 	bool IsFirstTaskRecieved = false;
+
+	//known_assumptions_file_name = "assumptions_iter" + solving_iteration + "_rank" + rank;
+	//solving_info_file_name      = "solving_info_"    + solving_iteration;
 	
 	for (;;) {
 		// get index of current task
@@ -603,52 +687,6 @@ void MPI_Solver :: PrintParams( )
 }
 
 //---------------------------------------------------------
-bool MPI_Solver :: MPI_Solve( int argc, char **argv )
-{
-// Solve with MPI
-
-	MPI_Init( &argc, &argv );
-	MPI_Comm_size( MPI_COMM_WORLD, &corecount );
-	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
-
-	IsPredict = false;
-	double start_sec = MPI_Wtime( ); // get init time
-	
-	if ( corecount < 2 ) { 
-		printf( "Error. corecount < 2" ); MPI_Abort( MPI_COMM_WORLD, 0 );; 
-	}
-
-	if ( rank != 0 ) {
-		if ( !ComputeProcessSolve() ) {
-			cerr << "Error in ComputeProcessSovle" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
-		}
-	}
-	else { // rank == 0
-		cout << "*** MPI_Solve is running ***" << endl;
-
-		ControlProcessSolve( );
-		// get time of solving
-		double whole_time_sec = MPI_Wtime( ) - start_sec;
-		cout << endl << "That took %f seconds" << whole_time_sec << endl;
-		// write time of solving
-		if ( !WriteTimeToFile( whole_time_sec ) ) {
-			cerr << "Error in WriteTimeToFile" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
-		}
-
-		cout << "sat_count " << sat_count << endl;
-			
-		// send messages for finalizing
-		int break_message = -2;
-		for ( int i = 1; i < corecount; i++ )
-			MPI_Send( &break_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
-
-		MPI_Finalize( );
-	}
-
-	return 0;
-}
-
-//---------------------------------------------------------
 bool MPI_Solver :: cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, int &real_seconds ) 
 {
 // Time of work in hours, minutes, seconds
@@ -663,7 +701,7 @@ bool MPI_Solver :: cpuTimeInHours( double full_seconds, int &real_hours, int &re
 }
 
 //---------------------------------------------------------
-bool MPI_Solver :: WriteTimeToFile( double whole_time_sec )
+bool MPI_Solver :: WriteTimeToFile( double time_sec )
 {
 // Write time of solving to output file
 	string line_buffer,
@@ -675,8 +713,10 @@ bool MPI_Solver :: WriteTimeToFile( double whole_time_sec )
 	int real_hours = -1,
 		real_minutes = -1,
 		real_seconds = -1;
+
+	cout << endl << "That took %f seconds" << time_sec << endl;
 	
-	if ( !cpuTimeInHours( whole_time_sec, real_hours, real_minutes, real_seconds ) ) 
+	if ( !cpuTimeInHours( time_sec, real_hours, real_minutes, real_seconds ) ) 
 		{ cout << "Error in cpuTimeInHours" << endl; return false; }
 
 	stringstream sstream;

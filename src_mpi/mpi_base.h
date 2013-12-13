@@ -7,8 +7,6 @@
 #include <mpi.h>
 #endif
 
-#include <cstdio>
-#include <stdlib.h>
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -59,9 +57,9 @@ public:
 
 	int rank;
 	int corecount;
-	int solver_type;    
+	int solver_type;
 	unsigned koef_val;
-	string schema_type; 
+	string schema_type;
 	unsigned core_len;
 	double start_activity;
 	bool IsConseq;
@@ -75,8 +73,9 @@ public:
 
 	unsigned activity_vec_len;
 	string known_point_file_name;
+	string base_known_assumptions_file_name;
 	string known_assumptions_file_name;
-
+	
 	bool IsPB; //  pseudo Boolean mode. if 0 then common CNF mode
 	int PB_mode; // Pseudo Boolean mode. 1 - inequality mode, 2 - equality mode
 	int best_lower_bound;

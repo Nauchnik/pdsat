@@ -152,9 +152,9 @@ private:
 
 	int real_best_var_num;
 	double real_best_predict_time;
-	double best_predict_time_last_area; // best time from previous area oc points
+	double best_predict_time_last_area; // best time from previous area of points
 	vector<int> real_var_choose_order;
-
+	
 	vector<unsigned> set_len_arr; // array of indexes of sets
 	vector<int> cnf_to_stop_arr;  
 	vector<unsigned > set_index_arr;

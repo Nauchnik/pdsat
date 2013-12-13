@@ -67,7 +67,10 @@ TODO
 // В режиме прогнозирования отправлять part_mask только когда начинается новая выборка
 // Не запускать ReadCNF в режиме решения
 
-Version 0.97 26.11.2013
+Version 0.98 12.1.2013
+[+] Added solving with increasing of max_solving_time value
+
+Version 0.97 02.12.2013
 [+] Added ts_strategy == 1 : based on summation of total var activities
 [*] Checking stop-messsages in Minisat moved from search() to solve_ to speed up
 

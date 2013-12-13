@@ -10,6 +10,10 @@ class MPI_Solver : public MPI_Base
 private:
 	double *solving_times;
 	vector<double> total_solving_times;
+	unsigned solving_iteration_count;
+	unsigned interrupted_count;
+	string base_solving_info_file_name;
+	string solving_info_file_name;
 public:
 	// Constructor/Destructor:
     MPI_Solver( );
@@ -19,7 +23,6 @@ public:
 	int full_mask_tasks_count;
 	int exch_activ;
 	unsigned skip_tasks;
-	string solving_info_file_name;
 	double prev_med_time_sum;
 	
 	bool MPI_Solve( int argc, char **argv );
@@ -27,6 +30,7 @@ public:
 	bool WriteTimeToFile( double whole_time_sec );
 	bool cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, 
 		                 int &real_seconds );
+	void CollectAssumptionsFiles();
 	bool ControlProcessSolve( );
 	bool ComputeProcessSolve( );
 	void PrintParams( );
