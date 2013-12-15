@@ -20,7 +20,8 @@ MPI_Solver :: MPI_Solver( ) :
 	base_solving_info_file_name ( "solving_info" ),
 	prev_med_time_sum           ( 0 ),
 	solving_iteration_count     ( 0 ),
-	interrupted_count           ( 0 )
+	interrupted_count           ( 0 ),
+	max_solving_time_koef       ( 2 )
 { 
 	solving_times = new double[SOLVING_TIME_LEN];
 	for( unsigned i=0; i < SOLVING_TIME_LEN; ++i )
@@ -59,23 +60,24 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	}
 	else { // rank == 0
 		cout << "*** MPI_Solve is running ***" << endl;
-
 		do {
 			sstream << base_solving_info_file_name << "_" << solving_iteration_count;
 			solving_info_file_name = sstream.str();
-			cout << "solving_info_file_name " << solving_info_file_name << endl; 
 			sstream.clear(); sstream.str("");
+			cout << "solving_info_file_name " << solving_info_file_name << endl; 
 			sstream << base_known_assumptions_file_name << "_" << solving_iteration_count;
 			known_assumptions_file_name = sstream.str();
 			cout << "known_assumptions_file_name " << known_assumptions_file_name << endl;
 			sstream.clear(); sstream.str("");
+
 			iteration_start_time = MPI_Wtime();
-
 			ControlProcessSolve();
-
 			iteration_final_time = MPI_Wtime() - iteration_start_time;
 			WriteTimeToFile( iteration_final_time );
 			solving_iteration_count++;
+			max_solving_time *= max_solving_time_koef; // increase time limit
+			
+			interrupted_count = 0;
 			CollectAssumptionsFiles();
 		} while ( interrupted_count );
 		
@@ -112,12 +114,17 @@ void MPI_Solver :: CollectAssumptionsFiles( )
 	for ( it = files.begin(); it != files.end(); ++it ) {
 		if ( (*it).find( old_known_assumptions_file_mask ) != string::npos ) {
 			ifstream ifile( (*it).c_str() );
-			while ( getline( ifile, str ) )
+			while ( getline( ifile, str ) ) {
 				sstream << str << endl;
+				interrupted_count++;
+			}
+			ifile.close();
 			known_assumptions_file << sstream.rdbuf();
 			sstream.clear(); sstream.str("");
 			str = "rm " + (*it);
+			cout << "before system " << str << endl;
 			system( str.c_str() ); // remove file
+			cout << "after system " << str << endl;
 		}
 	}
 	
@@ -165,12 +172,12 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 		cout << "start SolverRun()" << endl;
 
 	process_sat_count = 0;
-	stringstream sstream;
 	vec< vec<Lit> > dummy_vec;
 	lbool ret;
 	double total_time = 0;
 	unsigned current_tasks_solved = 0;
 	ProblemStates cur_problem_state;
+	stringstream sstream, inter_sstream;
 
 	solving_times[0] = 1 << 30; // start min len
 	for ( unsigned i = 1; i < SOLVING_TIME_LEN; i++ )
@@ -192,7 +199,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 		}
 
 		uint64_t prev_starts, prev_conflicts, prev_decisions;
-		for ( int i=0; i < dummy_vec.size(); i++ ) {
+		for ( int i=0; i < dummy_vec.size(); ++i ) {
 #ifndef _DEBUG
 			cnf_time_from_node = MPI_Wtime( );
 #endif
@@ -220,17 +227,9 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 			AddSolvingTimeToArray( cur_problem_state, cnf_time_from_node, solving_times );
 
 			if ( cur_problem_state == Interrupted ) {
-				ofstream ofile;
-				ofile.open( known_assumptions_file_name.c_str(), ios_base :: app );
-				stringstream sstream;
-				for ( unsigned i = 0; i < dummy_vec.size(); ++i ) {
-					for ( unsigned j = 0; j < dummy_vec[i].size(); ++j )
-						sstream << ( dummy_vec[i][j].x % 2 == 0 ) ? "1" : "0";
-					sstream << endl;
-				}
-				ofile << sstream.rdbuf();
-				sstream.clear(); sstream.str("");
-				ofile.close();
+				for ( unsigned j = 0; j < dummy_vec[i].size(); ++j )
+					inter_sstream << ( dummy_vec[i][j].x % 2 == 0 ) ? "1" : "0";
+				inter_sstream << endl;
 			}
 
 			if ( ret == l_True ) {
@@ -257,6 +256,14 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 			//delete S;
 			//S->clearDB(); // we don't need to clear DB, because incremental solving is faster
 		}
+		sstream << base_known_assumptions_file_name << "_" << solving_iteration_count << "_rank" << rank;
+		string ofile_name = sstream.str();
+		sstream.clear(); sstream.str("");
+		ofstream ofile;
+		ofile.open( ofile_name.c_str(), ios_base :: app );
+		ofile << inter_sstream.rdbuf();
+		inter_sstream.clear(); inter_sstream.str("");
+		ofile.close();
 		
 		solving_times[2] = total_time / dummy_vec.size(); // med time for current batch
 	}
@@ -407,10 +414,12 @@ bool MPI_Solver :: ControlProcessSolve( )
 
 	// send core_len once to every compute process
 	for ( int i=0; i < corecount-1; ++i ) {
-		MPI_Send( &core_len,                 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( &assumptions_string_count, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &core_len,                 1, MPI_INT,      i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &assumptions_string_count, 1, MPI_INT,      i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &solving_iteration_count,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &max_solving_time,         1, MPI_DOUBLE,   i + 1, 0, MPI_COMM_WORLD );
 	}
-
+	
 	double start_time = MPI_Wtime();
 	unsigned next_task_index = 0;
 	
@@ -421,9 +430,9 @@ bool MPI_Solver :: ControlProcessSolve( )
 		
 		if ( !IsFileAssumptions ) { // don't send values when we have file with assimptions
 			copy( values_arr[i].begin(), values_arr[i].end(), mask_value );
-			MPI_Send( full_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( part_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( mask_value,FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( full_mask,  FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( part_mask,  FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( mask_value, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 		}
 		next_task_index++;
 	}

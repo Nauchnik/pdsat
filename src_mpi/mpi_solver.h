@@ -14,6 +14,7 @@ private:
 	unsigned interrupted_count;
 	string base_solving_info_file_name;
 	string solving_info_file_name;
+	double max_solving_time_koef;
 public:
 	// Constructor/Destructor:
     MPI_Solver( );

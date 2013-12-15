@@ -976,7 +976,7 @@ lbool Solver::solve_()
 #ifndef _DEBUG
 				if ( ( max_solving_time > 0 ) && ( MPI_Wtime() - start_solving_time > max_solving_time ) ) {
 					cancelUntil(0);
-					return l_False;
+					return l_Undef;
 				}
 
 				if ( IsPredict ) {
