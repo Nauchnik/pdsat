@@ -67,8 +67,9 @@ TODO
 // В режиме прогнозирования отправлять part_mask только когда начинается новая выборка
 // Не запускать ReadCNF в режиме решения
 
-Version 0.98 12.1.2013
+Version 0.98 16.12.2013
 [+] Added solving with increasing of max_solving_time value
+[+] Added reading core variables from string "c var_set ..."
 
 Version 0.97 02.12.2013
 [+] Added ts_strategy == 1 : based on summation of total var activities

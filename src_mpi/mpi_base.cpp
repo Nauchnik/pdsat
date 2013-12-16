@@ -305,6 +305,7 @@ bool MPI_Base :: MakeVarChoose( )
 	if ( known_point_file.is_open() ) {
 		getline( known_point_file, str );
 		sstream << str;
+		var_choose_order.resize( 0 );
 		while ( sstream >> val )
 			var_choose_order.push_back( val );
 		full_mask_var_count = var_choose_order.size();
@@ -335,45 +336,49 @@ bool MPI_Base :: MakeVarChoose( )
 		known_assumptions_file.close();
 	}
 	
-	cout << "full_mask_var_count " << full_mask_var_count << endl;
-	var_choose_order.resize( full_mask_var_count );
+	if ( var_choose_order.size() > 0 )
+		full_mask_var_count = var_choose_order.size();
+	else {
+		cout << "full_mask_var_count " << full_mask_var_count << endl;
+		var_choose_order.resize( full_mask_var_count );
 
-	int k = 0;
-	if ( schema_type == "0" ) { // == bivium_Beginning1
-		for ( unsigned i = 0; i < full_mask_var_count; i++ )
-			var_choose_order[i] = i + 1;
-	}
-	else if ( schema_type == "bivium_Beginning2" ) {
-		for ( unsigned i = 0; i < full_mask_var_count; i++ )
-			var_choose_order[i] = i + 84 + 1;
-	}
-	else if ( schema_type == "bivium_Beginning_halved" ) {
-		for ( unsigned i = 0; i < full_mask_var_count / 2; i++ )
-			var_choose_order[k++] = i + 1;
-		for ( unsigned i = 0; i < full_mask_var_count / 2; i++ )	
-			var_choose_order[k++] = i + 84 + 1;
-	}
-	else if ( schema_type == "bivium_Ending1" ) {
-		for ( unsigned i = 0; i < full_mask_var_count; i++ )
-			var_choose_order[i] = 84 - i;
-	}
-	else if ( schema_type == "bivium_Ending2" ) {
-		for ( unsigned i = 0; i < full_mask_var_count; i++ )
-			var_choose_order[i] = 177 - i;
-	}
-	else if ( schema_type == "bivium_Ending_halved" ) {
+		int k = 0;
+		if ( schema_type == "0" ) { // == bivium_Beginning1
+			for ( unsigned i = 0; i < full_mask_var_count; i++ )
+				var_choose_order[i] = i + 1;
+		}
+		else if ( schema_type == "bivium_Beginning2" ) {
+			for ( unsigned i = 0; i < full_mask_var_count; i++ )
+				var_choose_order[i] = i + 84 + 1;
+		}
+		else if ( schema_type == "bivium_Beginning_halved" ) {
 			for ( unsigned i = 0; i < full_mask_var_count / 2; i++ )
-				var_choose_order[k++] = 84 - i;
+				var_choose_order[k++] = i + 1;
 			for ( unsigned i = 0; i < full_mask_var_count / 2; i++ )	
-				var_choose_order[k++] = 177 - i;
-	}		
-	else if ( schema_type == "a5" ) {
-		for ( unsigned i = 0; i < 9; i++ )
-			var_choose_order[k++] = i + 1;
-		for ( unsigned i = 0; i < 11; i++ )
-			var_choose_order[k++] = i + 19 + 1;
-		for ( unsigned i = 0; i < 11; i++ )
-			var_choose_order[k++] = i + 41 + 1;
+				var_choose_order[k++] = i + 84 + 1;
+		}
+		else if ( schema_type == "bivium_Ending1" ) {
+			for ( unsigned i = 0; i < full_mask_var_count; i++ )
+				var_choose_order[i] = 84 - i;
+		}
+		else if ( schema_type == "bivium_Ending2" ) {
+			for ( unsigned i = 0; i < full_mask_var_count; i++ )
+				var_choose_order[i] = 177 - i;
+		}
+		else if ( schema_type == "bivium_Ending_halved" ) {
+				for ( unsigned i = 0; i < full_mask_var_count / 2; i++ )
+					var_choose_order[k++] = 84 - i;
+				for ( unsigned i = 0; i < full_mask_var_count / 2; i++ )	
+					var_choose_order[k++] = 177 - i;
+		}		
+		else if ( schema_type == "a5" ) {
+			for ( unsigned i = 0; i < 9; i++ )
+				var_choose_order[k++] = i + 1;
+			for ( unsigned i = 0; i < 11; i++ )
+				var_choose_order[k++] = i + 19 + 1;
+			for ( unsigned i = 0; i < 11; i++ )
+				var_choose_order[k++] = i + 41 + 1;
+		}
 	}
 
 	sort( var_choose_order.begin(), var_choose_order.end() );
@@ -591,7 +596,6 @@ bool MPI_Base :: ReadIntCNF( )
 	while ( getline( main_cnf, line_str ) ) {
 		if ( line_str[0] == 'p' )
 			continue;
-
 		if ( line_str[0] == 'c' ) { // in comment string can exist count of input variables
 			//parse string for ex. "c 1452 input variables" or "c input variables 1452"
 			sstream << line_str;
@@ -625,6 +629,20 @@ bool MPI_Base :: ReadIntCNF( )
 				    continue;
 				}
 			}
+			if ( str2 == "var_set" ) {
+				sstream << line_str;
+				sstream >> val; // remove "c"
+				sstream >> val; // remove "var_set"
+				while ( sstream >> val )
+					var_choose_order.push_back( val );
+				sstream.clear(); sstream.str();
+				cout << "After reading var_set" << endl;
+				cout << "var_choose_order.size() " << var_choose_order.size();
+				for ( unsigned i=0; i < var_choose_order.size(); ++i )
+					cout << var_choose_order[i] << " ";
+				cout << endl;
+			}
+			
 			if ( !Is_ConstrLen ) {
 				if ( ( str2 == "constraint" ) && ( str3 == "clauses" ) ) {
 					istringstream( str4 ) >> constr_clauses_count; 
