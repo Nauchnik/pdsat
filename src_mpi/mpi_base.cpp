@@ -317,10 +317,6 @@ bool MPI_Base :: MakeVarChoose( )
 	ifstream known_assumptions_file( known_assumptions_file_name.c_str() );
 	if ( known_assumptions_file.is_open() ) {
 		cout << "known_assumptions_file" << endl;
-		if ( schema_type != "known_point" ) {
-			cerr << "schema_type != known_point" << endl;
-			return false;
-		}
 		IsFileAssumptions = true;
 		string str;
 		while ( getline( known_assumptions_file, str ) ) {
@@ -336,12 +332,14 @@ bool MPI_Base :: MakeVarChoose( )
 		known_assumptions_file.close();
 	}
 	
-	if ( var_choose_order.size() > 0 )
-		full_mask_var_count = var_choose_order.size();
-	else {
-		cout << "full_mask_var_count " << full_mask_var_count << endl;
-		var_choose_order.resize( full_mask_var_count );
-
+	cout << "var_choose_order.size() " << var_choose_order.size() << endl;
+	cout << "full_mask_var_count " << full_mask_var_count << endl;
+	if ( ( var_choose_order.size() == 0 ) && ( schema_type == "" ) )
+		schema_type = "0";
+	// if got from known point file or from "c var_set..." then set was made already
+	var_choose_order.resize( full_mask_var_count );
+	
+	if ( schema_type != "" ) {
 		int k = 0;
 		if ( schema_type == "0" ) { // == bivium_Beginning1
 			for ( unsigned i = 0; i < full_mask_var_count; i++ )
@@ -641,6 +639,8 @@ bool MPI_Base :: ReadIntCNF( )
 				for ( unsigned i=0; i < var_choose_order.size(); ++i )
 					cout << var_choose_order[i] << " ";
 				cout << endl;
+				core_len = var_choose_order.size();
+				cout << "core_len changed to " << var_choose_order.size() << endl;
 			}
 			
 			if ( !Is_ConstrLen ) {
