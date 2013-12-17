@@ -20,7 +20,7 @@ MPI_Base :: MPI_Base( ) :
 	solver_type          ( 4 ),
 	core_len             ( 0 ),    
 	koef_val             ( 16 ),
-	schema_type          ( "0" ),
+	schema_type          ( "" ),
 	var_count            ( 0 ),
 	clause_count         ( 0 ),
 	full_mask_var_count  ( 0 ),
@@ -38,6 +38,7 @@ MPI_Base :: MPI_Base( ) :
 	verbosity			 ( 0 ),
 	check_every_conflict ( 2000 ),
 	known_point_file_name ( "known_point" ),
+	known_assumptions_file_name ( "known_assumptions_0" ),
 	base_known_assumptions_file_name ( "known_assumptions" ),
 	IsSolveAll           ( false ),
 	IsPredict            ( false ),
@@ -45,7 +46,6 @@ MPI_Base :: MPI_Base( ) :
 	max_nof_restarts     ( 0 ),
 	keybit_count         ( 4 ),
 	rslos_table_name     ( "" ),
-	IsFileAssumptions    ( false ),
 	assumptions_string_count ( 0 ),
 	activity_vec_len	 ( 0 )
 {
@@ -127,6 +127,9 @@ bool MPI_Base :: GetMainMasksFromVarChoose( vector<int> &var_choose_order )
 
 bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &dummy_vec )
 {
+	if ( verbosity > 0 )
+		cout << "MakeAssignsFromFile()" << endl;
+	
 	ifstream in;
 	string str;
 	in.open( known_assumptions_file_name.c_str() );
@@ -154,13 +157,15 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 		getline( in, str );
 		strings_passed++;
 	}
-	cout << "current_task_index "       << current_task_index << endl;
-	cout << "all_tasks_count "          << all_tasks_count << endl;
-	cout << "previous_tasks_count "     << previous_tasks_count << endl;
-	cout << "assumptions_string_count " << assumptions_string_count << endl;
-	cout << "basic_batch_size "         << basic_batch_size  << endl;
-	cout << "cur_batch_size "           << cur_batch_size << endl;
-	cout << "strings_passed "           << strings_passed  << endl;
+	if ( verbosity > 0 ) {
+		cout << "current_task_index "       << current_task_index << endl;
+		cout << "all_tasks_count "          << all_tasks_count << endl;
+		cout << "previous_tasks_count "     << previous_tasks_count << endl;
+		cout << "assumptions_string_count " << assumptions_string_count << endl;
+		cout << "basic_batch_size "         << basic_batch_size  << endl;
+		cout << "cur_batch_size "           << cur_batch_size << endl;
+		cout << "strings_passed "           << strings_passed  << endl;
+	}
 	
 	dummy_vec.resize( cur_batch_size );
 	// reading values from file
@@ -313,27 +318,10 @@ bool MPI_Base :: MakeVarChoose( )
 		known_point_file.close();
 		schema_type = "known_point";
 	}
-
-	ifstream known_assumptions_file( known_assumptions_file_name.c_str() );
-	if ( known_assumptions_file.is_open() ) {
-		cout << "known_assumptions_file" << endl;
-		IsFileAssumptions = true;
-		string str;
-		while ( getline( known_assumptions_file, str ) ) {
-			if ( str.size() == 0 ) // skip empty strings
-				continue;
-			if ( str.size() == var_choose_order.size() )
-				assumptions_string_count++;
-			else {
-				cerr << "str.size() != var_choose_order.size()" << endl; return false;
-			}
-		}
-		cout << "assumptions_string_count " << assumptions_string_count << endl;
-		known_assumptions_file.close();
-	}
 	
 	cout << "var_choose_order.size() " << var_choose_order.size() << endl;
 	cout << "full_mask_var_count " << full_mask_var_count << endl;
+
 	if ( ( var_choose_order.size() == 0 ) && ( schema_type == "" ) )
 		schema_type = "0";
 	// if got from known point file or from "c var_set..." then set was made already
@@ -623,24 +611,30 @@ bool MPI_Base :: ReadIntCNF( )
 						cout << "Warning. core_len > MAX_CORE_LEN or <= 0. Changed to MAX_CORE_LEN" << endl;
 						cout << "core_len " << core_len << " MAX_CORE_LEN " << MAX_CORE_LEN << endl;
 				    }
+					for ( unsigned i=0; i < core_len; ++i )
+						var_choose_order.push_back( i+1 );
 				    Is_InpVar = true;
 				    continue;
 				}
 			}
 			if ( str2 == "var_set" ) {
 				sstream << line_str;
-				sstream >> val; // remove "c"
-				sstream >> val; // remove "var_set"
-				while ( sstream >> val )
+				cout << "line_str " << line_str << endl;
+				sstream >> str1; // remove "c"
+				sstream >> str2; // remove "var_set"
+				while ( sstream >> val ) {
+					cout << val << " ";
 					var_choose_order.push_back( val );
+				}
+				cout << endl;
 				sstream.clear(); sstream.str();
 				cout << "After reading var_set" << endl;
-				cout << "var_choose_order.size() " << var_choose_order.size();
+				cout << "var_choose_order.size() " << var_choose_order.size() << endl;
 				for ( unsigned i=0; i < var_choose_order.size(); ++i )
 					cout << var_choose_order[i] << " ";
 				cout << endl;
 				core_len = var_choose_order.size();
-				cout << "core_len changed to " << var_choose_order.size() << endl;
+				cout << "core_len changed to " << core_len << endl;
 			}
 			
 			if ( !Is_ConstrLen ) {

@@ -65,7 +65,6 @@ public:
 	bool IsConseq;
 	int check_every_conflict;
 	bool IsPredict;
-	bool IsFileAssumptions;
 	
 	unsigned *full_mask;
 	unsigned *part_mask;
