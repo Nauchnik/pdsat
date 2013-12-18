@@ -133,10 +133,11 @@ void MPI_Solver :: CollectAssumptionsFiles( )
 			known_assumptions_file << sstream.rdbuf();
 			sstream.clear(); sstream.str("");
 			str = "rm " + (*it);
-			cout << "system " << str << endl;
+			//cout << "system " << str << endl;
 			system( str.c_str() ); // remove file
 		}
 	}
+	cout << "After CollectAssumptionsFiles() interrupted_count " << interrupted_count << endl;
 	
 	known_assumptions_file.close();
 }
@@ -188,7 +189,8 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 	unsigned current_tasks_solved = 0;
 	ProblemStates cur_problem_state;
 	stringstream sstream, inter_sstream;
-
+	ofstream ofile;
+	
 	sstream << base_known_assumptions_file_name << "_" << solving_iteration_count << "_rank" << rank;
 	string new_assumptions_file_name = sstream.str();
 	sstream.clear(); sstream.str("");
@@ -196,6 +198,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 	solving_times[0] = 1 << 30; // start min len
 	for ( unsigned i = 1; i < SOLVING_TIME_LEN; i++ )
 		solving_times[i] = 0;
+	unsigned local_interrupted = 0;
 	
 	if ( solver_type == 4 ) {
 		if ( assumptions_string_count ) // if assumptions in file 
@@ -241,6 +244,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 			AddSolvingTimeToArray( cur_problem_state, cnf_time_from_node, solving_times );
 
 			if ( cur_problem_state == Interrupted ) {
+				local_interrupted++;
 				for ( unsigned j = 0; j < dummy_vec[i].size(); ++j )
 					inter_sstream << ( dummy_vec[i][j].x % 2 == 0 ) ? "1" : "0";
 				inter_sstream << endl;
@@ -251,15 +255,15 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 				cout << "process_sat_count " << process_sat_count << endl;
 				if ( !solving_times[3] ) {
 					solving_times[3] = cnf_time_from_node; // time of 1st SAT, write only once
-					cout << " SAT time " << solving_times[3] << endl;
+					cout << "SAT time " << solving_times[3] << endl;
 				}
 				b_SAT_set_array.resize( S->model.size() );
 				for ( int i=0; i < S->model.size(); i++ )
 					b_SAT_set_array[i] = ( S->model[i] == l_True) ? 1 : 0 ;
-						// check res file for SAT set existing
+				// check res file for SAT set existing
 				if ( !AnalyzeSATset( ) ) {
 					// is't needed to deallocate memory - MPI_Abort will do it	
-					cout << "\n Error in Analyzer" << endl;
+					cout << "Error in Analyzer" << endl;
 					MPI_Abort( MPI_COMM_WORLD, 0 );
 					return false;
 				}
@@ -270,11 +274,12 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 			//delete S;
 			//S->clearDB(); // we don't need to clear DB, because incremental solving is faster
 		}
-		ofstream ofile;
-		ofile.open( new_assumptions_file_name.c_str(), ios_base :: app );
-		ofile << inter_sstream.rdbuf();
-		inter_sstream.clear(); inter_sstream.str("");
-		ofile.close();
+		if ( local_interrupted ) {
+			ofile.open( new_assumptions_file_name.c_str(), ios_base :: app );
+			ofile << inter_sstream.rdbuf();
+			inter_sstream.clear(); inter_sstream.str("");
+			ofile.close();
+		}
 		
 		solving_times[2] = total_time / dummy_vec.size(); // med time for current batch
 	}
@@ -292,7 +297,8 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_
 	if ( solving_times[1] > total_solving_times[1] ) // update max time
 		total_solving_times[1] = solving_times[1];
 	prev_med_time_sum += solving_times[2]; // sum of median time for solved batches
-	total_solving_times[2] = prev_med_time_sum  / solved_tasks_count; // update median time
+	if ( solved_tasks_count > 0 )
+		total_solving_times[2] = prev_med_time_sum  / solved_tasks_count; // update median time
 	if ( ( total_solving_times[3] == 0 ) && ( solving_times[3] != 0 ) ) // update sat time
 		total_solving_times[3] = solving_times[3];
 	
@@ -373,9 +379,9 @@ bool MPI_Solver :: ControlProcessSolve( )
 		cerr << "Error in MakeVarChoose" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 
-	assumptions_string_count = 0;
 	ifstream known_assumptions_file( known_assumptions_file_name.c_str() );
 	if ( known_assumptions_file.is_open() ) {
+		assumptions_string_count = 0;
 		cout << "known_assumptions_file" << endl;
 		string str;
 		while ( getline( known_assumptions_file, str ) ) {
@@ -387,7 +393,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 				cerr << "str.size() != var_choose_order.size()" << endl; return false;
 			}
 		}
-		cout << "assumptions_string_count " << assumptions_string_count << endl;
+		cout << "new assumptions_string_count " << assumptions_string_count << endl;
 		known_assumptions_file.close();
 	}
 	else
@@ -557,10 +563,17 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		MPI_Recv( &assumptions_string_count, 1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &solving_iteration_count,  1, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &max_solving_time,         1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
-		cout << "Received core_len "                 << core_len                 << endl;
-		cout << "Received assumptions_string_count " << assumptions_string_count << endl;
-		cout << "Received solving_iteration_count "  << solving_iteration_count  << endl;
-		cout << "Received max_solving_time "         << max_solving_time         << endl;
+		if ( rank == 1 ) {
+			cout << "Received core_len "                 << core_len                 << endl;
+			cout << "Received all_tasks_count "          << all_tasks_count          << endl;
+			cout << "Received assumptions_string_count " << assumptions_string_count << endl;
+			cout << "Received solving_iteration_count "  << solving_iteration_count  << endl;
+			cout << "Received max_solving_time "         << max_solving_time         << endl;
+		}
+		if ( ( assumptions_string_count <= 0 ) && ( solving_iteration_count > 0 ) ) {
+			cerr << "Error. ( ( assumptions_string_count <= 0 ) && ( solving_iteration_count > 0 ) )" << endl;
+			exit(1);
+		}
 		S->core_len         = core_len;
 		S->max_solving_time = max_solving_time;
 		sstream << base_known_assumptions_file_name << "_" << solving_iteration_count;
