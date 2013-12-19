@@ -75,7 +75,6 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 			solving_iteration_count++;
 			max_solving_time *= max_solving_time_koef; // increase time limit
 
-			interrupted_count = 0;
 			CollectAssumptionsFiles();
 			
 			// send messages for breaking low loop on compute processes
@@ -117,23 +116,30 @@ void MPI_Solver :: CollectAssumptionsFiles( )
 	sstream.clear(); sstream.str("");
 	cout << "known_assumptions_file_name " << known_assumptions_file_name << endl;
 
+	interrupted_count = 0;
+
 	ofstream known_assumptions_file;
 	known_assumptions_file.open( known_assumptions_file_name.c_str() );
 	
 	cout << "old_known_assumptions_file count " << files.size() << endl;
 	
+	unsigned file_read_count;
+	
 	for ( it = files.begin(); it != files.end(); ++it ) {
 		if ( (*it).find( old_known_assumptions_file_mask ) != string::npos ) {
 			ifstream ifile( (*it).c_str() );
+			file_read_count = 0;
 			while ( getline( ifile, str ) ) {
-				sstream << str << endl;
+				file_read_count++;
+				if ( file_read_count > 1 )
+					sstream << endl;
+				sstream << str;
 				interrupted_count++;
 			}
 			ifile.close();
 			known_assumptions_file << sstream.rdbuf();
 			sstream.clear(); sstream.str("");
 			str = "rm " + (*it);
-			//cout << "system " << str << endl;
 			system( str.c_str() ); // remove file
 		}
 	}
@@ -176,7 +182,8 @@ void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, doubl
 	}
 }
 
-bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_time_from_node, int current_task_index )
+bool MPI_Solver :: SolverRun( Solver *&S, unsigned &local_interrupted_count, int &process_sat_count, 
+							  double &cnf_time_from_node, int current_task_index )
 {
 // Run solver
 	if ( verbosity > 1 )
@@ -190,7 +197,8 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 	ProblemStates cur_problem_state;
 	stringstream sstream, inter_sstream;
 	ofstream ofile;
-	
+	unsigned batch_interrupted_count = 0;
+
 	sstream << base_known_assumptions_file_name << "_" << solving_iteration_count << "_rank" << rank;
 	string new_assumptions_file_name = sstream.str();
 	sstream.clear(); sstream.str("");
@@ -198,7 +206,6 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 	solving_times[0] = 1 << 30; // start min len
 	for ( unsigned i = 1; i < SOLVING_TIME_LEN; i++ )
 		solving_times[i] = 0;
-	unsigned local_interrupted = 0;
 	
 	if ( solver_type == 4 ) {
 		if ( assumptions_string_count ) // if assumptions in file 
@@ -206,15 +213,22 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 		else
 			MakeAssignsFromMasks( full_mask, part_mask, mask_value, dummy_vec );
 		
-		if ( verbosity > 1 ) {
+		if ( ( verbosity > 1 ) && ( rank == 1 ) ) {
 			cout << "dummy_vec size" << dummy_vec.size() << endl;
-			for ( int i = 0; i < dummy_vec.size(); i++ ) {
-				for ( int j=0; j < dummy_vec[i].size(); j++ )
+			for ( int i = 0; i < dummy_vec.size(); ++i ) {
+				for ( int j=0; j < dummy_vec[i].size(); ++j )
 					cout << dummy_vec[i][j].x << " ";
 				cout << endl;
 			}
 		}
-
+		for ( int i = 0; i < dummy_vec.size()-1; ++i )
+			for ( int j = i+1; j < dummy_vec.size(); ++j )
+				if ( dummy_vec[i] == dummy_vec[j] ) {
+					cerr << "dummy_vec[i] == dummy_vec[j]" << endl;
+					cerr << i << " == " << j << endl;
+					return false;
+				}
+		
 		uint64_t prev_starts, prev_conflicts, prev_decisions;
 		for ( int i=0; i < dummy_vec.size(); ++i ) {
 #ifndef _DEBUG
@@ -244,10 +258,12 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 			AddSolvingTimeToArray( cur_problem_state, cnf_time_from_node, solving_times );
 
 			if ( cur_problem_state == Interrupted ) {
-				local_interrupted++;
+				batch_interrupted_count++;
+				local_interrupted_count++;
+				if ( local_interrupted_count > 1 )
+					inter_sstream << endl;
 				for ( unsigned j = 0; j < dummy_vec[i].size(); ++j )
 					inter_sstream << ( dummy_vec[i][j].x % 2 == 0 ) ? "1" : "0";
-				inter_sstream << endl;
 			}
 
 			if ( ret == l_True ) {
@@ -274,8 +290,8 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 			//delete S;
 			//S->clearDB(); // we don't need to clear DB, because incremental solving is faster
 		}
-		if ( local_interrupted ) {
-			ofile.open( new_assumptions_file_name.c_str(), ios_base :: app );
+		if ( batch_interrupted_count ) {
+			ofile.open( new_assumptions_file_name.c_str(), ios_base::out | ios_base::app );
 			ofile << inter_sstream.rdbuf();
 			inter_sstream.clear(); inter_sstream.str("");
 			ofile.close();
@@ -382,7 +398,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 	ifstream known_assumptions_file( known_assumptions_file_name.c_str() );
 	if ( known_assumptions_file.is_open() ) {
 		assumptions_string_count = 0;
-		cout << "known_assumptions_file" << endl;
+		cout << "reading of known_assumptions_file_name " << known_assumptions_file_name << endl;
 		string str;
 		while ( getline( known_assumptions_file, str ) ) {
 			if ( str.size() == 0 ) // skip empty strings
@@ -484,15 +500,13 @@ bool MPI_Solver :: ControlProcessSolve( )
 	unsigned solved_tasks_count = 0;
 	double finding_first_sat_time = 0;
 	// write init info
-	WriteSolvingTimeInfo( solving_times, solved_tasks_count, 
-			              sat_count, finding_first_sat_time );
+	WriteSolvingTimeInfo( solving_times, solved_tasks_count, sat_count, finding_first_sat_time );
 
 	total_solving_times[0] = 1 << 30; // start min len
 	for ( unsigned i = 1; i < total_solving_times.size(); ++i )
 		total_solving_times[i] = 0;
 	int process_sat_count = 0;
-	MPI_Status status,
-		       current_status;
+	MPI_Status status, current_status;
 	
 	while ( solved_tasks_count < all_tasks_count ) {
 		// recieve from core message about solved task 		
@@ -542,6 +556,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	int process_sat_count = 0;
 	double cnf_time_from_node = 0.0;
 	bool IsFirstTaskRecieved;
+	unsigned local_interrupted_count;
 	
 	if ( solver_type == 4 ) { // last version of minisat
 		ifstream in( input_cnf_name );
@@ -563,6 +578,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		MPI_Recv( &assumptions_string_count, 1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &solving_iteration_count,  1, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &max_solving_time,         1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
+		local_interrupted_count = 0;
 		if ( rank == 1 ) {
 			cout << "Received core_len "                 << core_len                 << endl;
 			cout << "Received all_tasks_count "          << all_tasks_count          << endl;
@@ -572,7 +588,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		}
 		if ( ( assumptions_string_count <= 0 ) && ( solving_iteration_count > 0 ) ) {
 			cerr << "Error. ( ( assumptions_string_count <= 0 ) && ( solving_iteration_count > 0 ) )" << endl;
-			exit(1);
+			return false;
 		}
 		S->core_len         = core_len;
 		S->max_solving_time = max_solving_time;
@@ -614,7 +630,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 				cout << endl;
 			}
 		
-			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index ) ) { 
+			if ( !SolverRun( S, local_interrupted_count, process_sat_count, cnf_time_from_node, current_task_index ) ) { 
 				cout << endl << "Error in SolverRun"; return false; 
 			}
 		
@@ -649,6 +665,7 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 	double start_sec;
 	double final_sec;
 	Solver *S;
+	unsigned local_interrupted_count = 0;
 
 	// MPI start
 	//MPI_Request request;
@@ -707,7 +724,7 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 		if ( !IsPB ) {
 			int current_task_index = 0;
 			cout << endl << endl << "Standart mode of SAT solving";
-			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index ) )
+			if ( !SolverRun( S, local_interrupted_count, process_sat_count, cnf_time_from_node, current_task_index ) )
 			{ cout << endl << "Error in SolverRun"; return false; }
 			if ( process_sat_count ) {
 				if ( !AnalyzeSATset( ) ) {

@@ -140,7 +140,6 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 	
 	int cur_var_ind, intval, k = 0;
 	// int rslos_num = 1; 
-	int strings_passed = 0;
 	int basic_batch_size = (int)floor( (double)assumptions_string_count / (double)all_tasks_count );
 	// calculate count of bathes with additional size (+1)
 	int batch_addit_size_count = assumptions_string_count - basic_batch_size*all_tasks_count;
@@ -153,6 +152,8 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 		previous_tasks_count += current_task_index; // add some 1 to sum
 	else
 		previous_tasks_count += batch_addit_size_count;
+
+	int strings_passed = 0;
 	while ( strings_passed < previous_tasks_count ) {
 		getline( in, str );
 		strings_passed++;
@@ -169,7 +170,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 	
 	dummy_vec.resize( cur_batch_size );
 	// reading values from file
-	for ( int i=0; i < cur_batch_size; i++ ) {
+	for ( int i=0; i < cur_batch_size; ++i ) {
 		if ( !getline( in, str ) ) {
 			cerr << "Error. !getline( in, str )" << endl;
 			return false;
@@ -178,7 +179,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 			cerr << "Error. str.size() < var_choose_order.size()" << endl;
 			return false;
 		}
-		for ( unsigned j=0; j < var_choose_order.size(); j++ ) {
+		for ( unsigned j=0; j < var_choose_order.size(); ++j ) {
 			cur_var_ind = var_choose_order[j] - 1;
 			if ( str[j] == '1' )
 				dummy_vec[i].push( mkLit( cur_var_ind ) );
@@ -367,6 +368,7 @@ bool MPI_Base :: MakeVarChoose( )
 		}
 	}
 
+	cout << "final var_choose_order.size() " << var_choose_order.size() << endl;
 	sort( var_choose_order.begin(), var_choose_order.end() );
 	cout << "var_choose_order" << endl;
 	for ( unsigned i = 0; i < var_choose_order.size(); i++ )
