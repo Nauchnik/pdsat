@@ -15,6 +15,7 @@ private:
 	string base_solving_info_file_name;
 	string solving_info_file_name;
 	double max_solving_time_koef;
+	double finding_first_sat_time;
 public:
 	// Constructor/Destructor:
     MPI_Solver( );
@@ -27,16 +28,16 @@ public:
 	double prev_med_time_sum;
 	
 	bool MPI_Solve( int argc, char **argv );
-	bool MPI_ConseqSolve( int argc, char **argv );
-	bool WriteTimeToFile( double whole_time_sec );
-	bool cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, 
-		                 int &real_seconds );
-	void CollectAssumptionsFiles();
 	bool ControlProcessSolve( );
 	bool ComputeProcessSolve( );
+
+	bool MPI_ConseqSolve( int argc, char **argv );
+	bool WriteTimeToFile( double whole_time_sec );
+	bool cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, int &real_seconds );
+
+	void CollectAssumptionsFiles();
 	void PrintParams( );
-	void WriteSolvingTimeInfo( double *solving_times, unsigned solved_tasks_count, 
-					           unsigned sat_count, double finding_first_sat_time );
+	void WriteSolvingTimeInfo( double *solving_times, unsigned solved_tasks_count );
 	void AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
 		                        double *solving_times );
 	bool SolverRun( Solver *&S, unsigned &local_interrupted_count, int &process_sat_count, double &cnf_time_from_node, 

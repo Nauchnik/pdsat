@@ -138,6 +138,11 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 		return false;
 	}
 	
+	if ( var_choose_order.size() == 0 ) {
+		cerr << "Error. var_choose_order.size() == 0 " << endl;
+		return false;
+	}
+	
 	int cur_var_ind, intval, k = 0;
 	// int rslos_num = 1; 
 	int basic_batch_size = (int)floor( (double)assumptions_string_count / (double)all_tasks_count );
@@ -152,7 +157,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 		previous_tasks_count += current_task_index; // add some 1 to sum
 	else
 		previous_tasks_count += batch_addit_size_count;
-
+	
 	int strings_passed = 0;
 	while ( strings_passed < previous_tasks_count ) {
 		getline( in, str );
@@ -448,9 +453,6 @@ bool MPI_Base :: ReadVarCount( )
 	clause_count = current_clause_count;
 
 	clause_lengths.resize( clause_count );
-	lits_clause_lengths.resize( lit_count );
-	for ( i = 0; i < lits_clause_lengths.size(); ++i )
-		lits_clause_lengths[i] = 0;
 
 	main_cnf.close( ); // reopen file
 	main_cnf.clear( );
@@ -487,28 +489,10 @@ bool MPI_Base :: ReadVarCount( )
 						break;
 
 					current_lit_count++;
-					// convert value of literal to positiv int
-					lit_positiv_val = abs( atoi( word_str.c_str( ) ) ); 
-					if ( lit_positiv_val > current_var_count )
-						current_var_count = lit_positiv_val;
-
-					lit_val = atoi( word_str.c_str( ) ); // word -> lit value
-					if ( lit_val < 0 ) {
-						lit_val = -lit_val; 
-						sign = 1;
-					}
-					else
-						sign = 0;
-
-					// add values to attay of literal's clauses relations
-					val = ( lit_val << 1 ) + sign; // literal value, 1 -> 2, -1 -> 3, 2 -> 4, -2 -> 5
-					lit_index = val - 2;
-					lits_clause_lengths[lit_index] += 1; 
 				}
 			} // for ( i = 0; i < line_str.length( ) - 1; i++ )
 
-			if ( current_lit_count )
-			{
+			if ( current_lit_count ) {
 				current_clause_count++;
 				clause_lengths[current_clause_count - 1] = current_lit_count;
 			}
@@ -555,16 +539,11 @@ bool MPI_Base :: ReadIntCNF( )
 		cout << "Success of ReadVarCount()" << endl;
 
 	clause_array.resize( clause_count );
-	lits_clause_array.resize( lit_count ); // array of indexes of clauses for literals
 
 	int *lits_clause_current = new int[lit_count];
 
 	for ( unsigned i = 0; i < clause_array.size(); ++i )
 		clause_array[i].resize( clause_lengths[i] );
-	for ( unsigned i = 0; i < lits_clause_array.size(); ++i ) {
-		lits_clause_array[i].resize( lits_clause_lengths[i] );
-		lits_clause_current[i] = 0;
-	}
 
 	// check file with main CNF
 	ifstream main_cnf( input_cnf_name, ios::in );
@@ -589,7 +568,7 @@ bool MPI_Base :: ReadIntCNF( )
 			sstream << line_str;
 			sstream >> str1 >> str2;
 			
-			if ( str2 == "rslos" ) {
+			/*if ( str2 == "rslos" ) {
 				while ( sstream >> intval )
 					rslos_lengths.push_back( intval );
 				cout << "rslos_count " << rslos_lengths.size() << endl;
@@ -599,7 +578,7 @@ bool MPI_Base :: ReadIntCNF( )
 				cout << endl;
 				
 				continue;
-			}
+			}*/
 
 			sstream >> str3 >> str4; // get and parse words in string
 			sstream.str( "" ); sstream.clear( );
@@ -729,10 +708,6 @@ bool MPI_Base :: ReadIntCNF( )
 					val = ( lit_val << 1 ) + sign; // literal value, 1 -> 2, -1 -> 3, 2 -> 4, -2 -> 5
 					clause_array[current_clause_count][current_lit_count] = val;
 					current_lit_count++;
-					// fill attay of literal's clauses indexes
-					int lit_index = val - 2;
-					lits_clause_array[lit_index][lits_clause_current[lit_index]] = ( int )current_clause_count;
-					lits_clause_current[lit_index]++;
 				} // if ( ( line_str[i] == ' ' ) ...
 			} // for ( i = 0; i < line_str.length( ) - 1; i++ )
 			

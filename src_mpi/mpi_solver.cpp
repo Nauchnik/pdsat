@@ -21,7 +21,8 @@ MPI_Solver :: MPI_Solver( ) :
 	prev_med_time_sum           ( 0 ),
 	solving_iteration_count     ( 0 ),
 	interrupted_count           ( 0 ),
-	max_solving_time_koef       ( 2 )
+	max_solving_time_koef       ( 2 ),
+	finding_first_sat_time      ( 0 )
 { 
 	solving_times = new double[SOLVING_TIME_LEN];
 	for( unsigned i=0; i < SOLVING_TIME_LEN; ++i )
@@ -81,8 +82,7 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 			if ( interrupted_count )
 				for ( int i = 1; i < corecount; i++ )
 					MPI_Send( &break_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
-			else
-				break;
+			else break;
 		}
 		
 		whole_final_time = MPI_Wtime( ) - whole_start_time;
@@ -108,7 +108,7 @@ void MPI_Solver :: CollectAssumptionsFiles( )
 	vector<string> :: iterator it;
 	getdir( dir, files ); // get all files in current dir
 	stringstream sstream;
-	sstream << base_known_assumptions_file_name << "_" << (solving_iteration_count-1);
+	sstream << base_known_assumptions_file_name << "_" << (solving_iteration_count-1) << "_rank";
 	string old_known_assumptions_file_mask = sstream.str();
 	sstream.clear(); sstream.str("");
 	sstream << base_known_assumptions_file_name << "_" << solving_iteration_count;
@@ -123,15 +123,11 @@ void MPI_Solver :: CollectAssumptionsFiles( )
 	
 	cout << "old_known_assumptions_file count " << files.size() << endl;
 	
-	unsigned file_read_count;
-	
 	for ( it = files.begin(); it != files.end(); ++it ) {
 		if ( (*it).find( old_known_assumptions_file_mask ) != string::npos ) {
 			ifstream ifile( (*it).c_str() );
-			file_read_count = 0;
 			while ( getline( ifile, str ) ) {
-				file_read_count++;
-				if ( file_read_count > 1 )
+				if ( interrupted_count )
 					sstream << endl;
 				sstream << str;
 				interrupted_count++;
@@ -185,7 +181,6 @@ void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, doubl
 bool MPI_Solver :: SolverRun( Solver *&S, unsigned &local_interrupted_count, int &process_sat_count, 
 							  double &cnf_time_from_node, int current_task_index )
 {
-// Run solver
 	if ( verbosity > 1 )
 		cout << "start SolverRun()" << endl;
 
@@ -221,13 +216,12 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned &local_interrupted_count, int
 				cout << endl;
 			}
 		}
-		for ( int i = 0; i < dummy_vec.size()-1; ++i )
-			for ( int j = i+1; j < dummy_vec.size(); ++j )
-				if ( dummy_vec[i] == dummy_vec[j] ) {
-					cerr << "dummy_vec[i] == dummy_vec[j]" << endl;
-					cerr << i << " == " << j << endl;
-					return false;
-				}
+
+		for ( int i = 0; i < dummy_vec.size(); ++i )
+			if ( dummy_vec[i].size() == 0 ) {
+				cerr << "dummy_vec.size() == 0" << endl;
+				return false;
+			}
 		
 		uint64_t prev_starts, prev_conflicts, prev_decisions;
 		for ( int i=0; i < dummy_vec.size(); ++i ) {
@@ -305,8 +299,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned &local_interrupted_count, int
 	return true;
 }
 
-void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_tasks_count, 
-										 unsigned sat_count, double finding_first_sat_time )
+void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_tasks_count )
 {
 	if ( solving_times[0] < total_solving_times[0] ) // update min time
 		total_solving_times[0] = solving_times[0];
@@ -387,14 +380,15 @@ bool MPI_Solver :: ControlProcessSolve( )
 {
 	cout << "ControlProcessSolve is running" << endl;
 
-	if ( !ReadIntCNF( ) ) { // Read original CNF
-		cerr << "Error in ReadIntCNF" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+	if ( solving_iteration_count == 0 ) {
+		if ( !ReadIntCNF( ) ) { // Read original CNF
+			cerr << "Error in ReadIntCNF" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+		}
+		if ( !MakeVarChoose( ) ) { 
+			cerr << "Error in MakeVarChoose" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+		}
 	}
-
-	if ( !MakeVarChoose( ) ) { 
-		cerr << "Error in MakeVarChoose" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
-	}
-
+	
 	ifstream known_assumptions_file( known_assumptions_file_name.c_str() );
 	if ( known_assumptions_file.is_open() ) {
 		assumptions_string_count = 0;
@@ -406,7 +400,9 @@ bool MPI_Solver :: ControlProcessSolve( )
 			if ( str.size() == var_choose_order.size() )
 				assumptions_string_count++;
 			else {
-				cerr << "str.size() != var_choose_order.size()" << endl; return false;
+				cerr << "str.size() != var_choose_order.size()" << endl; 
+				cerr << str.size() << " != " << var_choose_order.size() << endl;
+				return false;
 			}
 		}
 		cout << "new assumptions_string_count " << assumptions_string_count << endl;
@@ -470,7 +466,11 @@ bool MPI_Solver :: ControlProcessSolve( )
 		cerr << "Error in MakeStandartMasks" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 	cout << "Correct end of MakeStandartMasks" << endl;
-
+	
+	unsigned solved_tasks_count = 0;
+	// write init info
+	WriteSolvingTimeInfo( solving_times, solved_tasks_count );
+	
 	// send core_len once to every compute process
 	for ( int i=0; i < corecount-1; ++i ) {
 		MPI_Send( &core_len,                 1, MPI_INT,      i + 1, 0, MPI_COMM_WORLD );
@@ -496,11 +496,6 @@ bool MPI_Solver :: ControlProcessSolve( )
 		}
 		next_task_index++;
 	}
-	
-	unsigned solved_tasks_count = 0;
-	double finding_first_sat_time = 0;
-	// write init info
-	WriteSolvingTimeInfo( solving_times, solved_tasks_count, sat_count, finding_first_sat_time );
 
 	total_solving_times[0] = 1 << 30; // start min len
 	for ( unsigned i = 1; i < total_solving_times.size(); ++i )
@@ -524,8 +519,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 				finding_first_sat_time = MPI_Wtime() - start_time;
 		}
 		
-		WriteSolvingTimeInfo( solving_times, solved_tasks_count, 
-			                  sat_count, finding_first_sat_time );
+		WriteSolvingTimeInfo( solving_times, solved_tasks_count );
 
 		if ( process_sat_count && !IsSolveAll )
 			break; // exit if SAT set found
@@ -557,6 +551,10 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	double cnf_time_from_node = 0.0;
 	bool IsFirstTaskRecieved;
 	unsigned local_interrupted_count;
+	int val;
+	string solving_info_file_name;
+	string str;
+	ifstream infile;
 	
 	if ( solver_type == 4 ) { // last version of minisat
 		ifstream in( input_cnf_name );
@@ -596,6 +594,40 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		known_assumptions_file_name = sstream.str();
 		sstream.clear(); sstream.str("");
 		
+		if ( solving_iteration_count == 0 ) {
+			// read var_choose_order from file
+			solving_info_file_name = base_solving_info_file_name + "_0";
+			infile.open( solving_info_file_name.c_str() );
+			if ( !infile.is_open() ) {
+				cerr << "!infile.is_open()" << endl;
+				cerr << "solving_info_file_name" << endl;
+			}
+			bool ReadNext = false;
+			while ( getline( infile, str ) ) {
+				if ( rank == 1 )
+					cout << str << endl;
+				if ( str.find( "var_choose_order" ) != string::npos ) {
+					ReadNext = true;
+					continue;
+				}
+				if ( ReadNext ) {
+					sstream << str;
+					if ( rank == 1 )
+						cout << "parsing " << str << endl;
+					while ( sstream >> val )
+						var_choose_order.push_back( val );
+					break;
+				}
+			}
+			sstream.clear(); sstream.str("");
+			infile.close();
+			cout << "rank " << rank << endl;
+			cout << "var_choose_order.size() " << var_choose_order.size() << endl;
+			for ( unsigned i=0; i < var_choose_order.size(); ++i )
+				cout << var_choose_order[i] << " ";
+			cout << endl;
+		}
+
 		for (;;) {
 			// get index of current task
 			MPI_Recv( &current_task_index, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );

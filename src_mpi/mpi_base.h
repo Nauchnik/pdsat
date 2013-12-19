@@ -46,8 +46,6 @@ class MPI_Base
 protected:
 	vector< vector<int> > clause_array;
 	vector<int> clause_lengths;
-	vector< vector<int> >lits_clause_array;
-	vector<unsigned> lits_clause_lengths;
 	vector<int> b_SAT_set_array;
 	vector< vector<unsigned> > values_arr;
 	vector<int> var_choose_order;
