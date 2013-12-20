@@ -2,6 +2,15 @@
 
 using namespace Addit_func;
 
+void Addit_func :: cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, int &real_seconds ) 
+{
+// Time of work in hours, minutes, seconds
+	int full_minutes = ( int )full_seconds / 60;
+	real_seconds = ( int )full_seconds % 60;
+	real_hours   = full_minutes / 60;
+	real_minutes = full_minutes % 60;
+}
+
 int Addit_func :: BitCount( unsigned u )
 {
 	unsigned uCount = u - ((u >> 1) & 033333333333) - ((u >> 2) & 011111111111);

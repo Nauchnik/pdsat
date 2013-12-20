@@ -47,6 +47,7 @@ struct Flags
 	int skip_tasks;
 	string rslos_table_name;
 	string evaluation_type;
+	double max_solving_time_koef;
 };
 
 // prototypes
@@ -188,7 +189,9 @@ int main( int argc, char** argv )
 		if ( myflags.max_solving_time > 0 )
 			mpi_s.max_solving_time = myflags.max_solving_time;
 		if ( myflags.max_nof_restarts > 0 )
-			mpi_s.max_nof_restarts = myflags.max_nof_restarts; 
+			mpi_s.max_nof_restarts = myflags.max_nof_restarts;
+		if ( myflags.max_solving_time_koef > 0 )
+			mpi_s.max_solving_time_koef = myflags.max_solving_time_koef;
 		mpi_s.rslos_table_name = myflags.rslos_table_name;
 
 		mpi_s.verbosity		   = myflags.verbosity;
@@ -326,7 +329,8 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.max_nof_restarts = 0;
 	myflags.skip_tasks = 0;
 	myflags.evaluation_type = "";
-
+	myflags.max_solving_time_koef = 0;
+	
 	k = 0;
 
 	// check every input parameters for flag existing
@@ -373,6 +377,8 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.max_nof_restarts = atoi( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-max_solving_time=", value ) )
 			myflags.max_solving_time = atof( value.c_str( ) );
+		else if ( hasPrefix_String( argv_string, "-max_solving_time_koef=", value ) )
+			myflags.max_solving_time_koef = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-deep_predict=", value ) )  {
 			myflags.deep_predict = atoi( value.c_str( ) );
 			switch ( myflags.deep_predict ) {

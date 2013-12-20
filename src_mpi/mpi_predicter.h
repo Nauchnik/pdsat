@@ -3,7 +3,6 @@
 #define mpi_predicter_h
 
 #include "mpi_base.h"
-#include "../src_common/addit_func.h"
 
 const int	 MAX_STEP_CNF_IN_SET		   = 30;
 

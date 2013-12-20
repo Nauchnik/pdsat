@@ -20,6 +20,7 @@ using std::string;
 
 namespace Addit_func {
 
+extern void cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, int &real_seconds );
 extern void MakeCombinations( int n, int k, vector< vector<int> > &combinations );
 extern void MakePermutations( int n, int k, vector< vector<int> > &permutations );
 extern int ConseqMultip( int low_bound, int high_bound );

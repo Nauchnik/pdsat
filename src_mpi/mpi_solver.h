@@ -14,8 +14,8 @@ private:
 	unsigned interrupted_count;
 	string base_solving_info_file_name;
 	string solving_info_file_name;
-	double max_solving_time_koef;
 	double finding_first_sat_time;
+	double total_start_time;
 public:
 	// Constructor/Destructor:
     MPI_Solver( );
@@ -26,6 +26,7 @@ public:
 	int exch_activ;
 	unsigned skip_tasks;
 	double prev_med_time_sum;
+	double max_solving_time_koef;
 	
 	bool MPI_Solve( int argc, char **argv );
 	bool ControlProcessSolve( );
@@ -33,7 +34,6 @@ public:
 
 	bool MPI_ConseqSolve( int argc, char **argv );
 	bool WriteTimeToFile( double whole_time_sec );
-	bool cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, int &real_seconds );
 
 	void CollectAssumptionsFiles();
 	void PrintParams( );

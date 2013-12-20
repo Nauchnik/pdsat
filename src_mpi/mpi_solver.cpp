@@ -22,8 +22,9 @@ MPI_Solver :: MPI_Solver( ) :
 	solving_iteration_count     ( 0 ),
 	interrupted_count           ( 0 ),
 	max_solving_time_koef       ( 2 ),
-	finding_first_sat_time      ( 0 )
-{ 
+	finding_first_sat_time      ( 0 ),
+	total_start_time            ( 0 )
+{
 	solving_times = new double[SOLVING_TIME_LEN];
 	for( unsigned i=0; i < SOLVING_TIME_LEN; ++i )
 		solving_times[i] = 0;
@@ -55,7 +56,7 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	if ( corecount < 2 ) { 
 		printf( "Error. corecount < 2" ); MPI_Abort( MPI_COMM_WORLD, 0 );; 
 	}
-
+	
 	if ( rank != 0 ) {
 		if ( !ComputeProcessSolve() ) {
 			cerr << "Error in ComputeProcessSovle" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
@@ -63,6 +64,7 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	}
 	else { // rank == 0
 		cout << "*** MPI_Solve is running ***" << endl;
+		total_start_time = MPI_Wtime();
 		for (;;) {
 			sstream << base_solving_info_file_name << "_" << solving_iteration_count;
 			solving_info_file_name = sstream.str();
@@ -77,6 +79,9 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 			max_solving_time *= max_solving_time_koef; // increase time limit
 
 			CollectAssumptionsFiles();
+			
+			if ( sat_count && !IsSolveAll )
+				break; // exit if SAT set found
 			
 			// send messages for breaking low loop on compute processes
 			if ( interrupted_count )
@@ -117,14 +122,19 @@ void MPI_Solver :: CollectAssumptionsFiles( )
 	cout << "known_assumptions_file_name " << known_assumptions_file_name << endl;
 
 	interrupted_count = 0;
-
+	
 	ofstream known_assumptions_file;
-	known_assumptions_file.open( known_assumptions_file_name.c_str() );
+	known_assumptions_file.open( known_assumptions_file_name.c_str(), ios_base::out );
+	if ( !known_assumptions_file.is_open() ) {
+		cerr << "!known_assumptions_file.is_open()" << endl;
+		cerr << known_assumptions_file_name << endl;
+		MPI_Abort( MPI_COMM_WORLD, 0 );
+	}
 	
-	cout << "old_known_assumptions_file count " << files.size() << endl;
-	
+	unsigned old_known_assumptions_file_count = 0;
 	for ( it = files.begin(); it != files.end(); ++it ) {
 		if ( (*it).find( old_known_assumptions_file_mask ) != string::npos ) {
+			old_known_assumptions_file_count++;
 			ifstream ifile( (*it).c_str() );
 			while ( getline( ifile, str ) ) {
 				if ( interrupted_count )
@@ -135,10 +145,12 @@ void MPI_Solver :: CollectAssumptionsFiles( )
 			ifile.close();
 			known_assumptions_file << sstream.rdbuf();
 			sstream.clear(); sstream.str("");
-			str = "rm " + (*it);
-			system( str.c_str() ); // remove file
 		}
 	}
+	cout << "old_known_assumptions_file count " << old_known_assumptions_file_count << endl;
+	str = "rm " + old_known_assumptions_file_mask + "*";
+	system( str.c_str() ); // remove old files
+	cout << "system " << str << endl;
 	cout << "After CollectAssumptionsFiles() interrupted_count " << interrupted_count << endl;
 	
 	known_assumptions_file.close();
@@ -301,6 +313,8 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned &local_interrupted_count, int
 
 void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_tasks_count )
 {
+	int time_sec, time_minutes, time_hours;
+	
 	if ( solving_times[0] < total_solving_times[0] ) // update min time
 		total_solving_times[0] = solving_times[0];
 	if ( solving_times[1] > total_solving_times[1] ) // update max time
@@ -331,7 +345,9 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_
 	sstream << "max                    " << total_solving_times[1] << endl;
 	sstream << "med                    " << total_solving_times[2] << endl;
 	sstream << "sat                    " << total_solving_times[3] << endl;
-	sstream << "finding_first_sat_time " << finding_first_sat_time << endl;
+	sstream << "finding_first_sat_time ";
+	cpuTimeInHours( finding_first_sat_time, time_hours, time_minutes, time_sec );
+	sstream << time_hours << " h " << time_minutes << " m " << time_sec << " s" << endl;
 	sstream << "sat_count              " << sat_count << endl;
 	if ( solved_problems_count > 0 ) {
 		sstream << "SOLVED BY PREPROCESSING, count ";
@@ -381,10 +397,10 @@ bool MPI_Solver :: ControlProcessSolve( )
 	cout << "ControlProcessSolve is running" << endl;
 
 	if ( solving_iteration_count == 0 ) {
-		if ( !ReadIntCNF( ) ) { // Read original CNF
+		if ( !ReadIntCNF() ) { // Read original CNF
 			cerr << "Error in ReadIntCNF" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
-		if ( !MakeVarChoose( ) ) { 
+		if ( !MakeVarChoose() ) { 
 			cerr << "Error in MakeVarChoose" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 	}
@@ -450,8 +466,9 @@ bool MPI_Solver :: ControlProcessSolve( )
 		cout << "all_tasks_count changed to " << assumptions_string_count << endl;
 	}
 	
-	PrintParams( );
-		
+	if ( solving_iteration_count == 0 )
+		PrintParams( );
+	
 	if ( skip_tasks >= all_tasks_count ) {
 		cerr << "Error. skip_tasks >= all_tasks_count " << endl;
 		cerr << skip_tasks << " >= " << all_tasks_count << endl;
@@ -462,10 +479,12 @@ bool MPI_Solver :: ControlProcessSolve( )
 	for ( unsigned i = 0; i < values_arr.size(); ++i )
 		values_arr[i].resize( FULL_MASK_LEN );
 	
-	if ( !MakeStandardMasks( part_var_power ) ) {
-		cerr << "Error in MakeStandartMasks" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+	if ( !assumptions_string_count ) {
+		if ( !MakeStandardMasks( part_var_power ) ) {
+			cerr << "Error in MakeStandartMasks" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+		}
+		cout << "Correct end of MakeStandartMasks" << endl;
 	}
-	cout << "Correct end of MakeStandartMasks" << endl;
 	
 	unsigned solved_tasks_count = 0;
 	// write init info
@@ -480,11 +499,12 @@ bool MPI_Solver :: ControlProcessSolve( )
 		MPI_Send( &max_solving_time,         1, MPI_DOUBLE,   i + 1, 0, MPI_COMM_WORLD );
 	}
 	
-	double start_time = MPI_Wtime();
 	unsigned next_task_index = 0;
 	
+	unsigned start_tasks_count = min( corecount - 1, (int)all_tasks_count );
+	cout << "start_tasks_count " << start_tasks_count << endl;
 	// send to all cores (except # 0) tasks from 1st range
-	for ( int i = 0; i < corecount-1; i++ ) {		
+	for ( int i = 0; i < start_tasks_count; ++i ) {
 		// send new index of task for reading tasks from file
 		MPI_Send( &next_task_index, 1, MPI_INT, next_task_index + 1, 0, MPI_COMM_WORLD );
 		
@@ -516,12 +536,12 @@ bool MPI_Solver :: ControlProcessSolve( )
 			sat_count += process_sat_count;
 			cout << "sat_count " << sat_count << endl;
 			if ( finding_first_sat_time == 0 ) // first time only
-				finding_first_sat_time = MPI_Wtime() - start_time;
+				finding_first_sat_time = MPI_Wtime() - total_start_time;
 		}
 		
 		WriteSolvingTimeInfo( solving_times, solved_tasks_count );
-
-		if ( process_sat_count && !IsSolveAll )
+		
+		if ( sat_count && !IsSolveAll )
 			break; // exit if SAT set found
 		
 		if ( next_task_index < all_tasks_count ) {
@@ -803,21 +823,8 @@ void MPI_Solver :: PrintParams( )
 	cout << endl << "IsSolveAll exch_activ is " << IsSolveAll;
 	cout << endl << "max_solving_time "         << max_solving_time;
 	cout << endl << "max_nof_restarts "         << max_nof_restarts;
+	cout << endl << "max_solving_time_koef "    << max_solving_time_koef;
 	cout << endl;
-}
-
-//---------------------------------------------------------
-bool MPI_Solver :: cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, int &real_seconds ) 
-{
-// Time of work in hours, minutes, seconds
-	int full_minutes = -1;
-	//
-	full_minutes = ( int )full_seconds / 60;
-	real_seconds = ( int )full_seconds % 60;
-	real_hours   = full_minutes / 60;
-	real_minutes = full_minutes % 60;
-	//
-	return true;
 }
 
 //---------------------------------------------------------
@@ -836,9 +843,7 @@ bool MPI_Solver :: WriteTimeToFile( double time_sec )
 
 	cout << endl << "That took %f seconds " << time_sec << endl;
 	
-	if ( !cpuTimeInHours( time_sec, real_hours, real_minutes, real_seconds ) ) 
-		{ cout << "Error in cpuTimeInHours" << endl; return false; }
-
+	cpuTimeInHours( time_sec, real_hours, real_minutes, real_seconds );
 	stringstream sstream;
 	sstream << TimeIs_char << real_hours << hour_char 
 		    << real_minutes << minute_char << real_seconds << second_char;
