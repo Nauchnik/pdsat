@@ -62,6 +62,41 @@ bool ds_compareByActivity(const decomp_set &a, const decomp_set &b)
 	return a.med_var_activity > b.med_var_activity;
 }
 
+void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number_to_send, unsigned &cur_task_index, unsigned &cur_decomp_set_index )
+{
+	cnf_start_time_arr[cur_task_index] = MPI_Wtime(); // fix current time
+	node_list[cur_task_index] = process_number_to_send; // fix node where SAT problem will be solved
+	
+	MPI_Send( &cur_task_index,  1, MPI_INT, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
+	
+	unsigned size;
+	if ( cur_task_index % cnf_in_set_count == 0 ) { // if new sample then new set
+		if ( cur_decomp_set_index > decomp_set_arr.size() - 1 ) {
+			cerr << "cur_decomp_set_index > decomp_set_arr.size() - 1" << endl;
+			cerr << cur_decomp_set_index << " > " << decomp_set_arr.size() - 1 << endl;
+			MPI_Abort( MPI_COMM_WORLD, 0 );
+		}
+		size = decomp_set_arr[cur_decomp_set_index].var_choose_order.size();
+		unsigned *local_decomp_set = new unsigned[size];
+		for ( unsigned i=0; i < size; ++i ) 
+			local_decomp_set[i] = decomp_set_arr[cur_decomp_set_index].var_choose_order[i];
+		
+		MPI_Send( local_decomp_set, size, MPI_UNSIGNED, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
+		
+		if ( verbosity > 1 ) {
+			cout << "Sending decomp_set with size " << size << endl;
+			for ( unsigned i = 0; i < size; ++i )
+				cout << local_decomp_set[i] << " ";
+			cout << endl;
+		}
+		delete[] local_decomp_set;
+
+		cur_decomp_set_index++;
+	}
+	
+	cur_task_index++;
+}
+
 bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control )
 {
 // Predicting of compute cost
@@ -87,35 +122,16 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	}
 	
 	unsigned cur_task_index = 0; 
+	unsigned cur_decomp_set_index = 0;
 	unsigned part_mask_index = 0;
 	unsigned bit_count;
 	int IsSolvedOnPreprocessing;
-
+	
 	// send to all cores (except # 0) first tasks and then go to 2nd phase - for every resulted node send new task
-	for ( int i = 0; i < corecount-1; ++i ) {	
-		// get start part_mask_arr[0]
-		if ( cur_task_index % cnf_in_set_count == 0 ) { // if new sample then new part_mask
-			copy( part_mask_arr[part_mask_index].begin(), part_mask_arr[part_mask_index].end(), part_mask );
-			part_mask_index++;
-		}
-		
-		cnf_start_time_arr[i] = MPI_Wtime( ); // fix current time
-		node_list[i] = i + 1; // fix node where SAT problem will be solved
-		if ( verbosity > 2 ) {
-			cout << "Sending part_mask" << endl;
-			for ( unsigned j = 0; j < FULL_MASK_LEN; j++ )
-				cout << part_mask[j] << " ";
-			cout << endl;
-		}
-		// send new index of task
-		MPI_Send( &i,                    1,      MPI_INT, i + 1, ProcessListNumber, MPI_COMM_WORLD );
-		MPI_Send( part_mask, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, ProcessListNumber, MPI_COMM_WORLD );
-		if ( verbosity > 2 )
-			cout << "task # " << i << " was send to core # " << i + 1 << endl;
-		cur_task_index++;
-	}
-	if ( verbosity > 0 )
-		cout << "Sending of first tasks done" << endl;
+	for ( int i = 0; i < corecount-1; ++i )
+		SendPredictTask( ProcessListNumber, i+1, cur_task_index, cur_decomp_set_index );
+	
+	cout << "Sending of first tasks done" << endl;
 
 	int process_sat_count = 0,
 	   current_task_index = -1,
@@ -249,32 +265,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 				sstream_control << cur_task_index << " >= " << all_tasks_count << endl;
 				break;
 			}
-			
-			cnf_start_time_arr[cur_task_index] = MPI_Wtime( ); // set time
-			node_list[cur_task_index] = current_status.MPI_SOURCE; // get # of node for sending
-			
-			if ( cur_task_index % cnf_in_set_count == 0 ) { // if new sample then new part_mask
-				copy( part_mask_arr[part_mask_index].begin(), part_mask_arr[part_mask_index].end(), part_mask );
-				part_mask_index++;
-			}
-			
-			if ( verbosity > 2 ) {
-				bit_count = 0;
-				cout << "Sending next_task_index "<< cur_task_index << endl;
-				cout << "Sending part_mask" << endl;
-				for ( unsigned j = 0; j < FULL_MASK_LEN; ++j )
-					cout << part_mask[j] << " ";
-				cout << endl;
-				for ( unsigned j = 1; j < FULL_MASK_LEN; ++j )
-					bit_count += BitCount( part_mask[j] );
-				cout << "bit_count " << bit_count << endl;
-			}
-			
-			// send new index of task
-			MPI_Send( &cur_task_index, 1, MPI_INT, current_status.MPI_SOURCE, ProcessListNumber, MPI_COMM_WORLD );
-			// send to free core new task in format of minisat input masks
-			MPI_Send( part_mask, FULL_MASK_LEN, MPI_UNSIGNED, current_status.MPI_SOURCE, ProcessListNumber, MPI_COMM_WORLD );
-			cur_task_index++; // if status != STOPPED next_task_index will increase once
+			SendPredictTask( ProcessListNumber, current_status.MPI_SOURCE, cur_task_index, cur_decomp_set_index );
 		}
 	} // while ( solved_tasks_count < tasks_count )
 	
@@ -1045,7 +1036,6 @@ bool MPI_Predicter :: PrepareForPredict( )
 	for( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
 		val += set_len_arr[i];
 		set_index_arr[i + 1] = val;
-		//cout << "\n*** # " << val << endl;
 	}
 
 	for( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
@@ -1602,15 +1592,6 @@ void MPI_Predicter :: AllocatePredictArrays( int &cur_tasks_count )
 	    set_len_arr.push_back( cur_tasks_count );
 	
 	all_tasks_count = decomp_set_arr.size() * cur_tasks_count;
-	//part_mask_arr.resize( decomp_set_count );
-	part_mask_arr.resize( decomp_set_arr.size() );
-	//all_values_arr.resize( all_tasks_count );
-	
-	for( unsigned i = 0; i < part_mask_arr.size(); ++i ) {
-		part_mask_arr[i].resize( FULL_MASK_LEN );
-		for( unsigned j = 0; j < part_mask_arr[i].size(); ++j )
-			part_mask_arr[i][j] = 0;
-	}
 }
 
 bool MPI_Predicter :: IsPointInCheckedArea( boost::dynamic_bitset<> &point )
@@ -1892,28 +1873,11 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 		sstream << "best_var " << var_choose_order.size() << endl;
 		sstream << "best_predict_time " << best_predict_time << endl;
 	}
-
-	int all_values_arr_index = 0;
-
+	
 	if ( verbosity > 0 )
 		cout << sstream.str();
-
-	// Make predict part and value mask arrays
-	for ( unsigned i = 0; i < decomp_set_arr.size(); ++i ) {
-		// get current part_mask
-		part_mask_var_count = full_mask_var_count = decomp_set_arr[i].set_var_count;
-		if ( !GetMainMasksFromVarChoose( decomp_set_arr[i].var_choose_order ) ) { 
-			cerr << "Error in GetMainMasksFromVarChoose" << endl; return false; 
-		}
-		for ( unsigned j = 0; j < FULL_MASK_LEN; ++j )
-			part_mask_arr[all_values_arr_index][j] = part_mask[j];
-		all_values_arr_index++;
-	}
 	
 	global_deep_point_index += decomp_set_arr.size() + current_skipped;
-	
-	if ( verbosity > 0 )
-		cout << "After main loop in GetDeepPredictTasks()" << endl;
 	
 	sstream << endl;
 	fstream deep_predict_file( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );

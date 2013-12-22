@@ -122,15 +122,16 @@ public:
 	bool GetRandomValuesArray( unsigned shortcnf_count, vector< vector<unsigned> > &values_arr );
 	bool IfSimulatedGranted( double predict_time );
 	bool WritePredictToFile( int all_skip_count, double whole_time_sec );
-
+	void SendPredictTask( int ProcessListNumber, int process_number_to_send, unsigned &cur_task_index, unsigned &cur_decomp_set_index );
+	
 	unsigned cnf_in_set_count;
 	bool IsFirstStage;
 	unsigned max_L2_hamming_distance;
 
 private:
 	vector<decomp_set> decomp_set_arr;
-	vector< vector<unsigned> > part_mask_arr;
-	vector< vector<unsigned> > all_values_arr;
+	//vector< vector<unsigned> > part_mask_arr;
+	//vector< vector<unsigned> > all_values_arr;
 	vector<double> cnf_real_time_arr;
 	vector<int> cnf_prepr_arr;
 	vector<char> cnf_status_arr;
