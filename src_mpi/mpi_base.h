@@ -49,6 +49,7 @@ protected:
 	vector<int> b_SAT_set_array;
 	vector< vector<unsigned> > values_arr;
 	vector<int> var_choose_order;
+	vector<int> full_var_choose_order; // all variables that can be chosen to decomp set
 public:
     MPI_Base( );
     ~MPI_Base( );
@@ -127,10 +128,7 @@ public:
 	void MakeRandArr( vector< vector<unsigned> > &rand_arr, unsigned shortcnf_count, unsigned rnd_uint32_count );
 	void MakeUniqueRandArr( vector<unsigned> &rand_arr, unsigned rand_arr_len, unsigned max_rand_val );
 	
-	static inline double cpuTime( void ) 
-	{
-		return ( double )clock( ) / CLOCKS_PER_SEC; 
-	}
+	static inline double cpuTime( void ) { return ( double )clock( ) / CLOCKS_PER_SEC; }
 };
 
 #endif

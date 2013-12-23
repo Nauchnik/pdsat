@@ -312,14 +312,14 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	vec< vec<Lit> > dummy_vec;
 	Solver *S;
 	lbool ret;
-	unsigned *part_mask_prev = new unsigned[FULL_MASK_LEN];
 	var_activity = new double[activity_vec_len];
-	part_mask_prev[0] = 0; // init to make it differ from part_mask
 	bool IsFirstTaskReceived = false;
 	bool IsNewPartMask;
 	int process_sat_count;
 	uint64_t prev_starts, prev_conflicts, prev_decisions;
 	int IsSolvedOnPreprocessing;
+	int new_size = 0, size_prev = 0;
+	unsigned *local_decomp_set, *local_decomp_set_prev;
 	
 	for (;;) {		
 		do // get index of current task missing stop-messages
@@ -332,25 +332,39 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		if ( verbosity > 0 )
 			cout << "current_task_index" << current_task_index << endl;
 		ProcessListNumber = status.MPI_TAG;
-		// receive data from o-rank core in format of minisat input masks
-		MPI_Recv( part_mask, FULL_MASK_LEN, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+
+		// Wait for a message from rank 0
+		MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		// Find out the number of elements in the message and allocate dynamic array
+		MPI_Get_count(&status, MPI_UNSIGNED, &new_size);
+		
+		if ( new_size != size_prev ) {
+			if ( size_prev ) // if not first time
+				delete[] local_decomp_set;
+			local_decomp_set = new unsigned[new_size];
+		}
+		
+		MPI_Recv( local_decomp_set, new_size, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		
 		if ( ( verbosity > 2 ) && ( rank == 1 ) ) {
-			cout << "Received part_mask" << endl;
-			for ( unsigned i = 0; i < FULL_MASK_LEN; ++i )
-				cout << part_mask[i] << " ";
+			cout << "Received local_decomp_set" << endl;
+			for ( unsigned i = 0; i < new_size; ++i )
+				cout << local_decomp_set[i] << " ";
 			cout << endl;
 		}
 		
 		IsNewPartMask = false;
-		for ( unsigned i = 0; i < FULL_MASK_LEN; ++i )
-			if ( part_mask[i] != part_mask_prev[i] ) {
-				IsNewPartMask = true;
-				break;
-			}
+		if ( new_size != size_prev )
+			IsNewPartMask = true;
+		else {
+			for ( unsigned i = 0; i < new_size; ++i )
+				if ( local_decomp_set[i] != local_decomp_set_prev[i] ) {
+					IsNewPartMask = true;
+					break;
+				}
+		}
 		
 		if ( IsNewPartMask ) {
-			copy( part_mask, part_mask + FULL_MASK_LEN, part_mask_prev );
 			if ( solver_type == 4 ) {
 				if ( IsFirstTaskReceived ) // if not first time, delete old data
 					delete S;
@@ -363,11 +377,11 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 				S->max_solving_time = max_solving_time;
 				S->rank             = rank;
 			}
+			size_prev = new_size;
+			copy( local_decomp_set, local_decomp_set + new_size, local_decomp_set_prev );
 			IsFirstTaskReceived = true;
 		}
-
-		// in predict full and part masks are equal
-		copy( part_mask, part_mask + FULL_MASK_LEN, full_mask );
+		
 		for ( unsigned i = 1; i < FULL_MASK_LEN; ++i )
 			if ( part_mask[i] ) mask_value[i] = uint_rand(); // make rand values as assumptions
 		
@@ -431,7 +445,6 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	}
 
 	delete[] var_activity;
-	delete[] part_mask_prev;
 	delete S;
 	MPI_Finalize( );
 	return true;
@@ -446,7 +459,7 @@ void MPI_Predicter :: GetInitPoint( )
 	ifstream known_point_file;
 	stringstream temp_sstream, sstream;
 	known_point_file.open( known_point_file_name.c_str(), ios_base::in );
-
+	
 	if ( known_point_file.is_open() ) { // get known point
 		int ival;
 		while ( known_point_file >> ival )
@@ -476,9 +489,10 @@ void MPI_Predicter :: GetInitPoint( )
 		}
 	}
 	sort( var_choose_order.begin(), var_choose_order.end() );
-	sstream << "var_choose_order" << endl;
+	sstream << "full_var_choose_order" << endl;
 	for ( unsigned i = 0; i < var_choose_order.size(); i++ )
 		sstream << var_choose_order[i] << " ";
+	full_var_choose_order = var_choose_order;
 	sstream << endl << endl;
 	deep_predict_file.open( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
 	deep_predict_file << sstream.rdbuf();
@@ -786,7 +800,7 @@ bool MPI_Predicter :: DeepPredictMain( )
 			to_string( current_unchecked_area.center, str );
 			sstream << "current_unchecked_area center " << endl << str << endl;
 			to_string( current_unchecked_area.checked_points, str );
-			sstream << "current_unchecked_area checked_points " << endl << str << endl;;
+			sstream << "current_unchecked_area checked_points " << endl << str << endl;
 			IsFirstPoint = false;
 		}
 		
@@ -1186,6 +1200,14 @@ bool MPI_Predicter :: IfSimulatedGranted( double predict_time )
 		return true;
 	}
 	else return false;
+}
+
+vector<int> MPI_Predicter :: BitsetToIntVecPredict( boost::dynamic_bitset<> &bs )
+{
+	vector<int> vec_int;
+	for ( unsigned i=0; i < bs.size(); ++i )
+		if ( bs[i] ) vec_int.push_back( full_var_choose_order[i] );
+	return vec_int;
 }
 
 //---------------------------------------------------------
@@ -1781,27 +1803,26 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	stringstream sstream;
 	vector<int> new_var_choose_order;
 	//sstream << "current point to check" << endl;
-	for ( unsigned i = 0; i < points_to_check; i++ ) { // several decomp sets
+	for ( unsigned i = 0; i < points_to_check; ++i ) { // several decomp sets
 		cur_var_count = deep_predict_cur_var; // in Hamming mode (deep_predict >= 3) count can be changed
 		if ( IsFirstPoint )
 			new_var_choose_order = var_choose_order;
 		else {
 			cur_index = global_deep_point_index + i;
-			if ( deep_predict <= 2 )
+			/*if ( deep_predict <= 2 )
 				ChangeVarChooseOrder( var_choose_order, cur_vars_changing, cur_var_count, new_var_choose_order );
 			else if ( deep_predict != 6 )
 				GetNewHammingPoint( var_choose_order, cur_vars_changing, cur_var_count, combinations[cur_index],
-									new_var_choose_order );
+									new_var_choose_order );*/
 			if ( deep_predict == 6 ) {
 				if ( current_unchecked_area.checked_points[cur_index] == 1 ) {
 					current_skipped++;
 					continue; // checked already
 				}
-				else {
-					new_point = current_unchecked_area.center; // new point based on center point
-					new_point[cur_index] = ( current_unchecked_area.center[cur_index] == 1 ) ? 0 : 1;
-				}
-				new_var_choose_order = BitsetToIntVec( new_point );
+				
+				new_point = current_unchecked_area.center; // new point based on center point
+				new_point[cur_index] = ( current_unchecked_area.center[cur_index] == 1 ) ? 0 : 1;
+				new_var_choose_order = BitsetToIntVecPredict( new_point );
 				cur_var_count = new_var_choose_order.size();
 			}
 		}

@@ -100,12 +100,10 @@ vector<int> Addit_func :: BitsetToIntVec( boost::dynamic_bitset<> &bs )
 {
 	vector<int> vec_int;
 	for ( unsigned i=0; i<bs.size(); i++ )
-		if ( bs[i] )
-			vec_int.push_back( (int)(i+1) );
+		if ( bs[i] ) vec_int.push_back( (int)(i+1) );
 	return vec_int;
 }
 
-//---------------------------------------------------------
 void Addit_func :: shl64( unsigned long long int &val_for_left_shift, unsigned int bit_count )
 {
 	unsigned int val1, val2; 
