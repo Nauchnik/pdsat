@@ -125,6 +125,7 @@ public:
 	bool MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &dummy_vec );
 
 	unsigned uint_rand();
+	bool bool_rand();
 	void MakeRandArr( vector< vector<unsigned> > &rand_arr, unsigned shortcnf_count, unsigned rnd_uint32_count );
 	void MakeUniqueRandArr( vector<unsigned> &rand_arr, unsigned rand_arr_len, unsigned max_rand_val );
 	

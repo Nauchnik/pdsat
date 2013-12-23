@@ -857,6 +857,11 @@ unsigned MPI_Base ::  uint_rand() {
 	return dist(gen);
 }
 
+bool MPI_Base ::  bool_rand() {
+	boost::random::uniform_int_distribution<uint32_t> dist(0,1);
+	return bool( dist(gen) );
+}
+
 void MPI_Base :: MakeRandArr( vector< vector<unsigned> > &rand_arr, unsigned vec_len, unsigned rnd_uint32_count )
 {
 // make array of pseudorandom values using Mersenne Twister generator

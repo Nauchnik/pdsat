@@ -320,6 +320,9 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	int IsSolvedOnPreprocessing;
 	int new_size = 0, size_prev = 0;
 	unsigned *local_decomp_set, *local_decomp_set_prev;
+	int iprobe_message;
+	int val;
+	dummy_vec.resize(1);
 	
 	for (;;) {		
 		do // get index of current task missing stop-messages
@@ -334,64 +337,63 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		ProcessListNumber = status.MPI_TAG;
 
 		// Wait for a message from rank 0
-		MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		// Find out the number of elements in the message and allocate dynamic array
-		MPI_Get_count(&status, MPI_UNSIGNED, &new_size);
+		MPI_Iprobe( 0, 0, MPI_COMM_WORLD, &iprobe_message, &status );
+		if ( iprobe_message ) { // if message with new decomp set
+			// Find out the number of elements in the message and allocate dynamic array
+			MPI_Get_count(&status, MPI_UNSIGNED, &new_size);
 		
-		if ( new_size != size_prev ) {
-			if ( size_prev ) // if not first time
-				delete[] local_decomp_set;
-			local_decomp_set = new unsigned[new_size];
-		}
-		
-		MPI_Recv( local_decomp_set, new_size, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		
-		if ( ( verbosity > 2 ) && ( rank == 1 ) ) {
-			cout << "Received local_decomp_set" << endl;
-			for ( unsigned i = 0; i < new_size; ++i )
-				cout << local_decomp_set[i] << " ";
-			cout << endl;
-		}
-		
-		IsNewPartMask = false;
-		if ( new_size != size_prev )
-			IsNewPartMask = true;
-		else {
-			for ( unsigned i = 0; i < new_size; ++i )
-				if ( local_decomp_set[i] != local_decomp_set_prev[i] ) {
-					IsNewPartMask = true;
-					break;
-				}
-		}
-		
-		if ( IsNewPartMask ) {
-			if ( solver_type == 4 ) {
-				if ( IsFirstTaskReceived ) // if not first time, delete old data
-					delete S;
-				S = new Solver();
-				S->addProblem(cnf);
-				S->pdsat_verbosity  = verbosity;
-				S->IsPredict        = IsPredict;
-				S->core_len         = core_len;
-				S->start_activity   = start_activity;
-				S->max_solving_time = max_solving_time;
-				S->rank             = rank;
+			if ( new_size != size_prev ) {
+				if ( size_prev ) // if not first time
+					delete[] local_decomp_set;
+				local_decomp_set = new unsigned[new_size];
 			}
-			size_prev = new_size;
-			copy( local_decomp_set, local_decomp_set + new_size, local_decomp_set_prev );
-			IsFirstTaskReceived = true;
-		}
 		
-		for ( unsigned i = 1; i < FULL_MASK_LEN; ++i )
-			if ( part_mask[i] ) mask_value[i] = uint_rand(); // make rand values as assumptions
+			MPI_Recv( local_decomp_set, new_size, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		
+			if ( ( verbosity > 2 ) && ( rank == 1 ) ) {
+				cout << "Received local_decomp_set" << endl;
+				for ( unsigned i = 0; i < new_size; ++i )
+					cout << local_decomp_set[i] << " ";
+				cout << endl;
+			}
+		
+			IsNewPartMask = false;
+			if ( new_size != size_prev )
+				IsNewPartMask = true;
+			else {
+				for ( unsigned i = 0; i < new_size; ++i )
+					if ( local_decomp_set[i] != local_decomp_set_prev[i] ) {
+						IsNewPartMask = true;
+						break;
+					}
+			}
+		
+			if ( IsNewPartMask ) {
+				if ( solver_type == 4 ) {
+					if ( IsFirstTaskReceived ) // if not first time, delete old data
+						delete S;
+					S = new Solver();
+					S->addProblem(cnf);
+					S->pdsat_verbosity  = verbosity;
+					S->IsPredict        = IsPredict;
+					S->core_len         = core_len;
+					S->start_activity   = start_activity;
+					S->max_solving_time = max_solving_time;
+					S->rank             = rank;
+				}
+				size_prev = new_size;
+				copy( local_decomp_set, local_decomp_set + new_size, local_decomp_set_prev );
+				IsFirstTaskReceived = true;
+			}
+		}
 		
 		process_sat_count = 0;
         if ( solver_type == 4 ) {
-			MakeAssignsFromMasks( full_mask, part_mask, mask_value, dummy_vec );
-			if ( dummy_vec.size() > 1 ) {
-				cerr << "Error. In predict mode dummy_vec.size() > 1" << endl;
-				cerr << "dummy_vec.size() " << dummy_vec.size() << endl;
-				MPI_Finalize( );
+			// make random values of decomp variables
+			dummy_vec[0].resize( new_size );
+			for ( unsigned i=0; i < new_size; ++i ) {
+				val = local_decomp_set[i] - 1;
+				dummy_vec[0][i] = bool_rand() ? mkLit( val ) : ~mkLit( val );
 			}
 
 			if ( ( verbosity > 2 ) && ( rank == 1 ) ) {
