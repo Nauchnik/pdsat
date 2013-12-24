@@ -66,30 +66,39 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 {
 	cnf_start_time_arr[cur_task_index] = MPI_Wtime(); // fix current time
 	node_list[cur_task_index] = process_number_to_send; // fix node where SAT problem will be solved
+	MPI_Request request;
 	
 	MPI_Send( &cur_task_index,  1, MPI_INT, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
+	if ( vec_IsDecompSetSendedToProcess[process_number_to_send] == false ) {
+		MPI_Send( local_decomp_set, local_decomp_set_size, MPI_UNSIGNED, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
+		vec_IsDecompSetSendedToProcess[process_number_to_send] = true;
+	}
 	
-	unsigned size;
-	if ( cur_task_index % cnf_in_set_count == 0 ) { // if new sample then new set
+	if ( cur_task_index % cnf_in_set_count == 0 ) { // if new sample then new set to all precesses
+		if ( verbosity > 1 ) {
+			cout << "In SendPredictTask() sending decomp set" << endl; 
+			cout << "cur_task_index " << cur_task_index << " cnf_in_set_count " << cnf_in_set_count << endl;
+		}
 		if ( cur_decomp_set_index > decomp_set_arr.size() - 1 ) {
 			cerr << "cur_decomp_set_index > decomp_set_arr.size() - 1" << endl;
 			cerr << cur_decomp_set_index << " > " << decomp_set_arr.size() - 1 << endl;
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
-		size = decomp_set_arr[cur_decomp_set_index].var_choose_order.size();
-		unsigned *local_decomp_set = new unsigned[size];
-		for ( unsigned i=0; i < size; ++i ) 
+		delete[] local_decomp_set;
+		local_decomp_set_size = decomp_set_arr[cur_decomp_set_index].var_choose_order.size();
+		local_decomp_set = new unsigned[local_decomp_set_size];
+		for ( unsigned i=0; i < local_decomp_set_size; ++i ) 
 			local_decomp_set[i] = decomp_set_arr[cur_decomp_set_index].var_choose_order[i];
 		
-		MPI_Send( local_decomp_set, size, MPI_UNSIGNED, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
+		for ( unsigned i=0; i < vec_IsDecompSetSendedToProcess.size(); ++i ) 
+			vec_IsDecompSetSendedToProcess[i] = false;
 		
 		if ( verbosity > 1 ) {
-			cout << "Sending decomp_set with size " << size << endl;
-			for ( unsigned i = 0; i < size; ++i )
+			cout << "Ready to send decomp_set with size " << local_decomp_set_size << endl;
+			for ( unsigned i = 0; i < local_decomp_set_size; ++i )
 				cout << local_decomp_set[i] << " ";
 			cout << endl;
 		}
-		delete[] local_decomp_set;
 
 		cur_decomp_set_index++;
 	}
@@ -305,6 +314,8 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	for ( unsigned i=0; i < core_len; ++i )
 		full_var_choose_order[i] = full_local_decomp_set[i];
 	delete[] full_local_decomp_set;
+
+	var_choose_order = full_var_choose_order;
 	
 	if ( ( verbosity > 0 ) && ( rank == 1 ) ) {
 		cout << "Received core_len "         << core_len         << endl;
@@ -318,7 +329,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	int current_task_index;
 	double cnf_time_from_node = 0.0;
 	int ProcessListNumber;
-	vec< vec<Lit> > dummy_vec;
+	vec<Lit> dummy;
 	Solver *S;
 	lbool ret;
 	var_activity = new double[activity_vec_len];
@@ -332,7 +343,6 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	vector<int> prev_var_choose_order;
 	int iprobe_message;
 	int val;
-	dummy_vec.resize(1);
 	
 	for (;;) {		
 		do // get index of current task missing stop-messages
@@ -342,15 +352,22 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 				cout << "on node " << rank << " stop-message was skipped" << endl;
 		} while ( current_task_index == -1 ); // skip stop-messages
 		
-		if ( verbosity > 0 )
-			cout << "current_task_index " << current_task_index << endl;
 		ProcessListNumber = status.MPI_TAG;
 
-		// Wait for a message from rank 0
-		MPI_Iprobe( 0, 0, MPI_COMM_WORLD, &iprobe_message, &status );
+		if ( ( verbosity > 0 ) && ( rank == 1 ) )
+			cout << "current_task_index " << current_task_index << endl;
+		
+		MPI_Iprobe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &iprobe_message, &status );
+
+		if ( ( verbosity > 0 ) && ( rank == 1 ) )
+			cout << "iprobe_message " << iprobe_message << endl;
+		
 		if ( iprobe_message ) { // if message with new decomp set
 			// Find out the number of elements in the message and allocate dynamic array
 			MPI_Get_count(&status, MPI_UNSIGNED, &new_size);
+			
+			if ( ( verbosity > 0 ) && ( rank == 1 ) )
+				cout << "new_size " << new_size << endl;
 			
 			if ( new_size != prev_size ) {
 				if ( prev_size ) // if not first time
@@ -393,17 +410,17 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		process_sat_count = 0;
         if ( solver_type == 4 ) {
 			// make random values of decomp variables
-			dummy_vec[0].resize( new_size );
+			dummy.resize( new_size );
 			for ( unsigned i=0; i < new_size; ++i ) {
 				val = local_decomp_set[i] - 1;
-				dummy_vec[0][i] = bool_rand() ? mkLit( val ) : ~mkLit( val );
+				dummy[i] = bool_rand() ? mkLit( val ) : ~mkLit( val );
 			}
 
 			if ( ( verbosity > 2 ) && ( rank == 1 ) ) {
 				cout << endl;
-				cout << "dummy_vec[0] size " << dummy_vec[0].size() << endl;
-				for ( int i=0; i < dummy_vec[0].size(); ++i )
-					cout << dummy_vec[0][i].x << " ";
+				cout << "dummy size " << dummy.size() << endl;
+				for ( int i=0; i < dummy.size(); ++i )
+					cout << dummy[i].x << " ";
 				cout << endl;
 			}
 			
@@ -412,7 +429,9 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			prev_decisions = S->decisions;
 			IsSolvedOnPreprocessing = 0;
 			cnf_time_from_node = MPI_Wtime( );
-			ret = S->solveLimited( dummy_vec[0] );
+			ret = S->solveLimited( dummy );
+			if ( ( verbosity > 2 ) && ( rank == 1 ) )
+				cout << "After S->solveLimited( dummy )" << endl;
 			if ( evaluation_type == "time" )
 				cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
 			else if ( evaluation_type == "propagation" )
@@ -421,7 +440,8 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 				IsSolvedOnPreprocessing = 1;  // solved by BCP
 			
 			S->getActivity( full_var_choose_order, var_activity, activity_vec_len ); // get activity of Solver
-			
+			if ( ( verbosity > 2 ) && ( rank == 1 ) )
+				cout << "After S->getActivity" << endl;
 			if ( cnf_time_from_node < MIN_SOLVE_TIME ) // TODO. maybe 0 - but why?!
 				cnf_time_from_node = MIN_SOLVE_TIME;
 			if ( ret == l_True ) {
@@ -475,11 +495,11 @@ void MPI_Predicter :: GetInitPoint( )
 	}
 	else {
 		sstream << "schema_type " << schema_type << endl;
-		if ( schema_type != "rand" ) { // if schema_type was set by user
+		if ( ( schema_type != "rand" ) && ( var_choose_order.size() == 0 ) ) { // if schema_type was set by user
 			full_mask_var_count = predict_to;
 			MakeVarChoose();
 		}
-		else { // if no file with known point then get random init point
+		else if ( schema_type == "rand" ) { // if no file with known point then get random init point
 			vector<unsigned> rand_arr;
 			if ( core_len < ( unsigned )predict_to ) {
 				core_len = predict_to;
@@ -499,6 +519,12 @@ void MPI_Predicter :: GetInitPoint( )
 	for ( unsigned i = 0; i < var_choose_order.size(); i++ )
 		sstream << var_choose_order[i] << " ";
 	full_var_choose_order = var_choose_order;
+
+	local_decomp_set = new unsigned[var_choose_order.size()];
+	for ( unsigned i=0; i < var_choose_order.size(); ++i )
+		local_decomp_set[i] = var_choose_order[i];
+	local_decomp_set_size = var_choose_order.size();
+
 	sstream << endl << endl;
 	deep_predict_file.open( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
 	deep_predict_file << sstream.rdbuf();
@@ -893,6 +919,10 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "Error. corecount < 2" << endl; return false; 
 	}
 
+	vec_IsDecompSetSendedToProcess.resize( corecount - 1 );
+	for ( unsigned i=0; i < vec_IsDecompSetSendedToProcess.size(); ++i )
+		vec_IsDecompSetSendedToProcess[i] = false;
+
 	if ( rank == 0 ) { // control node
 		cout << "MPI_Predict is running " << endl;
 		
@@ -925,7 +955,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			*it = 0;
 		
 		int *full_local_decomp_set = new int[core_len];
-		for( int i=0; i < corecount-1; ++i )
+		for( int i=0; i < core_len; ++i )
 			full_local_decomp_set[i] = full_var_choose_order[i];
 		
 		// send core_len once to every compute process

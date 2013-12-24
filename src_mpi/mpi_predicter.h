@@ -138,9 +138,12 @@ private:
 	// array of block sum lengths for mass predict. in fact it is count of vars for paralleling
 	vector<int> sum_block_lens_arr;
 	vector<int> sorted_index_array;
-
+	vector<bool> vec_IsDecompSetSendedToProcess;
+	
 	int best_var_num;
 	double best_predict_time;
+	unsigned *local_decomp_set; // for sending via MPI
+	unsigned local_decomp_set_size;
 
 	unsigned total_decomp_set_count;
 	unsigned solved_tasks_count;

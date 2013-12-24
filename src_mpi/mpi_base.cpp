@@ -610,6 +610,7 @@ bool MPI_Base :: ReadIntCNF( )
 				}
 				cout << endl;
 				sstream.clear(); sstream.str();
+				sort( var_choose_order.begin(), var_choose_order.end() );
 				cout << "After reading var_set" << endl;
 				cout << "var_choose_order.size() " << var_choose_order.size() << endl;
 				for ( unsigned i=0; i < var_choose_order.size(); ++i )
@@ -660,7 +661,7 @@ bool MPI_Base :: ReadIntCNF( )
 								obj_vars_count++;
 							}
 							else
-								cout << "\n ***Error. String c obj vars ... contains too many values ";
+								cerr << "String c obj vars ... contains too many values ";
 						}
 					}
 					Is_ObjVars = true;
