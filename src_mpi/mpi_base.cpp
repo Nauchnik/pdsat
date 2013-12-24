@@ -606,18 +606,18 @@ bool MPI_Base :: ReadIntCNF( )
 				sstream >> str2; // remove "var_set"
 				while ( sstream >> val ) {
 					cout << val << " ";
-					full_var_choose_order.push_back( val );
+					var_choose_order.push_back( val );
 				}
 				cout << endl;
 				sstream.clear(); sstream.str();
 				cout << "After reading var_set" << endl;
-				cout << "full_var_choose_order.size() " << full_var_choose_order.size() << endl;
-				for ( unsigned i=0; i < full_var_choose_order.size(); ++i )
-					cout << full_var_choose_order[i] << " ";
+				cout << "var_choose_order.size() " << var_choose_order.size() << endl;
+				for ( unsigned i=0; i < var_choose_order.size(); ++i )
+					cout << var_choose_order[i] << " ";
 				cout << endl;
-				core_len = full_var_choose_order.size();
+				core_len = var_choose_order.size();
 				cout << "core_len changed to " << core_len << endl;
-				var_choose_order = full_var_choose_order;
+				full_var_choose_order = var_choose_order;
 			}
 			
 			if ( !Is_ConstrLen ) {

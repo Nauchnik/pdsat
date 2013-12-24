@@ -58,13 +58,12 @@ public:
 	double last_time;
 	int rank;
 	void clearDB();
-	void getActivity( double *&var_activity, unsigned activity_vec_len );
+	void getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len );
 	int pdsat_verbosity;
 	//void saveState();
 	//void loadState();
-
+	
     // Problem specification:
-    //
     Var     newVar    (lbool upol = l_Undef, bool dvar = true); // Add a new variable with parameters specifying variable mode.
     void    releaseVar(Lit l);                                  // Make literal true and promise to never refer to variable again.
 

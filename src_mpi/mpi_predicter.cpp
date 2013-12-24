@@ -104,8 +104,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		cout << "Start ControlProcessPredict()" << endl;
 		unsigned count = 0;
 		for ( unsigned i=0; i < all_tasks_count; ++i )
-			if (cnf_start_time_arr[i] > 0)
-				count++;
+			if ( cnf_start_time_arr[i] > 0 ) count++;
 		cout << "count of cnf_start_time_arr[j] > 0 " << count << " from " << all_tasks_count << endl;
 	}
 	
@@ -300,10 +299,20 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	// get core_len before getting tasks
 	MPI_Recv( &core_len,         1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &activity_vec_len, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	int *full_local_decomp_set = new int[core_len];
+	MPI_Recv( full_local_decomp_set, core_len, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	full_var_choose_order.resize( core_len );
+	for ( unsigned i=0; i < core_len; ++i )
+		full_var_choose_order[i] = full_local_decomp_set[i];
+	delete[] full_local_decomp_set;
 	
 	if ( ( verbosity > 0 ) && ( rank == 1 ) ) {
 		cout << "Received core_len "         << core_len         << endl;
 		cout << "Received activity_vec_len " << activity_vec_len << endl;
+		cout << "Received full_var_choose_orde " << endl;
+		for ( unsigned i=0; i < core_len; ++i )
+			cout << full_var_choose_order[i] << " ";
+		cout << endl;
 	}
 	
 	int current_task_index;
@@ -318,8 +327,9 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	int process_sat_count;
 	uint64_t prev_starts, prev_conflicts, prev_decisions;
 	int IsSolvedOnPreprocessing;
-	int new_size = 0, size_prev = 0;
-	unsigned *local_decomp_set, *local_decomp_set_prev;
+	int new_size = 0, prev_size = 0;
+	unsigned *local_decomp_set;
+	vector<int> prev_var_choose_order;
 	int iprobe_message;
 	int val;
 	dummy_vec.resize(1);
@@ -333,7 +343,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		} while ( current_task_index == -1 ); // skip stop-messages
 		
 		if ( verbosity > 0 )
-			cout << "current_task_index" << current_task_index << endl;
+			cout << "current_task_index " << current_task_index << endl;
 		ProcessListNumber = status.MPI_TAG;
 
 		// Wait for a message from rank 0
@@ -341,33 +351,26 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		if ( iprobe_message ) { // if message with new decomp set
 			// Find out the number of elements in the message and allocate dynamic array
 			MPI_Get_count(&status, MPI_UNSIGNED, &new_size);
-		
-			if ( new_size != size_prev ) {
-				if ( size_prev ) // if not first time
+			
+			if ( new_size != prev_size ) {
+				if ( prev_size ) // if not first time
 					delete[] local_decomp_set;
 				local_decomp_set = new unsigned[new_size];
 			}
-		
+			
 			MPI_Recv( local_decomp_set, new_size, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		
 			if ( ( verbosity > 2 ) && ( rank == 1 ) ) {
 				cout << "Received local_decomp_set" << endl;
 				for ( unsigned i = 0; i < new_size; ++i )
 					cout << local_decomp_set[i] << " ";
 				cout << endl;
 			}
-		
-			IsNewPartMask = false;
-			if ( new_size != size_prev )
-				IsNewPartMask = true;
-			else {
-				for ( unsigned i = 0; i < new_size; ++i )
-					if ( local_decomp_set[i] != local_decomp_set_prev[i] ) {
-						IsNewPartMask = true;
-						break;
-					}
-			}
-		
+			var_choose_order.resize( new_size );
+			for ( unsigned i=0; i < new_size; ++i )
+				var_choose_order[i] = local_decomp_set[i];
+			
+			IsNewPartMask = ( var_choose_order == prev_var_choose_order ) ? IsNewPartMask = false : true;
+ 			
 			if ( IsNewPartMask ) {
 				if ( solver_type == 4 ) {
 					if ( IsFirstTaskReceived ) // if not first time, delete old data
@@ -381,8 +384,8 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 					S->max_solving_time = max_solving_time;
 					S->rank             = rank;
 				}
-				size_prev = new_size;
-				copy( local_decomp_set, local_decomp_set + new_size, local_decomp_set_prev );
+				prev_var_choose_order = var_choose_order;
+				prev_size = new_size;
 				IsFirstTaskReceived = true;
 			}
 		}
@@ -417,7 +420,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) && ( S->decisions == prev_decisions ) )
 				IsSolvedOnPreprocessing = 1;  // solved by BCP
 			
-			S->getActivity( var_activity, activity_vec_len ); // get activity of Solver
+			S->getActivity( full_var_choose_order, var_activity, activity_vec_len ); // get activity of Solver
 			
 			if ( cnf_time_from_node < MIN_SOLVE_TIME ) // TODO. maybe 0 - but why?!
 				cnf_time_from_node = MIN_SOLVE_TIME;
@@ -447,6 +450,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	}
 
 	delete[] var_activity;
+	delete[] local_decomp_set;
 	delete S;
 	MPI_Finalize( );
 	return true;
@@ -920,11 +924,17 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		for( vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it )
 			*it = 0;
 		
+		int *full_local_decomp_set = new int[core_len];
+		for( int i=0; i < corecount-1; ++i )
+			full_local_decomp_set[i] = full_var_choose_order[i];
+		
 		// send core_len once to every compute process
 		for( int i=0; i < corecount-1; ++i ) {
 			MPI_Send( &core_len,         1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &activity_vec_len, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( full_local_decomp_set, core_len, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 		}
+		delete[] full_local_decomp_set;
 		
 		cout << "verbosity "     << verbosity           << endl;
 		cout << "solver_type "   << solver_type         << endl;
@@ -1835,22 +1845,25 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 		d_s.IsAddedToL2      = false;
 		decomp_set_arr.push_back( d_s ); // add new decomp set
 	} // for ( int i = 0; i < decomp_set_count; i++ )
-
-	// sort decomp sets by activity
-	vector<decomp_set> :: iterator dec_it;
-	vector<int> :: iterator vec_it;
-	for ( dec_it = decomp_set_arr.begin(); dec_it != decomp_set_arr.end(); ++dec_it ) {
-		(*dec_it).med_var_activity = 0;
-		for ( vec_it = (*dec_it).var_choose_order.begin(); vec_it != (*dec_it).var_choose_order.end(); ++vec_it )
-			(*dec_it).med_var_activity += total_var_activity[ (*vec_it) - 1 ];
-		(*dec_it).med_var_activity /= (*dec_it).var_choose_order.size();
-	}
-	sort( decomp_set_arr.begin(), decomp_set_arr.end(), ds_compareByActivity );
 	
-	if ( verbosity > 0 ) {
-		cout << "decomp_set_arr activity" << endl;
-		for ( dec_it = decomp_set_arr.begin(); dec_it != decomp_set_arr.end(); ++dec_it )
-			cout << (*dec_it).med_var_activity << endl;
+	if ( ts_strategy == 0 )
+		random_shuffle( decomp_set_arr.begin(), decomp_set_arr.end() );
+	else if ( ts_strategy == 1 ) {
+		// sort decomp sets by activity
+		vector<decomp_set> :: iterator dec_it;
+		vector<int> :: iterator vec_it;
+		for ( dec_it = decomp_set_arr.begin(); dec_it != decomp_set_arr.end(); ++dec_it ) {
+			(*dec_it).med_var_activity = 0;
+			for ( vec_it = (*dec_it).var_choose_order.begin(); vec_it != (*dec_it).var_choose_order.end(); ++vec_it )
+				(*dec_it).med_var_activity += total_var_activity[ (*vec_it) - 1 ];
+			(*dec_it).med_var_activity /= (*dec_it).var_choose_order.size();
+		}
+		sort( decomp_set_arr.begin(), decomp_set_arr.end(), ds_compareByActivity );
+		if ( verbosity > 0 ) {
+			cout << "decomp_set_arr activity" << endl;
+			for ( dec_it = decomp_set_arr.begin(); dec_it != decomp_set_arr.end(); ++dec_it )
+				cout << (*dec_it).med_var_activity << endl;
+		}
 	}
 	
 	global_skipped_points_count += current_skipped;

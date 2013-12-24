@@ -148,16 +148,14 @@ void Solver::clearDB()
     checkGarbage();
 }
 
-void Solver :: getActivity( double *&var_activity, unsigned activity_vec_len )
+void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len )
 {
-	unsigned size = activity_vec_len < nVars() ? activity_vec_len : nVars();
-	for( unsigned i=0; i < size; ++i )
-		var_activity[i] = activity[i];
-	for( unsigned i=0; i < size; ++i ) {
+	for( unsigned i=0; i < activity_vec_len; ++i )
+		var_activity[i] = activity[full_var_choose_order[i]-1];
+	for( unsigned i=0; i < activity_vec_len; ++i )
 		if( var_activity[i] > 1e10 )
-			for( unsigned j=0; j < size; ++j ) // Rescale:
+			for( unsigned j=0; j < activity_vec_len; ++j ) // Rescale:
 				var_activity[j] *= 1e-10;
-	}
 }
 
 // save state of Solver
