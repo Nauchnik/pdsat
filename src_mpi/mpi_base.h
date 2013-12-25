@@ -50,10 +50,11 @@ protected:
 	vector< vector<unsigned> > values_arr;
 	vector<int> var_choose_order;
 	vector<int> full_var_choose_order; // all variables that can be chosen to decomp set
+	map<int, unsigned> core_var_indexes; // indeces of variables in core set
 public:
-    MPI_Base( );
-    ~MPI_Base( );
-
+    MPI_Base();
+    ~MPI_Base();
+	
 	int rank;
 	int corecount;
 	int solver_type;

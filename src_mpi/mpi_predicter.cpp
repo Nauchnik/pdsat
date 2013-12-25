@@ -68,16 +68,20 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 {
 	cnf_start_time_arr[cur_task_index] = MPI_Wtime(); // fix current time
 	node_list[cur_task_index] = process_number_to_send; // fix node where SAT problem will be solved
-	MPI_Request request;
 	
-	MPI_Send( &cur_task_index,  1, MPI_INT, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
-	if ( verbosity > 1 )
-		cout << "Sending cur_task_index " << cur_task_index << endl;
 	if ( vec_IsDecompSetSendedToProcess[process_number_to_send] == false ) {
-		if ( verbosity > 1 )
-			cout << "Sending local_decomp_set to process " << process_number_to_send << endl;
+		MPI_Send( &cur_task_index,  1, MPI_INT, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( local_decomp_set, local_decomp_set_size, MPI_UNSIGNED, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
 		vec_IsDecompSetSendedToProcess[process_number_to_send] = true;
+		if ( verbosity > 1 )
+			cout << "Sending cur_task_index " << cur_task_index << endl;
+		if ( verbosity > 1 )
+			cout << "Sending local_decomp_set to process " << process_number_to_send << endl;
+	}
+	else {
+		MPI_Send( &cur_task_index,  1, MPI_INT, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
+		if ( verbosity > 1 )
+			cout << "Sending cur_task_index " << cur_task_index << endl;
 	}
 	
 	if ( cur_task_index % cnf_in_set_count == 0 ) { // if new sample then new set to all precesses
@@ -102,9 +106,9 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 		
 		if ( verbosity > 1 ) {
 			cout << "Ready to send decomp_set with size " << local_decomp_set_size << endl;
-			for ( unsigned i = 0; i < local_decomp_set_size; ++i )
+			/*for ( unsigned i = 0; i < local_decomp_set_size; ++i )
 				cout << local_decomp_set[i] << " ";
-			cout << endl;
+			cout << endl;*/
 		}
 
 		cur_decomp_set_index++;
@@ -139,7 +143,6 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	unsigned cur_task_index = 0; 
 	unsigned cur_decomp_set_index = 0;
 	unsigned part_mask_index = 0;
-	unsigned bit_count;
 	int IsSolvedOnPreprocessing;
 	
 	// send to all cores (except # 0) first tasks and then go to 2nd phase - for every resulted node send new task
@@ -217,6 +220,9 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 				break; // if any message from computing processes, catch it
 		} // for( ; ; )
 		
+		if ( verbosity > 1 )
+			cout << "In ControlProcess() before recieving reults" << endl;
+		
 		// recieve from core message about solved task    
 		MPI_Recv( &current_task_index,         1, MPI_INT,    MPI_ANY_SOURCE,            MPI_ANY_TAG, MPI_COMM_WORLD, &status ); 
 		// if 1st message from core # i then get 2nd message from that core
@@ -228,7 +234,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		MPI_Recv( var_activity, activity_vec_len, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 
 		if ( verbosity > 1 )
-			cout << "Recieved result with current_task_index " << current_task_index << endl; 
+			cout << "Recieved result with current_task_index " << current_task_index << endl;
 		
 		for( unsigned i=0; i < total_var_activity.size(); ++i ) {
 			if( ( total_var_activity[i] += var_activity[i] ) > 1e50 )
@@ -295,16 +301,17 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	sstream_control << "total_decomp_set_count " << global_deep_point_index << endl;
 
 	if ( verbosity > 2 )
-		cout << sstream_control << endl;
+		cout << sstream_control.str() << endl;
 	
-	if ( !GetPredict( ) ) { 
-		cout << "Error in GetPredict " << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
-	}
+	GetPredict();
+	if ( verbosity > 2 )
+		cout << "After GetPredict()" << endl;
 
-	if ( !WritePredictToFile( all_skip_count, whole_time_sec ) ) {
-		cout << "Error in WritePredictToFile" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
-	}
-
+	WritePredictToFile( all_skip_count, whole_time_sec );
+	
+	if ( verbosity > 2 )
+		cout << "After WritePredictToFile()" << endl;
+	
 	return true;
 }
 
@@ -358,7 +365,8 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	vector<int> prev_var_choose_order;
 	int iprobe_message;
 	int val;
-	
+	prev_var_choose_order.resize(0);
+
 	for (;;) {		
 		do // get index of current task missing stop-messages
 		{ 
@@ -401,7 +409,10 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			for ( unsigned i=0; i < new_size; ++i )
 				var_choose_order[i] = local_decomp_set[i];
 
-			IsNewPartMask = ( var_choose_order == prev_var_choose_order ) ? IsNewPartMask = false : true;
+			IsNewPartMask = ( var_choose_order != prev_var_choose_order ) ? true : false;
+
+			if ( ( verbosity > 2 ) && ( rank == 1 ) )
+				cout << "IsNewPartMask " << IsNewPartMask << endl;
  			
 			if ( IsNewPartMask ) {
 				if ( solver_type == 4 ) {
@@ -425,9 +436,9 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		process_sat_count = 0;
         if ( solver_type == 4 ) {
 			// make random values of decomp variables
-			dummy.resize( new_size );
-			for ( unsigned i=0; i < new_size; ++i ) {
-				val = local_decomp_set[i] - 1;
+			dummy.resize( var_choose_order.size() );
+			for ( unsigned i=0; i < var_choose_order.size(); ++i ) {
+				val = var_choose_order[i] - 1;
 				dummy[i] = bool_rand() ? mkLit( val ) : ~mkLit( val );
 			}
 
@@ -438,12 +449,18 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 					cout << dummy[i].x << " ";
 				cout << endl;
 			}
+
+			if ( ( verbosity > 2 ) && ( rank == 1 ) )
+				cout << "Before getting prev stats from Solver" << endl;
 			
 			prev_starts    = S->starts;
 			prev_conflicts = S->conflicts;
 			prev_decisions = S->decisions;
 			IsSolvedOnPreprocessing = 0;
 			cnf_time_from_node = MPI_Wtime( );
+			
+			if ( ( verbosity > 2 ) && ( rank == 1 ) )
+				cout << "Before S->solveLimited( dummy )" << endl;
 			ret = S->solveLimited( dummy );
 			if ( ( verbosity > 2 ) && ( rank == 1 ) )
 				cout << "After S->solveLimited( dummy )" << endl;
@@ -482,7 +499,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		MPI_Send( &cnf_time_from_node,         1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &IsSolvedOnPreprocessing,    1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( var_activity, activity_vec_len, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
-
+		
 		if ( verbosity > 0 )
 			cout << "rank " << rank << " sended decision" << endl;
 	}
@@ -568,7 +585,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 		}
 		IsRecordUpdated = false;
 		// set new unchecked area
-		boost::dynamic_bitset<> bs = IntVecToBitset( core_len, var_choose_order );
+		boost::dynamic_bitset<> bs = IntVecToBitsetPredict( var_choose_order );
 		bool IsCorrectAddingArea = false;
 		// remove points from L2 that too far from record
 		// and find L2 for current record
@@ -626,11 +643,10 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 			bool IsAdding;
 			unsigned rand_power_value, rand_L2_start_search_index;
 			list<unchecked_area> L2_matches;
-			point_struct point_struct_cur;
 			vector<point_struct> point_struct_vec;
 			vector<int> power_values;
 			unsigned L2_index;
-			bs = IntVecToBitset( core_len, real_var_choose_order );
+			bs = IntVecToBitsetPredict( real_var_choose_order );
 			unsigned max_checked = 0;
 			// find new unchecked area
 			sstream << "finding new unchecked_area" << endl;
@@ -1273,6 +1289,14 @@ vector<int> MPI_Predicter :: BitsetToIntVecPredict( boost::dynamic_bitset<> &bs 
 	return vec_int;
 }
 
+boost::dynamic_bitset<> MPI_Predicter :: IntVecToBitsetPredict( vector<int> &variables_vec )
+{
+	boost::dynamic_bitset<> bs( core_len );
+	for ( unsigned i=0; i<variables_vec.size(); ++i )
+		bs.set( core_var_indexes.find( variables_vec[i] )->second ); // set element to 1
+	return bs;
+}
+
 //---------------------------------------------------------
 bool MPI_Predicter :: GetPredict()
 {
@@ -1281,6 +1305,9 @@ bool MPI_Predicter :: GetPredict()
 // set_status_arr == 2, if all CNF in set are UNSAT and record
 // set_status_arr == 3, if at least one CNF in set is SAT
 // set_status_arr == 4, if all CNF in set are UNSAT, not record, but control process couldn't catch to stop it
+	if ( verbosity > 2 )
+		cout << "GetPredict()" << endl;
+	
 	int solved_tasks_count = 0;
 	unsigned cur_var_num, solved_in_sample_count, 
 			 cur_cnf_to_skip_count = 0, 
@@ -1427,19 +1454,21 @@ bool MPI_Predicter :: GetPredict()
 	} // for ( i = 0; i < decomp_set_count; i++ )
 	//cout << "time1 " << time1 << endl;
 
+	if ( verbosity > 2 )
+		cout << "In GetPredict() after main loop" << endl;
+	
 	stringstream sstream;
 	//cout << "before cycle of AddNewUncheckedArea()" << endl;
 	if ( deep_predict == 6 ) {
 		// add to L2 once for every set
-		for ( unsigned i = 0; i < set_status_arr.size(); i++ ) {
+		for ( unsigned i = 0; i < set_status_arr.size(); ++i ) {
 			if ( ( decomp_set_arr[i].IsAddedToL2 == false ) && ( set_status_arr[i] > 0 ) )  {
 				decomp_set_arr[i].IsAddedToL2 = true;
 				if ( set_status_arr[i] == 1 )
 					global_stopped_points_count++;
 				else 
 					global_checked_points_count++;
-				
-				boost::dynamic_bitset<> bs = IntVecToBitset( core_len, decomp_set_arr[i].var_choose_order );
+				boost::dynamic_bitset<> bs = IntVecToBitsetPredict( decomp_set_arr[i].var_choose_order );
 				AddNewUncheckedArea( bs, sstream );
 			}
 		}
@@ -1449,7 +1478,10 @@ bool MPI_Predicter :: GetPredict()
 	}
 
 	whole_get_predict_time += MPI_Wtime() - current_time;
-	
+
+	if ( verbosity > 2 )
+		cout << "In GetPredict() after AddNewUncheckedArea()" << endl;
+
 	return true;
 }
 

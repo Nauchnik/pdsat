@@ -124,6 +124,7 @@ public:
 	bool WritePredictToFile( int all_skip_count, double whole_time_sec );
 	void SendPredictTask( int ProcessListNumber, int process_number_to_send, unsigned &cur_task_index, unsigned &cur_decomp_set_index );
 	vector<int> BitsetToIntVecPredict( boost::dynamic_bitset<> &bs );
+	boost::dynamic_bitset<> IntVecToBitsetPredict( vector<int> &variables_vec );
 	
 	unsigned cnf_in_set_count;
 	bool IsFirstStage;
