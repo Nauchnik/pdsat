@@ -46,7 +46,9 @@ MPI_Predicter :: MPI_Predicter( ) :
 	max_L2_hamming_distance ( 2 ),
 	start_sample_variance_limit ( 0.000000001 ),
 	evaluation_type ( "time" )
-{ }
+{ 
+	local_decomp_set = NULL;
+}
 
 MPI_Predicter :: ~MPI_Predicter( )
 { }
@@ -69,16 +71,18 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 	MPI_Request request;
 	
 	MPI_Send( &cur_task_index,  1, MPI_INT, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
+	if ( verbosity > 1 )
+		cout << "Sending cur_task_index " << cur_task_index << endl;
 	if ( vec_IsDecompSetSendedToProcess[process_number_to_send] == false ) {
-		MPI_Send( local_decomp_set, local_decomp_set_size, MPI_UNSIGNED, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
 		if ( verbosity > 1 )
 			cout << "Sending local_decomp_set to process " << process_number_to_send << endl;
+		MPI_Send( local_decomp_set, local_decomp_set_size, MPI_UNSIGNED, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
 		vec_IsDecompSetSendedToProcess[process_number_to_send] = true;
 	}
 	
 	if ( cur_task_index % cnf_in_set_count == 0 ) { // if new sample then new set to all precesses
 		if ( verbosity > 1 ) {
-			cout << "In SendPredictTask() sending decomp set" << endl; 
+			cout << "In SendPredictTask() new decomp set" << endl; 
 			cout << "cur_task_index " << cur_task_index << " cnf_in_set_count " << cnf_in_set_count << endl;
 		}
 		if ( cur_decomp_set_index > decomp_set_arr.size() - 1 ) {
@@ -86,7 +90,8 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 			cerr << cur_decomp_set_index << " > " << decomp_set_arr.size() - 1 << endl;
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
-		delete[] local_decomp_set;
+		if ( local_decomp_set )
+			delete[] local_decomp_set;
 		local_decomp_set_size = decomp_set_arr[cur_decomp_set_index].var_choose_order.size();
 		local_decomp_set = new unsigned[local_decomp_set_size];
 		for ( unsigned i=0; i < local_decomp_set_size; ++i ) 
@@ -221,6 +226,9 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		MPI_Recv( &cnf_time_from_node,         1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		MPI_Recv( &IsSolvedOnPreprocessing,    1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		MPI_Recv( var_activity, activity_vec_len, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+
+		if ( verbosity > 1 )
+			cout << "Recieved result with current_task_index " << current_task_index << endl; 
 		
 		for( unsigned i=0; i < total_var_activity.size(); ++i ) {
 			if( ( total_var_activity[i] += var_activity[i] ) > 1e50 )
@@ -253,8 +261,10 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		}
 		
 		solved_tasks_count++;
-		if ( verbosity > 1 )
+		if ( verbosity > 1 ) {
 			cout << "solved_tasks_count is " << solved_tasks_count << endl;
+			cout << "cur_task_index " << cur_task_index << endl;
+		}
 		
 		if ( cur_task_index < all_tasks_count ) {
 			// skip sending stopped tasks
@@ -283,6 +293,9 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	sstream_control << "solved_tasks_count " << solved_tasks_count << endl;
 	sstream_control << "global_deep_point_index " << global_deep_point_index << endl;
 	sstream_control << "total_decomp_set_count " << global_deep_point_index << endl;
+
+	if ( verbosity > 2 )
+		cout << sstream_control << endl;
 	
 	if ( !GetPredict( ) ) { 
 		cout << "Error in GetPredict " << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
@@ -323,7 +336,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		cout << "Received core_len "         << core_len         << endl;
 		cout << "Received activity_vec_len " << activity_vec_len << endl;
 		cout << "Received full_var_choose_order " << endl;
-		for ( unsigned i=0; i < core_len; ++i )
+		for ( unsigned i=0; i < full_var_choose_order.size(); ++i )
 			cout << full_var_choose_order[i] << " ";
 		cout << endl;
 	}
@@ -464,11 +477,14 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			cout << "solver_type has unknown format"; return false;
 		}
 		
-		MPI_Send( &current_task_index, 1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
-		MPI_Send( &process_sat_count,  1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
-		MPI_Send( &cnf_time_from_node, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
-		MPI_Send( &IsSolvedOnPreprocessing, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
+		MPI_Send( &current_task_index,         1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
+		MPI_Send( &process_sat_count,          1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
+		MPI_Send( &cnf_time_from_node,         1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
+		MPI_Send( &IsSolvedOnPreprocessing,    1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( var_activity, activity_vec_len, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
+
+		if ( verbosity > 0 )
+			cout << "rank " << rank << " sended decision" << endl;
 	}
 
 	delete[] var_activity;
@@ -819,6 +835,7 @@ bool MPI_Predicter :: DeepPredictMain( )
 			cout << endl << "Error in ControlProcessPredict" << endl;
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
+
 		if ( verbosity > 0 )
 			cout << "ControlProcessPredict() done" << endl;
 
@@ -967,6 +984,8 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			MPI_Send( full_local_decomp_set, core_len, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 		}
 		delete[] full_local_decomp_set;
+
+		local_decomp_set = NULL;
 		
 		cout << "verbosity "     << verbosity           << endl;
 		cout << "solver_type "   << solver_type         << endl;
