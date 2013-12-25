@@ -978,7 +978,7 @@ lbool Solver::solve_()
 				}
 
 				if ( IsPredict ) {
-					if ( pdsat_verbosity > 0 ) {
+					if ( ( pdsat_verbosity > 0 ) && ( rank == 1 ) ) {
 						std::cout << "try to MPI_Iprobe()" << std::endl;
 						std::cout << "rank " << rank << std::endl;
 					}

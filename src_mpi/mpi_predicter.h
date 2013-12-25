@@ -97,7 +97,7 @@ public:
 	double whole_get_predict_time;
 	double whole_add_new_unchecked_area_time;
 	int predict_every_sec;
-	double start_sample_varianse_limit;
+	double start_sample_variance_limit;
 
 	bool MPI_Predict( int argc, char **argv );
 	bool ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control );

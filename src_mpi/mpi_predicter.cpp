@@ -44,7 +44,7 @@ MPI_Predicter :: MPI_Predicter( ) :
 	IsRecordUpdated ( false ),
 	predict_every_sec ( 2 ),
 	max_L2_hamming_distance ( 2 ),
-	start_sample_varianse_limit ( 0.000000001 ),
+	start_sample_variance_limit ( 0.000000001 ),
 	evaluation_type ( "time" )
 { }
 
@@ -71,6 +71,8 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 	MPI_Send( &cur_task_index,  1, MPI_INT, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
 	if ( vec_IsDecompSetSendedToProcess[process_number_to_send] == false ) {
 		MPI_Send( local_decomp_set, local_decomp_set_size, MPI_UNSIGNED, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
+		if ( verbosity > 1 )
+			cout << "Sending local_decomp_set to process " << process_number_to_send << endl;
 		vec_IsDecompSetSendedToProcess[process_number_to_send] = true;
 	}
 	
@@ -320,7 +322,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	if ( ( verbosity > 0 ) && ( rank == 1 ) ) {
 		cout << "Received core_len "         << core_len         << endl;
 		cout << "Received activity_vec_len " << activity_vec_len << endl;
-		cout << "Received full_var_choose_orde " << endl;
+		cout << "Received full_var_choose_order " << endl;
 		for ( unsigned i=0; i < core_len; ++i )
 			cout << full_var_choose_order[i] << " ";
 		cout << endl;
@@ -385,7 +387,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			var_choose_order.resize( new_size );
 			for ( unsigned i=0; i < new_size; ++i )
 				var_choose_order[i] = local_decomp_set[i];
-			
+
 			IsNewPartMask = ( var_choose_order == prev_var_choose_order ) ? IsNewPartMask = false : true;
  			
 			if ( IsNewPartMask ) {
@@ -1524,11 +1526,11 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 			sample_variance /= ( solved_cnf_count_arr[i] - 1 );
 		}
 
-		if ( sample_variance > start_sample_varianse_limit ) {
-			cout << "new sample_varianse" << endl;
+		if ( sample_variance > start_sample_variance_limit ) {
+			/*cout << "new sample_varianse" << endl;
 			cout << "sample_variance " << sample_variance << endl;
-			cout << "var_choose_order.size() " << var_choose_order.size() << endl;
-			start_sample_varianse_limit *= 2;
+			cout << "var_choose_order.size() " << var_choose_order.size() << endl;*/
+			start_sample_variance_limit *= 2;
 		}
 
 		sstream << " min ";
