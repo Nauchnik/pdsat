@@ -114,10 +114,10 @@ public:
 	void AddNewUncheckedArea( boost::dynamic_bitset<> &point, stringstream &sstream );
 	
 	void AllocatePredictArrays( int &cur_tasks_count );
-	void ChangeVarChooseOrder( vector<int> var_choose_order, unsigned cur_vars_changing, 
+	/*void ChangeVarChooseOrder( vector<int> var_choose_order, unsigned cur_vars_changing, 
 		                       unsigned current_var_count, vector<int> &new_var_choose_order );
 	void GetNewHammingPoint( vector<int> var_choose_order, int change_var_count, int &current_var_count, 
-		                     vector<int> diff_vec, vector<int> &new_var_choose_order );
+		                     vector<int> diff_vec, vector<int> &new_var_choose_order );*/
 	bool PrepareForPredict( );
 	bool GetRandomValuesArray( unsigned shortcnf_count, vector< vector<unsigned> > &values_arr );
 	bool IfSimulatedGranted( double predict_time );
@@ -143,9 +143,9 @@ private:
 	
 	int best_var_num;
 	double best_predict_time;
-	unsigned *local_decomp_set; // for sending via MPI
-	unsigned local_decomp_set_size;
-
+	int *array_message; // for sending via MPI
+	unsigned array_message_size;
+	
 	unsigned total_decomp_set_count;
 	unsigned solved_tasks_count;
 	string predict_file_name;

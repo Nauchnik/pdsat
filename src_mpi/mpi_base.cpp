@@ -19,7 +19,7 @@ MPI_Base :: MPI_Base( ) :
 	corecount			 ( 0 ),
 	solver_type          ( 4 ),
 	core_len             ( 0 ),    
-	koef_val             ( 32 ),
+	koef_val             ( 64 ),
 	schema_type          ( "" ),
 	var_count            ( 0 ),
 	clause_count         ( 0 ),
@@ -537,8 +537,8 @@ bool MPI_Base :: ReadIntCNF( )
 		cerr << "Error in ReadVarCount" << endl;
 		return false;
 	}
-	if ( verbosity > 0 )
-		cout << "Success of ReadVarCount()" << endl;
+
+	cout << "ReadVarCount() done" << endl;
 
 	clause_array.resize( clause_count );
 
@@ -619,14 +619,6 @@ bool MPI_Base :: ReadIntCNF( )
 				cout << endl;
 				core_len = var_choose_order.size();
 				cout << "core_len changed to " << core_len << endl;
-				full_var_choose_order = var_choose_order;
-				// fill indexes of core variables
-				unsigned k=0;
-				for ( vec_it = full_var_choose_order.begin(); vec_it != full_var_choose_order.end(); ++vec_it )
-					core_var_indexes.insert(pair<int,unsigned>( *vec_it, k++ ));
-				/*cout << "core_var_indexes" << endl;
-				for ( map<int,unsigned> :: iterator map_it = core_var_indexes.begin(); map_it != core_var_indexes.end(); ++map_it )
-					cout << map_it->first << " " << map_it->second << endl;*/
 			}
 			
 			if ( !Is_ConstrLen ) {
@@ -742,7 +734,20 @@ bool MPI_Base :: ReadIntCNF( )
 	}*/
 
 	main_cnf.close( );
-
+	
+	full_var_choose_order = var_choose_order;
+	// fill indexes of core variables
+	k=0;
+	for ( vec_it = full_var_choose_order.begin(); vec_it != full_var_choose_order.end(); ++vec_it )
+		core_var_indexes.insert(pair<int,unsigned>( *vec_it, k++ ));
+	if ( verbosity > 0 ) {
+		cout << "core_var_indexes" << endl;
+		for ( map<int,unsigned> :: iterator map_it = core_var_indexes.begin(); map_it != core_var_indexes.end(); ++map_it )
+			cout << map_it->first << " " << map_it->second << endl;
+	}
+	
+	cout << "ReadIntCNF() done" << endl;
+	
 	return true;
 }
 
