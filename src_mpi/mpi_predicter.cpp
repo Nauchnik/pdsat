@@ -422,7 +422,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 					S->start_activity   = start_activity;
 					S->max_solving_time = max_solving_time;
 					S->rank             = rank;
-				}
+			}
 			IsFirstTaskReceived = true;
 		}
 		

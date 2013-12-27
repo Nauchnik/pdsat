@@ -427,7 +427,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 	else
 		cout << "could not open known_assumptions_file " << known_assumptions_file_name << endl;
 	
-	unsigned max_possible_tasks_count = (unsigned)(pow( 2, ceil( log(corecount - 1)/log(2) ))) * koef_val;
+	unsigned max_possible_tasks_count = (unsigned)(pow( 2, ceil( log(corecount - 1)/log(2) ))) * (1<<koef_val);
 	cout << "max_possible_tasks_count " << max_possible_tasks_count << endl;
 	part_mask_var_count = log(max_possible_tasks_count)/log(2);
 	if ( part_mask_var_count > var_choose_order.size() )
