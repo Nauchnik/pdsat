@@ -795,6 +795,16 @@ lbool Solver::search(int nof_conflicts)
             conflicts++; conflictC++;
             if (decisionLevel() == 0) return l_False;
 
+#ifdef _MPI
+#ifndef _DEBUG
+		if ( conflictC % 1000 == 0 )
+			if ( ( max_solving_time > 0 ) && ( MPI_Wtime() - start_solving_time > max_solving_time ) ) {
+				cancelUntil(0);
+				return l_Undef;
+			}
+#endif
+#endif
+
             learnt_clause.clear();
             analyze(confl, learnt_clause, backtrack_level);
             cancelUntil(backtrack_level);
@@ -994,7 +1004,7 @@ lbool Solver::solve_()
 							if ( test_message ) {
 								if ( pdsat_verbosity > 0 )
 									std::cout << "m2.2 interrupted after " << conflicts << " conflicts" << std::endl;
-								return l_False;
+								return l_Undef;
 							}
 						}
 						else
@@ -1005,7 +1015,7 @@ lbool Solver::solve_()
 #else
 				if ( ( max_solving_time > 0 ) && ( cpuTime() - start_solving_time > max_solving_time ) ) {
 					cancelUntil(0);
-					return l_False;
+					return l_Undef;
 				}
 #endif
 
