@@ -535,7 +535,9 @@ void MPI_Predicter :: GetInitPoint( )
 	known_point_file.open( known_point_file_name.c_str(), ios_base::in );
 	
 	if ( known_point_file.is_open() ) { // get known point
+		cout << "known_point_file opened " << known_point_file_name << endl;
 		int ival;
+		var_choose_order.resize(0);
 		while ( known_point_file >> ival )
 			var_choose_order.push_back( ival );
 		best_var_num = var_choose_order.size(); 
@@ -563,10 +565,9 @@ void MPI_Predicter :: GetInitPoint( )
 		}
 	}
 	sort( var_choose_order.begin(), var_choose_order.end() );
-	sstream << "full_var_choose_order" << endl;
+	sstream << "var_choose_order" << endl;
 	for ( unsigned i = 0; i < var_choose_order.size(); i++ )
 		sstream << var_choose_order[i] << " ";
-	full_var_choose_order = var_choose_order;
 
 	unsigned array_message_size = var_choose_order.size() + 1;
 	array_message = new int[array_message_size];
@@ -1231,10 +1232,10 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	sstream << "predict_" << record_count;
 	predict_file_name = sstream.str();
 	
-	if ( !IsFirstStage ) // don't write in first stage - it's expansive
+	if ( ( !IsFirstStage ) || ( record_count == 1 ) ) // don't write in first stage - it's expansive
 		WritePredictToFile( 0, 0 );
 	predict_file_name = "predict";
-
+	
 	ofstream graph_file, var_activity_file;
 	if ( IsFirstPoint ) {
 		graph_file.open( "graph_file", ios_base :: out ); // erase info from previous launches 
