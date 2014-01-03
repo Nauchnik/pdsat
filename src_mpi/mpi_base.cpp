@@ -380,7 +380,6 @@ bool MPI_Base :: MakeVarChoose( )
 		cout << var_choose_order[i] << " ";
 	cout << endl;
 
-	full_var_choose_order = var_choose_order;
 	return true;
 }
 
@@ -507,7 +506,7 @@ bool MPI_Base :: ReadVarCount( )
 
 
 //---------------------------------------------------------
-bool MPI_Base :: ReadIntCNF( )
+bool MPI_Base :: ReadIntCNF()
 {
 // Reading CNF from file.
 // Vars = {1, -1, 2, -2, ...} Literels = {2, 3, 4, 5, ...}
@@ -595,7 +594,7 @@ bool MPI_Base :: ReadIntCNF( )
 						cout << "core_len " << core_len << " MAX_CORE_LEN " << MAX_CORE_LEN << endl;
 				    }
 					for ( unsigned i=0; i < core_len; ++i )
-						var_choose_order.push_back( i+1 );
+						full_var_choose_order.push_back( i+1 );
 				    Is_InpVar = true;
 				    continue;
 				}
@@ -607,17 +606,17 @@ bool MPI_Base :: ReadIntCNF( )
 				sstream >> str2; // remove "var_set"
 				while ( sstream >> val ) {
 					cout << val << " ";
-					var_choose_order.push_back( val );
+					full_var_choose_order.push_back( val );
 				}
 				cout << endl;
 				sstream.clear(); sstream.str();
-				sort( var_choose_order.begin(), var_choose_order.end() );
+				sort( full_var_choose_order.begin(), full_var_choose_order.end() );
 				cout << "After reading var_set" << endl;
-				cout << "var_choose_order.size() " << var_choose_order.size() << endl;
-				for ( unsigned i=0; i < var_choose_order.size(); ++i )
-					cout << var_choose_order[i] << " ";
+				cout << "var_choose_order.size() " << full_var_choose_order.size() << endl;
+				for ( unsigned i=0; i < full_var_choose_order.size(); ++i )
+					cout << full_var_choose_order[i] << " ";
 				cout << endl;
-				core_len = var_choose_order.size();
+				core_len = full_var_choose_order.size();
 				cout << "core_len changed to " << core_len << endl;
 			}
 			
@@ -735,7 +734,6 @@ bool MPI_Base :: ReadIntCNF( )
 
 	main_cnf.close( );
 	
-	full_var_choose_order = var_choose_order;
 	// fill indexes of core variables
 	k=0;
 	for ( vec_it = full_var_choose_order.begin(); vec_it != full_var_choose_order.end(); ++vec_it )
