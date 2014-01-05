@@ -584,7 +584,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		S->addProblem(cnf);
 		S->verbosity        = 0;
 		S->IsPredict        = false;
-		S->start_activity   = start_activity;
+		S->start_activity   = start_activity; // values obtained directly from params
 		S->max_nof_restarts = max_nof_restarts;
 	}
 	
