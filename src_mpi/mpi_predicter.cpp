@@ -40,7 +40,7 @@ MPI_Predicter :: MPI_Predicter( ) :
 	whole_deep_time ( 0 ),
 	whole_get_predict_time ( 0 ),
 	whole_add_new_unchecked_area_time ( 0 ),
-	IsFirstStage ( true ),
+	IsFirstStage ( false ),
 	IsRecordUpdated ( false ),
 	predict_every_sec ( 2 ),
 	max_L2_hamming_distance ( 2 ),
@@ -902,7 +902,7 @@ bool MPI_Predicter :: DeepPredictMain( )
 		sstream.str( "" ); sstream.clear( );
 		
 		// stop all current tasks if not first stage (in this stage all problems must be solve)
-		if ( !IsFirstStage ) {
+		/*if ( !IsFirstStage ) {
 			if ( verbosity > 1 )
 				cout << "Extra stop sending " << endl;
 			for ( int i = 1; i < corecount; i++ ) {
@@ -910,7 +910,7 @@ bool MPI_Predicter :: DeepPredictMain( )
 				if ( verbosity > 0 )
 					cout << "stop-message was send to node # " << i << endl;
 			}
-		}
+		}*/
 		
 		if ( IsFastExit )
 			break;
@@ -1218,11 +1218,11 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		sstream << endl;
 	}
 	
-	if ( 
+	/*if ( 
 		( ( deep_predict == 3 ) || ( deep_predict == 5 ) || ( deep_predict == 6 ) )
 		&& ( !IsDecDecomp ) && ( !IsFirstPoint ) && ( !IsFirstStage )
 	   )
-		IsRestartNeeded = true;
+		IsRestartNeeded = true;*/
 
 	deep_predict_file << sstream.rdbuf();
 	deep_predict_file.close();
@@ -1232,7 +1232,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	sstream << "predict_" << record_count;
 	predict_file_name = sstream.str();
 	
-	if ( ( !IsFirstStage ) || ( record_count == 1 ) ) // don't write in first stage - it's expansive
+	if ( record_count == 1 ) // don't write in first stage - it's expansive
 		WritePredictToFile( 0, 0 );
 	predict_file_name = "predict";
 	
@@ -1262,14 +1262,14 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	if ( deep_predict == 5 ) 
 		graph_file << " " << cur_temperature;
 
-	if ( ( IsFirstStage ) && ( !IsFirstPoint ) && ( best_var_num > old_best_var_num ) ) {
+	/*if ( ( IsFirstStage ) && ( !IsFirstPoint ) && ( best_var_num > old_best_var_num ) ) {
 		IsFirstStage = false;
 		cout << "IsFirstStage "      << IsFirstStage      << endl;
 		cout << "best_var_num "      << best_var_num      << endl;
 		cout << "best_predict_time " << best_predict_time << endl;
 		sstream << endl << " *** First stage done ***" << best_predict_time << endl;
 		graph_file << " first stage done";
-	}
+	}*/
 	graph_file << endl;
 	
 	graph_file.close();
