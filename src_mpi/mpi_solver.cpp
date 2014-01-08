@@ -23,7 +23,8 @@ MPI_Solver :: MPI_Solver( ) :
 	interrupted_count           ( 0 ),
 	max_solving_time_koef       ( 2 ),
 	finding_first_sat_time      ( 0 ),
-	total_start_time            ( 0 )
+	total_start_time            ( 0 ),
+	no_increm                   ( false )
 {
 	solving_times = new double[SOLVING_TIME_LEN];
 	for( unsigned i=0; i < SOLVING_TIME_LEN; ++i )
@@ -248,6 +249,9 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned &local_interrupted_count, int
 			S->last_time = Minisat :: cpuTime();
 			ret = S->solveLimited( dummy_vec[i] );
 			
+			if ( no_increm )
+				S->clearDB(); // clear database if incremental solving disabled
+			
 			//ret = S->solveLimited( dummy_vec[i], true, false ); // for SimpSolver
 #ifndef _DEBUG
 			cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
@@ -292,9 +296,6 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned &local_interrupted_count, int
 				if ( !IsSolveAll )
 					break;
 			}
-			//S->loadState();
-			//delete S;
-			//S->clearDB(); // we don't need to clear DB, because incremental solving is faster
 		}
 		if ( batch_interrupted_count ) {
 			ofile.open( new_assumptions_file_name.c_str(), ios_base::out | ios_base::app );
@@ -333,6 +334,7 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_
 
 	stringstream sstream;
 	sstream << "assumptions_string_count " << assumptions_string_count << endl;
+	sstream << "no_increm " << no_increm << endl;
 	sstream << "var_choose_order size " << var_choose_order.size() << endl;
 	for ( unsigned i=0; i < var_choose_order.size(); i++ )
 		sstream << var_choose_order[i] << " ";

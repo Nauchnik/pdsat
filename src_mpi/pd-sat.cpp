@@ -48,6 +48,7 @@ struct Flags
 	string rslos_table_name;
 	string evaluation_type;
 	double max_solving_time_koef;
+	bool no_increm;
 };
 
 // prototypes
@@ -193,6 +194,7 @@ int main( int argc, char** argv )
 		if ( myflags.max_solving_time_koef > 0 )
 			mpi_s.max_solving_time_koef = myflags.max_solving_time_koef;
 		mpi_s.rslos_table_name = myflags.rslos_table_name;
+		mpi_s.no_increm = myflags.no_increm;
 
 		mpi_s.verbosity		   = myflags.verbosity;
 		mpi_s.IsConseq         = myflags.IsConseq;
@@ -272,6 +274,7 @@ void WriteUsage( )
 	"\n   -max_nof_restarts - maximum number of restarts";
 	"\n   -skip_tasks - count of already solved tasks";
 	"\n   -eval - type of prediction evaluation {time, propagation}";
+	"\n   -no_increm - disable incremental mode while solving";
 }
 
 //---------------------------------------------------------
@@ -330,6 +333,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.skip_tasks = 0;
 	myflags.evaluation_type = "";
 	myflags.max_solving_time_koef = 0;
+	myflags.no_increm = false;
 	
 	k = 0;
 
@@ -365,6 +369,8 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.rslos_table_name = value;
 		else if ( hasPrefix_String( argv_string, "-conseq", value ) )
 			myflags.IsConseq = true;
+		else if ( hasPrefix_String( argv_string, "-no_increm", value ) )
+			myflags.no_increm = true;
 		else if ( hasPrefix_String( argv_string, "-no_first_stage", value ) )
 			myflags.IsFirstStage = false;
 		else if ( hasPrefix_String( argv_string, "-solve_all", value ) )

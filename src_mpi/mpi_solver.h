@@ -27,6 +27,7 @@ public:
 	unsigned skip_tasks;
 	double prev_med_time_sum;
 	double max_solving_time_koef;
+	bool no_increm;
 	
 	bool MPI_Solve( int argc, char **argv );
 	bool ControlProcessSolve( );
