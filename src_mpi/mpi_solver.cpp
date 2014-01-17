@@ -191,8 +191,7 @@ void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, doubl
 	}
 }
 
-bool MPI_Solver :: SolverRun( Solver *&S, unsigned &local_interrupted_count, int &process_sat_count, 
-							  double &cnf_time_from_node, int current_task_index )
+bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_time_from_node, int current_task_index )
 {
 	if ( verbosity > 1 )
 		cout << "start SolverRun()" << endl;
@@ -203,7 +202,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned &local_interrupted_count, int
 	double total_time = 0;
 	unsigned current_tasks_solved = 0;
 	ProblemStates cur_problem_state;
-	stringstream sstream, inter_sstream;
+	stringstream sstream;
 	ofstream ofile;
 	unsigned batch_interrupted_count = 0;
 
@@ -214,6 +213,8 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned &local_interrupted_count, int
 	solving_times[0] = 1 << 30; // start min len
 	for ( unsigned i = 1; i < SOLVING_TIME_LEN; i++ )
 		solving_times[i] = 0;
+
+	vector< boost::dynamic_bitset<> > vec_bitset;
 	
 	if ( solver_type == 4 ) {
 		if ( assumptions_string_count ) // if assumptions in file 
@@ -229,6 +230,9 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned &local_interrupted_count, int
 				cout << endl;
 			}
 		}
+
+		boost::dynamic_bitset<> cur_bitset;
+		cur_bitset.resize( full_mask_var_count );
 
 		for ( int i = 0; i < dummy_vec.size(); ++i )
 			if ( dummy_vec[i].size() == 0 ) {
@@ -269,13 +273,29 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned &local_interrupted_count, int
 
 			if ( cur_problem_state == Interrupted ) {
 				batch_interrupted_count++;
-				local_interrupted_count++;
-				if ( local_interrupted_count > 1 )
-					inter_sstream << endl;
+				if ( cur_bitset.size() != dummy_vec[i].size() ) {
+					cerr << "cur_bitset.size() != dummy_vec[i].size()" << endl;
+					return false;
+				}
 				for ( unsigned j = 0; j < dummy_vec[i].size(); ++j )
-					inter_sstream << ( dummy_vec[i][j].x % 2 == 0 ) ? "1" : "0";
+					cur_bitset[j] = ( dummy_vec[i][j].x % 2 == 0 ) ? 1 : 0; 
+				vec_bitset.push_back( cur_bitset );
+				
+				/*unsigned long ul;
+				ofstream ofs;
+				ofs.open( "test.txt", ios_base :: out ); // write as txt
+				ofs << "12";
+				ofs.close();
+				ofs.open("test.txt", ios_base :: app | ios_base :: binary); // write as txt
+				if (ofs) {
+					ul = x1.to_ullong();
+					ofs.write((char*)&ul, sizeof(ul)); 
+					ul = x2.to_ullong();
+					ofs.write((char*)&ul, sizeof(ul)); 
+				}
+				ofs.close();*/
 			}
-
+			
 			if ( ret == l_True ) {
 				process_sat_count++;
 				cout << "process_sat_count " << process_sat_count << endl;
@@ -299,8 +319,8 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned &local_interrupted_count, int
 		}
 		if ( batch_interrupted_count ) {
 			ofile.open( new_assumptions_file_name.c_str(), ios_base::out | ios_base::app );
-			ofile << inter_sstream.rdbuf();
-			inter_sstream.clear(); inter_sstream.str("");
+			//vec_bitset
+			//ofile << inter_sstream.rdbuf();
 			ofile.close();
 		}
 		
@@ -572,7 +592,6 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	int process_sat_count = 0;
 	double cnf_time_from_node = 0.0;
 	bool IsFirstTaskRecieved;
-	unsigned local_interrupted_count;
 	int val;
 	string solving_info_file_name;
 	string str;
@@ -598,7 +617,6 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		MPI_Recv( &assumptions_string_count, 1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &solving_iteration_count,  1, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &max_solving_time,         1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
-		local_interrupted_count = 0;
 		if ( rank == 1 ) {
 			cout << "Received core_len "                 << core_len                 << endl;
 			cout << "Received all_tasks_count "          << all_tasks_count          << endl;
@@ -684,7 +702,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 				cout << endl;
 			}
 		
-			if ( !SolverRun( S, local_interrupted_count, process_sat_count, cnf_time_from_node, current_task_index ) ) { 
+			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index ) ) { 
 				cout << endl << "Error in SolverRun"; return false; 
 			}
 		
@@ -719,7 +737,6 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 	double start_sec;
 	double final_sec;
 	Solver *S;
-	unsigned local_interrupted_count = 0;
 
 	// MPI start
 	//MPI_Request request;
@@ -778,7 +795,7 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 		if ( !IsPB ) {
 			int current_task_index = 0;
 			cout << endl << endl << "Standart mode of SAT solving";
-			if ( !SolverRun( S, local_interrupted_count, process_sat_count, cnf_time_from_node, current_task_index ) )
+			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index ) )
 			{ cout << endl << "Error in SolverRun"; return false; }
 			if ( process_sat_count ) {
 				if ( !AnalyzeSATset( ) ) {
