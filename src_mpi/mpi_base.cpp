@@ -46,7 +46,7 @@ MPI_Base :: MPI_Base( ) :
 	max_nof_restarts     ( 0 ),
 	keybit_count         ( 4 ),
 	rslos_table_name     ( "" ),
-	assumptions_string_count ( 0 ),
+	assumptions_count    ( 0 ),
 	activity_vec_len	 ( 0 )
 {
 	full_mask  = new unsigned[FULL_MASK_LEN];
@@ -130,10 +130,10 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 	if ( verbosity > 0 )
 		cout << "MakeAssignsFromFile()" << endl;
 	
-	ifstream in;
+	ifstream ifile;
 	string str;
-	in.open( known_assumptions_file_name.c_str() );
-	if ( !in.is_open() ) {
+	ifile.open( known_assumptions_file_name.c_str(), ios_base :: in );
+	if ( !ifile.is_open() ) {
 		cerr << "Error. !in.is_open(). file name " << known_assumptions_file_name << endl;
 		return false;
 	}
@@ -142,12 +142,26 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 		cerr << "Error. var_choose_order.size() == 0 " << endl;
 		return false;
 	}
+
+	unsigned header_value;
+	ifile >> header_value; // read header in text mode
+	if ( header_value != var_choose_order.size() ) {
+		cerr << "header_value != var_choose_order.size()" << endl;
+		cerr << header_value << " != " << var_choose_order.size() << endl;
+		return false;
+	}
+
+	ifile.close();
+	short int si;
+	unsigned long ul;
+	ifile.open( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
+	ifile.read( (char*)&si, sizeof(si) ); // read header
 	
 	int cur_var_ind, intval, k = 0;
 	// int rslos_num = 1; 
-	int basic_batch_size = (int)floor( (double)assumptions_string_count / (double)all_tasks_count );
+	int basic_batch_size = (int)floor( (double)assumptions_count / (double)all_tasks_count );
 	// calculate count of bathes with additional size (+1)
-	int batch_addit_size_count = assumptions_string_count - basic_batch_size*all_tasks_count;
+	int batch_addit_size_count = assumptions_count - basic_batch_size*all_tasks_count;
 	int cur_batch_size = basic_batch_size;
 	if ( current_task_index < batch_addit_size_count )
 		cur_batch_size++;
@@ -158,41 +172,40 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 	else
 		previous_tasks_count += batch_addit_size_count;
 	
-	int strings_passed = 0;
-	while ( strings_passed < previous_tasks_count ) {
-		getline( in, str );
-		strings_passed++;
+	int values_passed = 0;
+
+	while ( values_passed < previous_tasks_count ) {
+		ifile.read( (char*)&ul, sizeof(ul) );
+		values_passed++;
 	}
 	if ( verbosity > 0 ) {
-		cout << "current_task_index "       << current_task_index << endl;
-		cout << "all_tasks_count "          << all_tasks_count << endl;
-		cout << "previous_tasks_count "     << previous_tasks_count << endl;
-		cout << "assumptions_string_count " << assumptions_string_count << endl;
-		cout << "basic_batch_size "         << basic_batch_size  << endl;
-		cout << "cur_batch_size "           << cur_batch_size << endl;
-		cout << "strings_passed "           << strings_passed  << endl;
+		cout << "current_task_index "   << current_task_index << endl;
+		cout << "all_tasks_count "      << all_tasks_count << endl;
+		cout << "previous_tasks_count " << previous_tasks_count << endl;
+		cout << "assumptions_count "    << assumptions_count << endl;
+		cout << "basic_batch_size "     << basic_batch_size  << endl;
+		cout << "cur_batch_size "       << cur_batch_size << endl;
+		cout << "values_passed "        << values_passed  << endl;
 	}
 	
 	dummy_vec.resize( cur_batch_size );
+	bitset<64> bitset64;
 	// reading values from file
 	for ( int i=0; i < cur_batch_size; ++i ) {
-		if ( !getline( in, str ) ) {
-			cerr << "Error. !getline( in, str )" << endl;
+		if ( !(ifile.read( (char*)&ul, sizeof(ul) ) ) ) {
+			cerr << "Error. !ifile.read( (char*)&ul, sizeof(ul) )" << endl;
 			return false;
 		}
-		if ( str.size() < var_choose_order.size() ) {
-			cerr << "Error. str.size() < var_choose_order.size()" << endl;
-			return false;
-		}
+		bitset64 = ul; // dynamic can't use = for ulong
 		for ( unsigned j=0; j < var_choose_order.size(); ++j ) {
 			cur_var_ind = var_choose_order[j] - 1;
-			if ( str[j] == '1' )
+			if ( bitset64[j] == 1 )
 				dummy_vec[i].push( mkLit( cur_var_ind ) );
 			else 
 				dummy_vec[i].push( ~mkLit( cur_var_ind ) );
 		}
 	}
-	in.close();
+	ifile.close();
 	return true;
 }
 
@@ -202,7 +215,8 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask,
 									   vec< vec<Lit> > &dummy_vec )
 {
 // for predict with minisat2.2. convert masks to vector of Literals
-	unsigned full_mask_var_count = 0, variate_vars_count = 0;
+	unsigned variate_vars_count = 0;
+	full_mask_var_count = 0;
 	for ( unsigned i = 1; i < FULL_MASK_LEN; i++ ) {
 		variate_vars_count  += BitCount( full_mask[i] ^ part_mask[i] );
 		full_mask_var_count += BitCount( full_mask[i] );

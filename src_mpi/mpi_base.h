@@ -100,7 +100,7 @@ public:
 	bool IsSolveAll;
 	double max_solving_time; // max time in seconds for solving particular SAT subproblem
 	unsigned keybit_count;
-	unsigned assumptions_string_count;
+	unsigned assumptions_count;
 	string rslos_table_name;
 	int max_nof_restarts;
 	

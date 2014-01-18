@@ -86,6 +86,7 @@ int Addit_func :: getdir( string dir, vector<string> &files )
     closedir(dp);
     return 0;
 }
+
 /*
 boost::dynamic_bitset<> Addit_func :: IntVecToBitset( unsigned bitset_len, vector<int> &int_vec )
 {
