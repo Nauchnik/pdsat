@@ -130,16 +130,16 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 	if ( verbosity > 0 )
 		cout << "MakeAssignsFromFile()" << endl;
 	
+	if ( var_choose_order.size() == 0 ) {
+		cerr << "Error. var_choose_order.size() == 0 " << endl;
+		return false;
+	}
+
 	ifstream ifile;
 	string str;
 	ifile.open( known_assumptions_file_name.c_str(), ios_base :: in );
 	if ( !ifile.is_open() ) {
 		cerr << "Error. !in.is_open(). file name " << known_assumptions_file_name << endl;
-		return false;
-	}
-	
-	if ( var_choose_order.size() == 0 ) {
-		cerr << "Error. var_choose_order.size() == 0 " << endl;
 		return false;
 	}
 
@@ -150,12 +150,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 		cerr << header_value << " != " << var_choose_order.size() << endl;
 		return false;
 	}
-
 	ifile.close();
-	short int si;
-	unsigned long ul;
-	ifile.open( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
-	ifile.read( (char*)&si, sizeof(si) ); // read header
 	
 	int cur_var_ind, intval, k = 0;
 	// int rslos_num = 1; 
@@ -173,7 +168,11 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 		previous_tasks_count += batch_addit_size_count;
 	
 	int values_passed = 0;
-
+	
+	short int si;
+	unsigned long ul;
+	ifile.open( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
+	ifile.read( (char*)&si, sizeof(si) ); // read header
 	while ( values_passed < previous_tasks_count ) {
 		ifile.read( (char*)&ul, sizeof(ul) );
 		values_passed++;
