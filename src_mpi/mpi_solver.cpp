@@ -461,6 +461,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 	
 	unsigned max_possible_tasks_count = (unsigned)(pow( 2, ceil( log(corecount - 1)/log(2) ))) * (1<<koef_val);
 	cout << "max_possible_tasks_count " << max_possible_tasks_count << endl;
+	cout << "current part_mask_var_count " << part_mask_var_count << endl; 
 	part_mask_var_count = log(max_possible_tasks_count)/log(2);
 	if ( part_mask_var_count > var_choose_order.size() )
 		part_mask_var_count = var_choose_order.size();
