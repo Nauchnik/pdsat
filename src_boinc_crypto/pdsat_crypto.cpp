@@ -134,21 +134,31 @@ bool do_work( FILE *infile, string &final_result_str )
 		fprintf(stderr, "APP: %s\n", error_msg.c_str());
 		return false;
 	}
-
-	if ( total_problems_count == 0 ) // if first launch and no chkpt file
-		total_problems_count = ls.positive_literals.size();
-	
-	if ( ls.problem_type.find("inc") != string::npos ) {
-		ls.cnf_array.resize( sizeof(LS_10_3_inc72_cnf_array)  / sizeof(LS_10_3_inc72_cnf_array[0]) );
-		for ( unsigned i = 0; i < ls.cnf_array.size(); i++ ) 
-			ls.cnf_array[i] = LS_10_3_inc72_cnf_array[i];
-		fprintf(stderr, ls.problem_type.c_str() );
-	}
 	*/
+
+	string problem_type;
+	vector<int> cnf_array;
+
+	fprintf( stderr, problem_type.c_str() );
+	if ( problem_type == "bivium0" ) {
+		cnf_array.resize( sizeof(bivium_0_cnf_array)  / sizeof(bivium_0_cnf_array[0]) );
+		for ( unsigned i = 0; i < cnf_array.size(); ++i ) 
+			cnf_array[i] = bivium_0_cnf_array[i];
+	}
+	else if ( problem_type == "bivium1" ) {
+		cnf_array.resize( sizeof(bivium_1_cnf_array)  / sizeof(bivium_1_cnf_array[0]) );
+		for ( unsigned i = 0; i < cnf_array.size(); ++i ) 
+			cnf_array[i] = bivium_1_cnf_array[i];
+	}
+	else if ( problem_type == "bivium2" ) {
+		cnf_array.resize( sizeof(bivium_2_cnf_array)  / sizeof(bivium_2_cnf_array[0]) );
+		for ( unsigned i = 0; i < cnf_array.size(); ++i ) 
+			cnf_array[i] = bivium_2_cnf_array[i];
+	}
 
 	minisat22_wrapper m22_wrapper;
 	Problem cnf;
-	//m22_wrapper.parse_DIMACS_from_inc( cnf_array, cnf );
+	m22_wrapper.parse_DIMACS_from_inc( cnf_array, cnf );
 	Solver *S;
 
 	string current_result_str = "";
