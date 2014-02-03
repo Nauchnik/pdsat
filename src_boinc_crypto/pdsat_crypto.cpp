@@ -19,12 +19,14 @@
 #include "boinc_api.h"
 #include "mfile.h"
 
+#include <fstream>
 #include "minisat22_wrapper.h"
+#include "mpi_base.h"
 
 using namespace std;
 
 #define CHECKPOINT_FILE "chpt"
-#define INPUT_FILENAME "in"
+#define INPUT_FILENAME  "in"
 #define OUTPUT_FILENAME "out"
 
 const int MAX_NOF_RESTARTS            = 5000;
@@ -46,64 +48,48 @@ int bivium_2_cnf_array[] = {
 #include "bivium_test_2.inc"
 };
 
-bool do_work( FILE *infile, string &final_result_str );
+bool do_work( ifstream &infile, string &final_result_str );
 int do_checkpoint( unsigned current_solved, unsigned total_tasks, string &final_result_str );
 
-int main(int argc, char **argv) {
-    int c, nchars = 0, retval, n;
-    double fsize;
-    char input_path[512], output_path[512], chkpt_path[512], buf[256];
-    MFILE outfile;
-    FILE *chpt_file, *infile;
-
-    retval = boinc_init();
-    if (retval) {
+int main( int argc, char **argv ) {
+    char buf[256];
+	int retval = boinc_init();
+    if ( retval ) {
         fprintf(stderr, "%s boinc_init returned %d\n",
             boinc_msg_prefix(buf, sizeof(buf)), retval
         );
-        exit(retval);
+        exit( retval );
     }
 
+	string input_path, output_path, chpt_path;
+    ofstream outfile;
+    fstream chpt_file;
+
     // open the input file (resolve logical name first)
-    boinc_resolve_filename( INPUT_FILENAME, input_path, sizeof(input_path) );
-    infile = boinc_fopen(input_path, "r");
-    if (!infile) {
-        fprintf(stderr,
-            "%s Couldn't find input file, resolved name %s.\n",
-            boinc_msg_prefix(buf, sizeof(buf)), input_path
+	boinc_resolve_filename_s( INPUT_FILENAME, input_path );
+    ifstream infile( input_path.c_str() );
+    if ( !infile.is_open() ) {
+		fprintf(stderr, "%s APP: app infile open failed:\n",
+            boinc_msg_prefix(buf, sizeof(buf))
         );
         exit(-1);
     }
-
-    // get size of input file (used to compute fraction done)
-    file_size( input_path, fsize );
-
-	// resolve output file
-    boinc_resolve_filename( OUTPUT_FILENAME, output_path, sizeof(output_path) );
 	
 	// See if there's a valid checkpoint file.
-	char string_input[1024];
-    boinc_resolve_filename( CHECKPOINT_FILE, chkpt_path, sizeof(chkpt_path) );
-    chpt_file = boinc_fopen(chkpt_path, "r");
-	
-    if ( chpt_file ) {
-        n = fscanf( chpt_file, "%d %d", &last_iteration_done, &total_problems_count );
-		while ( fgets(string_input, 1024, chpt_file ) )
-			previous_results_str += string_input;
-        fclose( chpt_file );
-    }
-
-	retval = outfile.open(output_path, "w");
-    if (retval) {
-        fprintf(stderr, "%s APP: app output open failed:\n",
+    boinc_resolve_filename_s( CHECKPOINT_FILE, chpt_path );
+	chpt_file.open( chpt_path );
+	if ( !chpt_file.is_open() ) {
+		fprintf(stderr, "%s APP: app chpt open failed:\n",
             boinc_msg_prefix(buf, sizeof(buf))
         );
-        fprintf(stderr, "%s resolved name %s, retval %d\n",
-            boinc_msg_prefix(buf, sizeof(buf)), output_path, retval
-        );
-        perror("open");
-        exit(1);
+        exit(-1);
     }
+	
+	string str;
+	chpt_file >> last_iteration_done >> total_problems_count;
+	while ( getline( chpt_file, str ) )
+		previous_results_str += str;
+    chpt_file.close();
 
 	string final_result_str;
 	if ( !do_work( infile, final_result_str ) ) {
@@ -112,32 +98,31 @@ int main(int argc, char **argv) {
         exit(1);
 	}
 
-	outfile.puts( final_result_str.c_str() );
-    retval = outfile.flush();
-    if (retval) {
-        fprintf( stderr, "%s APP: failed %d\n",
-                 boinc_msg_prefix(buf, sizeof(buf)), retval
+	infile.close();
+
+	// resolve and open output file
+    boinc_resolve_filename_s( OUTPUT_FILENAME, output_path );
+	outfile.open( output_path.c_str() );
+    if ( !outfile.is_open() ) {
+        fprintf(stderr, "%s APP: app output open failed:\n",
+            boinc_msg_prefix(buf, sizeof(buf))
         );
-        exit(1);
+		exit(-1);
     }
+	
+	outfile << final_result_str;
+	outfile.close();
 
     boinc_finish(0);
 }
 
-bool do_work( FILE *infile, string &final_result_str )
+bool do_work( ifstream &infile, string &final_result_str )
 {
 	int retval;
 	string error_msg;
-	
-	/*if ( !ls.ReadLiteralsFromFile( infile, error_msg ) ) {
-		fprintf(stderr, "APP: error in ls.ReadLiteralsFromFile\n");
-		fprintf(stderr, "APP: %s\n", error_msg.c_str());
-		return false;
-	}
-	*/
-
 	string problem_type;
-	vector<int> cnf_array;
+	
+	infile >> problem_type;
 
 	fprintf( stderr, problem_type.c_str() );
 	if ( problem_type == "bivium0" ) {
@@ -156,43 +141,49 @@ bool do_work( FILE *infile, string &final_result_str )
 			cnf_array[i] = bivium_2_cnf_array[i];
 	}
 
+	// read initial CNF from structure and add it to Solver
 	minisat22_wrapper m22_wrapper;
 	Problem cnf;
+	vector<int> cnf_array;
 	m22_wrapper.parse_DIMACS_from_inc( cnf_array, cnf );
-	Solver *S;
-
-	string current_result_str = "";
-	vector< vector<int> > :: iterator positive_literals_it;
-	double current_time = 0, time_last_checkpoint = 0;
-	clock_t clk_start = clock();
-	time_last_checkpoint = (double)(clock( ) - clk_start)/(double)(CLOCKS_PER_SEC);
-	
-	S = new Solver();
+	Solver *S = new Solver();
 	S->max_nof_restarts = MAX_NOF_RESTARTS;
 	fprintf( stderr, " %d ", S->max_nof_restarts );
-	S->addProblem( cnf ); // add initial CNF every time
+	S->addProblem( cnf ); 
 
-	/*for ( positive_literals_it = ls.positive_literals.begin() + last_iteration_done; 
-		  positive_literals_it != ls.positive_literals.end(); positive_literals_it++ ) 
-	{
+	// read assignments from input file
+	MPI_Base mpi_b;
+	vec< vec<Lit> > dummy_vec;
+	int current_task_index = 0;
+	mpi_b.MakeAssignsFromFile( current_task_index, dummy_vec );
+
+	
+	double current_time = 0;
+	double time_last_checkpoint = Minisat :: cpuTime();
+
+	string current_result_str = "";
+	if ( previous_results_str.find(" SAT") != string :: npos ) {
+		current_result_str = previous_results_str;
+	}
+
+
 		// solve
 
-		current_time = (double)(clock( ) - clk_start)/(double)(CLOCKS_PER_SEC);
+		current_time = Minisat :: cpuTime() - time_last_checkpoint;
 		// skip some time in case of fast checkpoint to make it correct
 		if ( current_time >= time_last_checkpoint + MIN_CHECKPOINT_INTERVAL_SEC ) {
-			time_last_checkpoint = current_time;
 			//current_result_str = previous_results_str + ;
 			// checkpoint current position and results
 			//if ( ( boinc_is_standalone() ) || ( boinc_time_to_checkpoint() ) ) {
-				retval = do_checkpoint( ls.problems_solved + last_iteration_done, total_problems_count, current_result_str );
+				//retval = do_checkpoint( ls.problems_solved + last_iteration_done, total_problems_count, current_result_str );
 				if (retval) {
 					fprintf(stderr, "APP: checkpoint failed %d\n", retval );
 					exit(retval);
 				}
 				boinc_checkpoint_completed();
 			//}
+			time_last_checkpoint = current_time;
 		}
-	}*/
 
 	delete S;
 

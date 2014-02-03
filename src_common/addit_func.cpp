@@ -106,7 +106,7 @@ vector<int> Addit_func :: BitsetToIntVec( boost::dynamic_bitset<> &bs )
 
 void Addit_func :: shl64( unsigned long long int &val_for_left_shift, unsigned int bit_count )
 {
-	unsigned int val1, val2; 
+	unsigned int val1, val2;
 	if ( ( bit_count > 30 ) && ( bit_count < 61 ) ) {
 		val1 = 30;
 		val2 = bit_count - val1;
