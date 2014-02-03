@@ -554,8 +554,6 @@ bool MPI_Base :: ReadIntCNF()
 
 	clause_array.resize( clause_count );
 
-	int *lits_clause_current = new int[lit_count];
-
 	for ( unsigned i = 0; i < clause_array.size(); ++i )
 		clause_array[i].resize( clause_lengths[i] );
 
