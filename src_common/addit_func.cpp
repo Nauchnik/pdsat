@@ -2,6 +2,21 @@
 
 using namespace Addit_func;
 
+int Addit_func :: strtoint( string str )
+{
+	stringstream sstream;
+	sstream << str;
+	int val;
+	sstream >> val;
+	return val;
+}
+
+bool Addit_func :: isNumber(char num)
+{ return num>='0' && num<='9'; }
+
+bool Addit_func :: isNumberOrMinus(char num)
+{ return ( ( num>='0' && num<='9' ) || ( num == '-' ) ); }
+
 void Addit_func :: cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, int &real_seconds ) 
 {
 // Time of work in hours, minutes, seconds

@@ -4,9 +4,11 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <sstream>
 #include <algorithm>
 using std::vector;
 using std::string;
+using std::stringstream;
 
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
@@ -20,6 +22,9 @@ using std::string;
 
 namespace Addit_func {
 
+extern int strtoint( string str );
+extern bool isNumber( char num );
+extern bool isNumberOrMinus( char num );
 extern void cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, int &real_seconds );
 extern void MakeCombinations( int n, int k, vector< vector<int> > &combinations );
 extern void MakePermutations( int n, int k, vector< vector<int> > &permutations );

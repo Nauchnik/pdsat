@@ -36,19 +36,11 @@ int last_iteration_done = 0;
 int total_problems_count = 0;
 string previous_results_str = "";
 
-int bivium_0_cnf_array[] = {
-#include "bivium_test_0.inc"
+int bivium_template_array[] = {
+#include "bivium_template.inc"
 };
 
-int bivium_1_cnf_array[] = {
-#include "bivium_test_1.inc"
-};
-
-int bivium_2_cnf_array[] = {
-#include "bivium_test_2.inc"
-};
-
-bool do_work( ifstream &infile, string &final_result_str );
+bool do_work( string &input_path, string &final_result_str );
 int do_checkpoint( unsigned current_solved, unsigned total_tasks, string &final_result_str );
 
 int main( int argc, char **argv ) {
@@ -67,13 +59,13 @@ int main( int argc, char **argv ) {
 
     // open the input file (resolve logical name first)
 	boinc_resolve_filename_s( INPUT_FILENAME, input_path );
-    ifstream infile( input_path.c_str() );
+    /*ifstream infile( input_path.c_str() );
     if ( !infile.is_open() ) {
 		fprintf(stderr, "%s APP: app infile open failed:\n",
             boinc_msg_prefix(buf, sizeof(buf))
         );
         exit(-1);
-    }
+    }*/
 	
 	// See if there's a valid checkpoint file.
     boinc_resolve_filename_s( CHECKPOINT_FILE, chpt_path );
@@ -92,13 +84,11 @@ int main( int argc, char **argv ) {
     chpt_file.close();
 
 	string final_result_str;
-	if ( !do_work( infile, final_result_str ) ) {
+	if ( !do_work( input_path, final_result_str ) ) {
 		fprintf( stderr, "%s APP: do_work() failed:\n" );
 		perror("do_work");
         exit(1);
 	}
-
-	infile.close();
 
 	// resolve and open output file
     boinc_resolve_filename_s( OUTPUT_FILENAME, output_path );
@@ -116,35 +106,28 @@ int main( int argc, char **argv ) {
     boinc_finish(0);
 }
 
-bool do_work( ifstream &infile, string &final_result_str )
+bool do_work( string &input_path, string &final_result_str )
 {
 	int retval;
 	string error_msg;
 	string problem_type;
 	
+	// before assignments there are option string strating with "h"
+	ifstream infile( input_path.c_str() );
 	infile >> problem_type;
-
+	vector<int> cnf_array;
+	infile.close();
+	
 	fprintf( stderr, problem_type.c_str() );
-	if ( problem_type == "bivium0" ) {
-		cnf_array.resize( sizeof(bivium_0_cnf_array)  / sizeof(bivium_0_cnf_array[0]) );
+	if ( problem_type.find( "bivium" ) != string::npos ) {
+		cnf_array.resize( sizeof(bivium_template_array)  / sizeof(bivium_template_array[0]) );
 		for ( unsigned i = 0; i < cnf_array.size(); ++i ) 
-			cnf_array[i] = bivium_0_cnf_array[i];
-	}
-	else if ( problem_type == "bivium1" ) {
-		cnf_array.resize( sizeof(bivium_1_cnf_array)  / sizeof(bivium_1_cnf_array[0]) );
-		for ( unsigned i = 0; i < cnf_array.size(); ++i ) 
-			cnf_array[i] = bivium_1_cnf_array[i];
-	}
-	else if ( problem_type == "bivium2" ) {
-		cnf_array.resize( sizeof(bivium_2_cnf_array)  / sizeof(bivium_2_cnf_array[0]) );
-		for ( unsigned i = 0; i < cnf_array.size(); ++i ) 
-			cnf_array[i] = bivium_2_cnf_array[i];
+			cnf_array[i] = bivium_template_array[i];
 	}
 
 	// read initial CNF from structure and add it to Solver
 	minisat22_wrapper m22_wrapper;
 	Problem cnf;
-	vector<int> cnf_array;
 	m22_wrapper.parse_DIMACS_from_inc( cnf_array, cnf );
 	Solver *S = new Solver();
 	S->max_nof_restarts = MAX_NOF_RESTARTS;
@@ -155,9 +138,9 @@ bool do_work( ifstream &infile, string &final_result_str )
 	MPI_Base mpi_b;
 	vec< vec<Lit> > dummy_vec;
 	int current_task_index = 0;
+	mpi_b.known_assumptions_file_name = input_path;
 	mpi_b.MakeAssignsFromFile( current_task_index, dummy_vec );
 
-	
 	double current_time = 0;
 	double time_last_checkpoint = Minisat :: cpuTime();
 
@@ -165,7 +148,6 @@ bool do_work( ifstream &infile, string &final_result_str )
 	if ( previous_results_str.find(" SAT") != string :: npos ) {
 		current_result_str = previous_results_str;
 	}
-
 
 		// solve
 

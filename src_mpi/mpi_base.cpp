@@ -135,14 +135,35 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 		return false;
 	}
 
-	ifstream ifile;
-	string str;
-	ifile.open( known_assumptions_file_name.c_str(), ios_base :: in );
+	string str, str1;
+	int var_value;
+	ifstream ifile( known_assumptions_file_name.c_str(), ios_base :: in );
 	if ( !ifile.is_open() ) {
 		cerr << "Error. !in.is_open(). file name " << known_assumptions_file_name << endl;
 		return false;
 	}
-
+	
+	stringstream sstream;
+	vector<int> var_values_vec;
+	bool isFirstString = true;
+	// get values for BOINC mode
+	for(;;) {
+		getline( ifile, str );
+		if ( isFirstString && isNumber( str[0] ) ) { // if no BOINC strings
+			ifile.close();
+			ifile.open( known_assumptions_file_name.c_str(), ios_base :: in );
+			break;
+		}
+		isFirstString = false;
+		if ( str == "before_assignments")
+			break;
+		sstream << str;
+		sstream >> str1;
+		if ( isNumberOrMinus( str1[0] ) )
+			var_values_vec.push_back( strtoint( str1 ) );
+		sstream.clear(); sstream.str("");
+	}
+	
 	unsigned header_value;
 	ifile >> header_value; // read header in text mode
 	if ( header_value != var_choose_order.size() ) {
@@ -202,6 +223,15 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 				dummy_vec[i].push( mkLit( cur_var_ind ) );
 			else 
 				dummy_vec[i].push( ~mkLit( cur_var_ind ) );
+		}
+		if ( var_values_vec.size() > 0 ) {
+			for ( unsigned j=0; j < var_values_vec.size(); ++j ) {
+				cur_var_ind = abs( var_values_vec[j] ) - 1;
+				if ( var_values_vec[j] > 0 )
+					dummy_vec[i].push( mkLit( cur_var_ind ) );
+				else 
+					dummy_vec[i].push( ~mkLit( cur_var_ind ) );
+			}		
 		}
 	}
 	ifile.close();
