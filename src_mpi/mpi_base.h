@@ -48,8 +48,6 @@ protected:
 	vector<int> clause_lengths;
 	vector<int> b_SAT_set_array;
 	vector< vector<unsigned> > values_arr;
-	vector<int> var_choose_order;
-	vector<int> full_var_choose_order; // all variables that can be chosen to decomp set
 	map<int, unsigned> core_var_indexes; // indeces of variables in core set
 public:
     MPI_Base();
@@ -103,8 +101,9 @@ public:
 	unsigned assumptions_count;
 	string rslos_table_name;
 	int max_nof_restarts;
-	
 	char *input_cnf_name;
+	vector<int> var_choose_order;
+	vector<int> full_var_choose_order; // all variables that can be chosen to decomp set
 	
 	// Read header "p cnf [var_count] [clause_count]" from DIMACS file
 	bool ReadVarCount( );

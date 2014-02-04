@@ -11,6 +11,13 @@ int Addit_func :: strtoint( string str )
 	return val;
 }
 
+string Addit_func :: inttostr( int num )
+{
+	stringstream sstream;
+	sstream << num;
+	return sstream.str();
+}
+
 bool Addit_func :: isNumber(char num)
 { return num>='0' && num<='9'; }
 
