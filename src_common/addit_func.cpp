@@ -18,6 +18,13 @@ string Addit_func :: inttostr( int num )
 	return sstream.str();
 }
 
+string Addit_func :: doubletostr( double num )
+{
+	stringstream sstream;
+	sstream << num;
+	return sstream.str();
+}
+
 bool Addit_func :: isNumber(char num)
 { return num>='0' && num<='9'; }
 

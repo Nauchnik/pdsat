@@ -125,7 +125,7 @@ bool MPI_Base :: GetMainMasksFromVarChoose( vector<int> &var_choose_order )
 	return true;
 }
 
-bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &dummy_vec )
+bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_length, vec< vec<Lit> > &dummy_vec )
 {
 	if ( verbosity > 0 )
 		cout << "MakeAssignsFromFile()" << endl;
@@ -134,46 +134,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 		cerr << "Error. var_choose_order.size() == 0 " << endl;
 		return false;
 	}
-
-	string str, str1;
-	int var_value;
-	ifstream ifile( known_assumptions_file_name.c_str(), ios_base :: in );
-	if ( !ifile.is_open() ) {
-		cerr << "Error. !in.is_open(). file name " << known_assumptions_file_name << endl;
-		return false;
-	}
 	
-	stringstream sstream;
-	vector<int> var_values_vec;
-	bool isFirstString = true;
-	// get values for BOINC mode
-	for(;;) {
-		getline( ifile, str );
-		if ( isFirstString && isNumber( str[0] ) ) { // if no BOINC strings
-			ifile.close();
-			ifile.open( known_assumptions_file_name.c_str(), ios_base :: in );
-			break;
-		}
-		isFirstString = false;
-		if ( str == "before_assignments")
-			break;
-		sstream << str;
-		sstream >> str1;
-		if ( isNumberOrMinus( str1[0] ) )
-			var_values_vec.push_back( strtoint( str1 ) );
-		sstream.clear(); sstream.str("");
-	}
-	
-	unsigned header_value;
-	ifile >> header_value; // read header in text mode
-	if ( header_value != var_choose_order.size() ) {
-		cerr << "header_value != var_choose_order.size()" << endl;
-		cerr << header_value << " != " << var_choose_order.size() << endl;
-		return false;
-	}
-	ifile.close();
-	
-	int cur_var_ind, intval, k = 0;
 	// int rslos_num = 1; 
 	int basic_batch_size = (int)floor( (double)assumptions_count / (double)all_tasks_count );
 	// calculate count of bathes with additional size (+1)
@@ -188,12 +149,30 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 	else
 		previous_tasks_count += batch_addit_size_count;
 	
-	int values_passed = 0;
+	string str, str1;
+	ifstream ifile( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
+	if ( !ifile.is_open() ) {
+		cerr << "Error. !in.is_open(). file name " << known_assumptions_file_name << endl;
+		return false;
+	}
+
+	if ( before_binary_length > 0 ) {
+		char *buffer = new char[before_binary_length];
+		ifile.read( buffer, before_binary_length );
+		delete[] buffer;
+	}
 	
-	short int si;
+	char cc[2];
+	ifile.read(cc,2);
+	unsigned header_value = atoi(cc);
+	//ifile >> header_value; // read header in text mode
+	if ( header_value != var_choose_order.size() ) {
+		cerr << "header_value != var_choose_order.size()" << endl;
+		cerr << header_value << " != " << var_choose_order.size() << endl;
+		return false;
+	}
+	int values_passed = 0;
 	unsigned long ul;
-	ifile.open( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
-	ifile.read( (char*)&si, sizeof(si) ); // read header
 	while ( values_passed < previous_tasks_count ) {
 		ifile.read( (char*)&ul, sizeof(ul) );
 		values_passed++;
@@ -210,6 +189,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 	
 	dummy_vec.resize( cur_batch_size );
 	bitset<64> bitset64;
+	int cur_var_ind;
 	// reading values from file
 	for ( int i=0; i < cur_batch_size; ++i ) {
 		if ( !(ifile.read( (char*)&ul, sizeof(ul) ) ) ) {
@@ -223,15 +203,6 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &d
 				dummy_vec[i].push( mkLit( cur_var_ind ) );
 			else 
 				dummy_vec[i].push( ~mkLit( cur_var_ind ) );
-		}
-		if ( var_values_vec.size() > 0 ) {
-			for ( unsigned j=0; j < var_values_vec.size(); ++j ) {
-				cur_var_ind = abs( var_values_vec[j] ) - 1;
-				if ( var_values_vec[j] > 0 )
-					dummy_vec[i].push( mkLit( cur_var_ind ) );
-				else 
-					dummy_vec[i].push( ~mkLit( cur_var_ind ) );
-			}		
 		}
 	}
 	ifile.close();

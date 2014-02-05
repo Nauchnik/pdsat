@@ -225,9 +225,10 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 	vector< boost::dynamic_bitset<> > vec_bitset;
 	boost::dynamic_bitset<> cur_bitset;
 	
+	int before_binary_length = 0;
 	if ( solver_type == 4 ) {
 		if ( assumptions_count ) // if assumptions in file 
-			MakeAssignsFromFile( current_task_index, dummy_vec );
+			MakeAssignsFromFile( current_task_index, before_binary_length, dummy_vec );
 		else
 			MakeAssignsFromMasks( full_mask, part_mask, mask_value, dummy_vec );
 

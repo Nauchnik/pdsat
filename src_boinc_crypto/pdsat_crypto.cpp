@@ -35,13 +35,14 @@ const int MIN_CHECKPOINT_INTERVAL_SEC = 10;
 int last_iteration_done = 0;
 int total_problems_count = 0;
 string previous_results_str;
+double max_solving_time = 0;
 
 int bivium_template_array[] = {
 #include "bivium_template.inc"
 };
 
 bool do_work( string &input_path, string &current_result_str );
-int do_checkpoint( unsigned current_solved, unsigned total_tasks, string &final_result_str );
+int do_checkpoint( unsigned current_solved, unsigned total_tasks, double max_solving_time, string &final_result_str );
 
 int main( int argc, char **argv ) {
     char buf[256];
@@ -70,7 +71,7 @@ int main( int argc, char **argv ) {
         exit(-1);
     }
 	string str;
-	chpt_file >> last_iteration_done >> total_problems_count;
+	chpt_file >> last_iteration_done >> total_problems_count >> max_solving_time;
 	previous_results_str = "";
 	while ( getline( chpt_file, str ) )
 		previous_results_str += str;
@@ -100,53 +101,106 @@ int main( int argc, char **argv ) {
 
 bool do_work( string &input_path, string &current_result_str )
 {
-	string error_msg;
-	string problem_type;
-	// before assignments there are option string strating with "h"
-	ifstream infile( input_path.c_str() );
-	infile >> problem_type;
-	vector<int> cnf_array;
-	infile.close();
+	MPI_Base mpi_b;
+	stringstream sstream;
 	
+	// read var_choose_order and assignments from file in text mode
+	string problem_type, str, word1;
+	int val;
+	vector<int> var_values_vec;
+	ifstream ifile( input_path.c_str() );
+	getline( ifile, problem_type );
+	while ( getline( ifile, str ) ) {
+		if ( str == "before_assignments")
+			break;
+		sstream << str;
+		sstream >> word1;
+		if ( word1 == "var_set" ) {
+			while ( sstream >> val )
+				mpi_b.var_choose_order.push_back( val );
+			sort( mpi_b.var_choose_order.begin(), mpi_b.var_choose_order.end() );
+		}
+		else if ( isNumberOrMinus( word1[0] ) )
+			var_values_vec.push_back( strtoint( word1 ) );
+		sstream.clear(); sstream.str("");
+	}
+	ifile.close();
+
+	if ( var_values_vec.size() == 0 ) {
+		cerr << "var_values_vec.size == 0" << endl;
+		return false;
+	}
+	
+	// read initial CNF from structure and add it to Solver
+	vector<int> cnf_array;
 	fprintf( stderr, problem_type.c_str() );
 	if ( problem_type.find( "bivium" ) != string::npos ) {
 		cnf_array.resize( sizeof(bivium_template_array)  / sizeof(bivium_template_array[0]) );
 		for ( unsigned i = 0; i < cnf_array.size(); ++i ) 
 			cnf_array[i] = bivium_template_array[i];
 	}
-
-	// read initial CNF from structure and add it to Solver
 	minisat22_wrapper m22_wrapper;
 	Problem cnf;
 	m22_wrapper.parse_DIMACS_from_inc( cnf_array, cnf );
 	Solver *S = new Solver();
+	S->addProblem( cnf ); 
 	S->max_nof_restarts = MAX_NOF_RESTARTS;
 	S->verbosity = 0;
 	fprintf( stderr, " %d ", S->max_nof_restarts );
-	S->addProblem( cnf ); 
-
-	// read assignments from input file
-	MPI_Base mpi_b;
-	ifstream ifile( input_path );
-	string str, str1;
-	stringstream sstream;
-	int val;
-	while ( getline( ifile, str ) ) {
-		sstream << str;
-		sstream >> str1;
-		if ( str1 == "var_set" ) {
-			while ( sstream >> val )
-				mpi_b.var_choose_order.push_back( val );
-			sort( mpi_b.var_choose_order.begin(), mpi_b.var_choose_order.end() );
-			break;
-		}
-		sstream.clear(); sstream.str();
+	
+	// find size of text block before bynary block
+	ifile.open( input_path.c_str(), ios_base :: in | ios_base :: binary );
+	ifile.seekg (0, ifile.end);
+    int length = ifile.tellg();
+    ifile.seekg (0, ifile.beg);
+    char *buffer = new char [length];
+    ifile.read( buffer, length ); // read text data as a block:
+	char *result = strstr( buffer, "before_assignments" );
+	int before_binary_length = -1;
+	if ( result ) {
+		while ( !isNumber( result[0] ) )
+			result++;
+		before_binary_length = result - buffer;
+	}
+	delete[] buffer;
+	if ( before_binary_length <= 0 ) {
+		cerr << "before_binary_length <= 0";
+		return false;
 	}
 	ifile.close();
+	
+	// make vector of assunptions basing on bunary data
+	ifile.open( input_path.c_str(), ios_base :: in | ios_base :: binary );
+	buffer = new char[before_binary_length];
+	ifile.read( buffer, before_binary_length );
+	delete[] buffer;
+	short int si;
+	unsigned long ul;
+	ifile.read( (char*)&si, sizeof(si) ); // read header
+	mpi_b.assumptions_count = 0;
+	while ( ifile.read( (char*)&ul, sizeof(ul) ) )
+		mpi_b.assumptions_count++;
+	ifile.close();
+	mpi_b.known_assumptions_file_name = input_path;
+	mpi_b.all_tasks_count = 1;
 	vec< vec<Lit> > dummy_vec;
 	int current_task_index = 0;
-	mpi_b.known_assumptions_file_name = input_path;
-	mpi_b.MakeAssignsFromFile( current_task_index, dummy_vec );
+	if ( !mpi_b.MakeAssignsFromFile( current_task_index, before_binary_length, dummy_vec ) ) {
+		cerr << "MakeAssignsFromFile()";
+		return false;
+	}
+
+	// add to assumptions vectors known data (initially it's oneliteral clauses)
+	int cur_var_ind;
+	for ( unsigned i=0; i < var_values_vec.size(); ++i ) {
+		cur_var_ind = abs( var_values_vec[i] ) - 1;
+		if ( var_values_vec[i] > 0 )
+			for ( int j=0; j < dummy_vec.size(); ++j )
+				dummy_vec[j].push( mkLit( cur_var_ind ) );
+		else
+			for ( int j=0; j < dummy_vec.size(); ++j )
+				dummy_vec[j].push( ~mkLit( cur_var_ind ) );
+	}
 	
 	double time_last_checkpoint = Minisat :: cpuTime();
 	double current_time = 0;
@@ -170,12 +224,15 @@ bool do_work( string &input_path, string &current_result_str )
 		S->last_time = Minisat :: cpuTime();
 		ret = S->solveLimited( dummy_vec[i] );
 		one_solving_time = Minisat :: cpuTime() - S->last_time;
+		if ( max_solving_time < one_solving_time )
+			max_solving_time = one_solving_time;
 		current_launch_problems_solved++;
 		
 		if ( ret == l_True ) {
 			current_result_str += " SAT ";
 			for ( int i=0; i < S->model.size(); i++ )
 				current_result_str += ( S->model[i] == l_True) ? '1' : '0';
+			current_result_str += " ";
 			isSAT = true;
 		}
 		
@@ -184,7 +241,7 @@ bool do_work( string &input_path, string &current_result_str )
 		if ( current_time >= time_last_checkpoint + MIN_CHECKPOINT_INTERVAL_SEC ) {
 			// checkpoint current position and results
 			//if ( ( boinc_is_standalone() ) || ( boinc_time_to_checkpoint() ) ) {
-				retval = do_checkpoint( current_launch_problems_solved + last_iteration_done, total_problems_count, current_result_str );
+				retval = do_checkpoint( current_launch_problems_solved + last_iteration_done, total_problems_count, max_solving_time, current_result_str );
 				if ( retval ) {
 					fprintf(stderr, "APP: checkpoint failed %d\n", retval );
 					exit( retval );
@@ -196,20 +253,23 @@ bool do_work( string &input_path, string &current_result_str )
 	}
 	delete S;
 	
+	int total_solved = current_launch_problems_solved + last_iteration_done;
+	current_result_str += "solved " + inttostr(total_solved) + " ";
+	current_result_str += "max " + doubletostr( max_solving_time ) + " ";
 	if ( !isSAT )
 		current_result_str += "UNSAT";
 	
 	return true;
 }
 
-int do_checkpoint( unsigned current_solved, unsigned total_tasks, string &current_result_str ) {
+int do_checkpoint( unsigned current_solved, unsigned total_tasks, double max_solving_time, string &current_result_str ) {
     int retval;
     string resolved_name;
 
     ofstream temp_ofile( "temp" );
 	if ( !temp_ofile.is_open() ) 
 		return 1;
-    temp_ofile << current_solved << " " << total_tasks << " " << current_result_str;
+    temp_ofile << current_solved << " " << total_tasks << " " << max_solving_time << " " << current_result_str;
     temp_ofile.close();
 
     boinc_resolve_filename_s( CHECKPOINT_FILE, resolved_name );

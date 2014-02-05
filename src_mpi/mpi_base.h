@@ -122,8 +122,8 @@ public:
 							   unsigned *part_mask, 
 						       unsigned *value, 
 							   vec< vec<Lit> > &dummy_vec );
-	bool MakeAssignsFromFile( int current_task_index, vec< vec<Lit> > &dummy_vec );
-
+	bool MakeAssignsFromFile( int current_task_index, int before_binary_length, vec< vec<Lit> > &dummy_vec );
+	
 	unsigned uint_rand();
 	bool bool_rand();
 	void MakeRandArr( vector< vector<unsigned> > &rand_arr, unsigned shortcnf_count, unsigned rnd_uint32_count );
