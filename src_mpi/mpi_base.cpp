@@ -169,6 +169,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 	if ( header_value != var_choose_order.size() ) {
 		cerr << "header_value != var_choose_order.size()" << endl;
 		cerr << header_value << " != " << var_choose_order.size() << endl;
+		cerr << "cc " << cc << endl;
 		return false;
 	}
 	int values_passed = 0;

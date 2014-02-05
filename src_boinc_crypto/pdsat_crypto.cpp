@@ -55,6 +55,7 @@ int main( int argc, char **argv ) {
     }
 
 	string input_path, output_path, chpt_path;
+	string str;
     ofstream outfile;
     fstream chpt_file;
 	
@@ -62,21 +63,16 @@ int main( int argc, char **argv ) {
 	boinc_resolve_filename_s( INPUT_FILENAME, input_path );
 	
 	// See if there's a valid checkpoint file.
-    boinc_resolve_filename_s( CHECKPOINT_FILE, chpt_path );
-	chpt_file.open( chpt_path, ios_base :: out );
-	if ( !chpt_file.is_open() ) {
-		fprintf(stderr, "%s APP: app chpt open failed:\n",
-            boinc_msg_prefix(buf, sizeof(buf))
-        );
-        exit(-1);
-    }
-	string str;
-	chpt_file >> last_iteration_done >> total_problems_count >> max_solving_time;
 	previous_results_str = "";
-	while ( getline( chpt_file, str ) )
-		previous_results_str += str;
-    chpt_file.close();
-
+    boinc_resolve_filename_s( CHECKPOINT_FILE, chpt_path );
+	chpt_file.open( chpt_path, ios_base :: in );
+	if ( chpt_file.is_open() ) {
+		chpt_file >> last_iteration_done >> total_problems_count >> max_solving_time;
+		while ( getline( chpt_file, str ) )
+			previous_results_str += str;
+		chpt_file.close();
+	}
+	
 	string current_result_str; // if SAT then it will be changed
 	if ( !do_work( input_path, current_result_str ) ) {
 		fprintf( stderr, "%s APP: do_work() failed:\n" );

@@ -435,20 +435,18 @@ bool MPI_Solver :: ControlProcessSolve( )
 		}
 	}
 	
-	ifstream known_assumptions_file( known_assumptions_file_name.c_str(), ios_base :: in );
+	ifstream known_assumptions_file( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
 	short int si;
 	unsigned long ul;
 	if ( known_assumptions_file.is_open() ) {
-		unsigned header_value;
-		known_assumptions_file >> header_value; // read header in text mode
+		char cc[2];
+		known_assumptions_file.read(cc,2);
+		unsigned header_value = atoi(cc);
 		if ( header_value != var_choose_order.size() ) {
 			cerr << "header_value != var_choose_order.size()" << endl;
 			cerr << header_value << " != " << var_choose_order.size() << endl;
 			return false;
 		}
-		known_assumptions_file.close();
-		known_assumptions_file.open( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
-		known_assumptions_file.read( (char*)&si, sizeof(si) ); // read header
 		assumptions_count = 0;
 		cout << "reading of known_assumptions_file_name " << known_assumptions_file_name << endl;
 		string str;
