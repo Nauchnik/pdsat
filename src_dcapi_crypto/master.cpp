@@ -15,10 +15,12 @@
 #include <limits.h>
 #include <stdio.h>
 #include <errno.h>
+#include <iostream>
 #include <string>
 #include <vector>
 #include <fstream>
 #include <sstream>
+#include <cmath>
 
 #include "../src_common/common.h"
 
@@ -54,13 +56,14 @@ struct config_params_crypto {
 
 static void print_help(const char *prog);
 bool do_work( vector<int> &wu_id_vec );
-void ParseConfigFile( string &cnf_name, string &cnf_head, stringstream &config_sstream );
+void ParseConfigFile( string &cnf_head, stringstream &config_sstream );
 static void create_wus( stringstream &config_sstream, config_params_crypto &config_p, 
 	                    string cnf_head, int wus_for_creation_count, vector<int> &wu_id_vec, bool &IsLastGenerating );
 void add_result_to_file( string output_filename, char *tag, char *id );
 void GetCountOfUnsentWUs( int &unsent_count );
 bool ProcessQuery( MYSQL *conn, string str, vector< vector<stringstream *> > &result_vec );
 bool find_sat( int cnf_index );
+double cpuTime( void ) { return ( double )clock( ) / CLOCKS_PER_SEC; }
 
 static const struct option longopts[] =
 {
@@ -269,8 +272,6 @@ bool do_work( vector<int> &wu_id_vec )
 	int wus_for_creation_count = 0;
 	
 	ParseConfigFile( config_p, cnf_head, config_sstream );
-	ls.rows_count = config_p.rows_count;
-	ls.skip_values = config_p.skip_values;
 	bool IsLastGenerating = false;
 	
 	/*if ( IsTasksFile ) // get problems_in_wu assumptions for every task
@@ -341,21 +342,28 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	DC_Workunit *wu;
 	ofstream output;
 	string wu_tag_str;
-	stringstream sstream, wu_sstream;
+	stringstream sstream, header_sstream;
 	
 	cout << "Start create_wus()" << endl;
 	cout << "cnf_head " << cnf_head << endl;
-	cout << "cnf_name " << config_p.cnf_name << endl;
 	cout << "wus_for_creation_count " << wus_for_creation_count << endl;
-	cout << "Got latin values" << endl;
 	vector<int> :: iterator vec_it;
-	int values_index = 0;
 	int wu_index = 0;
 	bool IsAddingWUneeded;
 	bool IsFastExit = false;
 	unsigned new_created_wus = 0;
 	string str;
-	ifstream ofile;
+	ifstream ifile;
+	
+	// read header data once - it's common for every wu
+	ifile.open( config_p.settings_file.c_str() ); // write common head to every wu
+	if ( !ifile.is_open() ) {
+		cerr << "!ifile.is_open() " << config_p.settings_file << endl;
+		exit(1);
+	}
+	while ( getline( ifile, str ) )
+		header_sstream << str << endl;
+	ifile.close();
 	
 	// count blocks of data in file
 	short int si;
@@ -372,21 +380,42 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	ifile.close();
 	
 	int total_wu_data_count = ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
-	cout << "assumptions_count " << assumptions_count << endl;
-	cout << "wu_data_count "     << total_wu_data_count << endl;
+	int values_index = config_p.created_wus * config_p.problems_in_wu;
+	cout << "created_wus"          << config_p.created_wus << endl;
+	cout << "assumptions_count "   << assumptions_count    << endl;
+	cout << "total_wu_data_count " << total_wu_data_count  << endl;
+	cout << "values_index "        << values_index         << endl;
+
+	if ( total_wu_data_count > config_p.total_wus )
+		total_wu_data_count = config_p.total_wus;
+	cout << "total_wu_data_count changed to " << total_wu_data_count << endl;
+	
+	ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
+	ifile.read( (char*)&si, sizeof(si) );
+	// skip already sended values
+	if ( values_index > 0 ) {
+		int skipped = 0;
+		while ( skipped < values_index ) {
+			ifile.read( (char*)&ul, sizeof(ul) );
+			skipped++;
+		}
+	}
 	
 	for( int wu_index = config_p.created_wus; wu_index < config_p.created_wus + wus_for_creation_count; wu_index++ ) {
 		if ( IsFastExit )
 			break;
-		ifile.open( config_p.settings_file.c_str() ); // write common head to every wu
-		if ( !ifile.is_open() ) {
-			cerr << "!ifile.is_open() " << config_p.settings_file << endl;
+
+		output.open( "wu-input.txt", ios_base :: out );
+		if ( !output.is_open() ) {
+			DC_log(LOG_ERR, "Failed to create wu-input.txt: %s",
+			strerror(errno));
 			exit(1);
 		}
-		while ( getline( ifile, str ) )
-			wu_sstream << str << endl;
-		ifile.close();
+		output << header_sstream.rdbuf();
+		output.close();
 		
+		output.open( "wu-input.txt", ios_base::out | ios_base::app | ios_base::binary );
+		output.write( (char*)&si, sizeof(si) ); // write first 2 symbols
 		IsAddingWUneeded = false; // if no values will be added then WU not needed
 		for ( int i = 0; i < config_p.problems_in_wu; i++ ) {
 			if ( values_index >= total_wu_data_count ) {
@@ -396,26 +425,17 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 				IsLastGenerating = true; // tell to high-level function about ending of generation
 				break;
 			}
-			// add binary data to wu_sstream
-			
+			ifile.read( (char*)&ul, sizeof(ul) );
+			output.write( (char*)&ul, sizeof(ul) );
 			values_index++;
 			IsAddingWUneeded = true;
 		}
+		output.close();
 		
 		if ( !IsAddingWUneeded ) {
 			cout << "IsAddingWUneeded true" << endl;
 			break; // don't create new WU
 		}
-		
-		output.open( "wu-input.txt", ios_base :: out );
-		if ( !output.is_open() ) {
-			DC_log(LOG_ERR, "Failed to create wu-input.txt: %s",
-			strerror(errno));
-			exit(1);
-		}
-		output << wu_sstream.rdbuf();
-		wu_sstream.str( "" ); wu_sstream.clear();
-		output.close( );
 		
 		sstream << config_p.problem_type;
 		sstream << "--" << wu_index + 1; // save info about CNF name
@@ -442,6 +462,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 		}
 		new_created_wus++;
 	}
+	ifile.close();
 	
 	cout << "new_created_wus " << new_created_wus << endl;
 	config_p.created_wus += new_created_wus;
