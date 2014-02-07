@@ -121,7 +121,11 @@ bool do_work( string &input_path, string &current_result_str )
 		sstream.clear(); sstream.str("");
 	}
 	ifile.close();
-
+	
+	fprintf( stderr, problem_type.c_str() );
+	fprintf( stderr, " mpi_b.var_choose_order.size() %d", mpi_b.var_choose_order.size() );
+	fprintf( stderr, " var_values_vec.size() %d", var_values_vec.size() );
+	
 	if ( var_values_vec.size() == 0 ) {
 		cerr << "var_values_vec.size == 0" << endl;
 		return false;
@@ -129,11 +133,14 @@ bool do_work( string &input_path, string &current_result_str )
 	
 	// read initial CNF from structure and add it to Solver
 	vector<int> cnf_array;
-	fprintf( stderr, problem_type.c_str() );
 	if ( problem_type.find( "bivium" ) != string::npos ) {
 		cnf_array.resize( sizeof(bivium_template_array)  / sizeof(bivium_template_array[0]) );
 		for ( unsigned i = 0; i < cnf_array.size(); ++i ) 
 			cnf_array[i] = bivium_template_array[i];
+	}
+	else {
+		fprintf( stderr, " problem_type.find( bivium ) == string::npos" );
+		exit(1);
 	}
 	minisat22_wrapper m22_wrapper;
 	Problem cnf;
@@ -142,7 +149,7 @@ bool do_work( string &input_path, string &current_result_str )
 	S->addProblem( cnf ); 
 	S->max_nof_restarts = MAX_NOF_RESTARTS;
 	S->verbosity = 0;
-	fprintf( stderr, " %d ", S->max_nof_restarts );
+	fprintf( stderr, " S->max_nof_restarts %d ", S->max_nof_restarts );
 	
 	// find size of text block before bynary block
 	ifile.open( input_path.c_str(), ios_base :: in | ios_base :: binary );
@@ -164,6 +171,8 @@ bool do_work( string &input_path, string &current_result_str )
 		return false;
 	}
 	ifile.close();
+
+	fprintf( stderr, " size of before_binary_length %d", before_binary_length );
 	
 	// make vector of assunptions basing on bunary data
 	ifile.open( input_path.c_str(), ios_base :: in | ios_base :: binary );
@@ -173,9 +182,11 @@ bool do_work( string &input_path, string &current_result_str )
 	short int si;
 	unsigned long ul;
 	ifile.read( (char*)&si, sizeof(si) ); // read header
+	fprintf( stderr, " binary prefix %d", si );
 	mpi_b.assumptions_count = 0;
 	while ( ifile.read( (char*)&ul, sizeof(ul) ) )
 		mpi_b.assumptions_count++;
+	fprintf( stderr, " mpi_b.assumptions_count %d", mpi_b.assumptions_count );
 	ifile.close();
 	mpi_b.known_assumptions_file_name = input_path;
 	mpi_b.all_tasks_count = 1;
@@ -185,6 +196,7 @@ bool do_work( string &input_path, string &current_result_str )
 		cerr << "MakeAssignsFromFile()";
 		return false;
 	}
+	fprintf( stderr, " vector of assumptions was made " );
 
 	// add to assumptions vectors known data (initially it's oneliteral clauses)
 	int cur_var_ind;
@@ -215,6 +227,8 @@ bool do_work( string &input_path, string &current_result_str )
 	total_problems_count = dummy_vec.size();
 	double one_solving_time;
 	bool isSAT = false;
+
+	fprintf( stderr, " before loop of solving " );
 	
 	for ( int i = last_iteration_done; i < dummy_vec.size(); ++i ) {
 		S->last_time = Minisat :: cpuTime();
@@ -232,7 +246,7 @@ bool do_work( string &input_path, string &current_result_str )
 			isSAT = true;
 		}
 		
-		current_time = Minisat :: cpuTime() - time_last_checkpoint;
+		current_time = Minisat :: cpuTime();
 		// skip some time in case of fast checkpoint to make it correct
 		if ( current_time >= time_last_checkpoint + MIN_CHECKPOINT_INTERVAL_SEC ) {
 			// checkpoint current position and results

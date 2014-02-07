@@ -135,7 +135,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 		return false;
 	}
 	
-	// int rslos_num = 1; 
+	// int rslos_num = 1;
 	int basic_batch_size = (int)floor( (double)assumptions_count / (double)all_tasks_count );
 	// calculate count of bathes with additional size (+1)
 	int batch_addit_size_count = assumptions_count - basic_batch_size*all_tasks_count;

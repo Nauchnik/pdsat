@@ -26,7 +26,7 @@
 
 using namespace std;
 
-const int MIN_WUS_FOR_CREATION = 200;
+const int MIN_WUS_FOR_CREATION = 100;
 
 // Number of results we have received so far
 static int all_processed_wus;
@@ -39,6 +39,7 @@ char *master_config_file_name = NULL;
 char *wu_id_file_name = NULL; // id of wu for additional creation
 char *pass_file_name = NULL;
 bool IsTasksFile;
+string prev_path;
 
 // Command line options
 
@@ -104,7 +105,20 @@ int main( int argc, char *argv[] )
 				exit( 1 );
 		}
 	}
-
+	
+	// find full path to file
+	string master_config_file_name_str = master_config_file_name;
+	int pos = -1, last_pos = 0;
+	for(;;){
+		pos = master_config_file_name_str.find("/", pos+1);
+		if ( pos != string::npos )
+			last_pos = pos;
+		else
+			break;
+	}
+	prev_path = master_config_file_name_str.substr(0, last_pos+1);
+	cout << "prev_path " << prev_path << endl;
+	
 	if (optind != argc) {
 		fprintf(stderr, "Extra arguments on the command line\n");
 		exit( 1 );
@@ -241,10 +255,13 @@ void ParseConfigFile( config_params_crypto &config_p, string &cnf_head, stringst
 	sstream << "p cnf " << config_p.cnf_variables << " " << config_p.cnf_clauses;
 	cnf_head = sstream.str();
 	sstream.str(""); sstream.clear();
+
+	config_p.settings_file = prev_path + config_p.settings_file;
+	config_p.data_file     = prev_path + config_p.data_file;
 	
-	cout << "problem_type "     << config_p.problem_type << endl;
-	cout << "settings_file "    << config_p.settings_file << endl;
-	cout << "data_file "        << config_p.data_file << endl;
+	cout << "problem_type "      << config_p.problem_type << endl;
+	cout << "settings_file "     << config_p.settings_file << endl;
+	cout << "data_file "         << config_p.data_file << endl;
 	cout << "cnf_variables "     << config_p.cnf_variables << endl;
 	cout << "cnf_clauses "       << config_p.cnf_clauses << endl;
 	cout << "problems_in_wu "    << config_p.problems_in_wu << endl;
@@ -317,6 +334,8 @@ bool do_work( vector<int> &wu_id_vec )
 				create_wus( config_sstream, config_p, cnf_head, wus_for_creation_count, wu_id_vec, IsLastGenerating );
 			}
 			else {
+				cout << "wus_for_creation_count < MIN_WUS_FOR_CREATION" << endl;
+				cout << wus_for_creation_count << " < " << MIN_WUS_FOR_CREATION << endl;
 				if ( old_wus_for_creation_count != wus_for_creation_count )
 					cout << "wus_for_creation_count " << wus_for_creation_count << endl;
 				old_wus_for_creation_count = wus_for_creation_count;
@@ -361,9 +380,16 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 		cerr << "!ifile.is_open() " << config_p.settings_file << endl;
 		exit(1);
 	}
-	while ( getline( ifile, str ) )
+	cout << "file " << config_p.settings_file << " opened" << endl;
+	//cout << "header:" << endl;
+	unsigned header_str_count = 0;
+	while ( getline( ifile, str ) ) {
 		header_sstream << str << endl;
+		header_str_count++;
+		//cout << str << endl;
+	}
 	ifile.close();
+	cout << "header_str_count " << header_str_count << endl;
 	
 	// count blocks of data in file
 	short int si;
@@ -373,6 +399,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 		cerr << "!ifile.is_open() " << config_p.data_file << endl;
 		exit(1);
 	}
+	cout << "file " << config_p.data_file << " opened" << endl;
 	ifile.read( (char*)&si, sizeof(si) ); // read header
 	int assumptions_count = 0;
 	while ( ifile.read( (char*)&ul, sizeof(ul) ) )
@@ -381,7 +408,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	
 	int total_wu_data_count = ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
 	int values_index = config_p.created_wus * config_p.problems_in_wu;
-	cout << "created_wus"          << config_p.created_wus << endl;
+	cout << "created_wus "          << config_p.created_wus << endl;
 	cout << "assumptions_count "   << assumptions_count    << endl;
 	cout << "total_wu_data_count " << total_wu_data_count  << endl;
 	cout << "values_index "        << values_index         << endl;
@@ -411,14 +438,14 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 			strerror(errno));
 			exit(1);
 		}
-		output << header_sstream.rdbuf();
+		output << header_sstream.str();
 		output.close();
 		
 		output.open( "wu-input.txt", ios_base::out | ios_base::app | ios_base::binary );
 		output.write( (char*)&si, sizeof(si) ); // write first 2 symbols
 		IsAddingWUneeded = false; // if no values will be added then WU not needed
 		for ( int i = 0; i < config_p.problems_in_wu; i++ ) {
-			if ( values_index >= total_wu_data_count ) {
+			if ( values_index >= assumptions_count ) {
 				cout << "in create_wus() last data was added to WU" << endl;
 				cout << "values_index " << values_index << endl;
 				IsFastExit = true; // add last values to WU and exit
@@ -545,7 +572,7 @@ void GetCountOfUnsentWUs( int &unsent_count )
 	strcpy( pass, str.c_str() );
 	cout << "db "   << db   << endl;
 	cout << "user " << user << endl;
-	cout << "pass " << pass << endl;
+	//cout << "pass " << pass << endl;
 	
 	conn = mysql_init(NULL);
 	if(conn == NULL)
