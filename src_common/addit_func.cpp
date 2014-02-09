@@ -15,14 +15,16 @@ string Addit_func :: inttostr( int num )
 {
 	stringstream sstream;
 	sstream << num;
-	return sstream.str();
+	string s = sstream.str();
+	return s;
 }
 
 string Addit_func :: doubletostr( double num )
 {
 	stringstream sstream;
 	sstream << num;
-	return sstream.str();
+	string s = sstream.str();
+	return s;
 }
 
 bool Addit_func :: isNumber(char num)

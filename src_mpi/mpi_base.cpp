@@ -157,14 +157,20 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 	}
 
 	if ( before_binary_length > 0 ) {
-		char *buffer = new char[before_binary_length];
+		char *buffer = new char[before_binary_length + 1];
+		buffer[before_binary_length] = '\0';
 		ifile.read( buffer, before_binary_length );
 		delete[] buffer;
 	}
 	
-	char cc[2];
+	char *cc = new char[3];
+	cc[2] = '\0';
 	ifile.read(cc,2);
-	unsigned header_value = atoi(cc);
+	stringstream sstream;
+	unsigned header_value;
+	sstream << cc;
+	sstream >> header_value;
+	delete[] cc;
 	//ifile >> header_value; // read header in text mode
 	if ( header_value != var_choose_order.size() ) {
 		cerr << "header_value != var_choose_order.size()" << endl;

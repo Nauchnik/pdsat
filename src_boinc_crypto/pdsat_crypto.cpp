@@ -65,7 +65,7 @@ int main( int argc, char **argv ) {
 	// See if there's a valid checkpoint file.
 	previous_results_str = "";
     boinc_resolve_filename_s( CHECKPOINT_FILE, chpt_path );
-	chpt_file.open( chpt_path, ios_base :: in );
+	chpt_file.open( chpt_path.c_str(), ios_base :: in );
 	if ( chpt_file.is_open() ) {
 		chpt_file >> last_iteration_done >> total_problems_count >> max_solving_time;
 		while ( getline( chpt_file, str ) )
@@ -99,6 +99,7 @@ bool do_work( string &input_path, string &current_result_str )
 {
 	MPI_Base mpi_b;
 	stringstream sstream;
+	string str_tmp;
 	
 	// read var_choose_order and assignments from file in text mode
 	string problem_type, str, word1;
@@ -155,9 +156,14 @@ bool do_work( string &input_path, string &current_result_str )
 	ifile.open( input_path.c_str(), ios_base :: in | ios_base :: binary );
 	ifile.seekg (0, ifile.end);
     int length = ifile.tellg();
+	if ( length <= 0 ) {
+		fprintf( stderr, " length of buffer is %d ", length );
+		return false;
+	}
     ifile.seekg (0, ifile.beg);
-    char *buffer = new char [length];
-    ifile.read( buffer, length ); // read text data as a block:
+	char *buffer = new char[length + 1];
+	buffer[length] = '\0';
+	ifile.read( buffer, length ); // read text data as a block:
 	char *result = strstr( buffer, "before_assignments" );
 	int before_binary_length = -1;
 	if ( result ) {
@@ -167,7 +173,7 @@ bool do_work( string &input_path, string &current_result_str )
 	}
 	delete[] buffer;
 	if ( before_binary_length <= 0 ) {
-		cerr << "before_binary_length <= 0";
+		fprintf( stderr, "before_binary_length <= 0");
 		return false;
 	}
 	ifile.close();
@@ -176,7 +182,8 @@ bool do_work( string &input_path, string &current_result_str )
 	
 	// make vector of assunptions basing on bunary data
 	ifile.open( input_path.c_str(), ios_base :: in | ios_base :: binary );
-	buffer = new char[before_binary_length];
+	buffer = new char[before_binary_length + 1];
+	buffer[before_binary_length] = '\0';
 	ifile.read( buffer, before_binary_length );
 	delete[] buffer;
 	short int si;
@@ -216,9 +223,12 @@ bool do_work( string &input_path, string &current_result_str )
 	if ( previous_results_str.find(" SAT") != string :: npos )
 		current_result_str = previous_results_str;
 	else {
-		current_result_str = problem_type + " var_set size " + inttostr(mpi_b.var_choose_order.size()) + ": ";
-		for ( unsigned i=0; i < mpi_b.var_choose_order.size(); ++i )
-			current_result_str += (inttostr( mpi_b.var_choose_order[i] ) + " ");
+		str_tmp = inttostr(mpi_b.var_choose_order.size());
+		current_result_str = problem_type + " var_set size " + str_tmp + ": ";
+		for ( unsigned i=0; i < mpi_b.var_choose_order.size(); ++i ) {
+			str_tmp = inttostr( mpi_b.var_choose_order[i] );
+			current_result_str += (str_tmp + " ");
+		}
 	}
 	
 	lbool ret;
@@ -264,7 +274,8 @@ bool do_work( string &input_path, string &current_result_str )
 	delete S;
 	
 	int total_solved = current_launch_problems_solved + last_iteration_done;
-	current_result_str += "solved " + inttostr(total_solved) + " ";
+	str_tmp = inttostr(total_solved);
+	current_result_str += "solved " + str_tmp + " ";
 	current_result_str += "max " + doubletostr( max_solving_time ) + " ";
 	if ( !isSAT )
 		current_result_str += "UNSAT";
