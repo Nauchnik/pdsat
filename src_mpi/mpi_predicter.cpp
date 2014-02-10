@@ -1232,7 +1232,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	sstream << "predict_" << record_count;
 	predict_file_name = sstream.str();
 	
-	if ( record_count == 1 ) // don't write in first stage - it's expansive
+	if ( ( !IsFirstStage ) || ( record_count == 1 ) ) // don't write in first stage - it's expansive
 		WritePredictToFile( 0, 0 );
 	predict_file_name = "predict";
 	
