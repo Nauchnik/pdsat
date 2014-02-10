@@ -23,8 +23,8 @@ using std::stringstream;
 namespace Addit_func {
 
 extern int strtoint( string str );
-extern string inttostr( int num );
-extern string doubletostr( double num );
+//extern string inttostr( int num );
+//extern string doubletostr( double num );
 extern bool isNumber( char num );
 extern bool isNumberOrMinus( char num );
 extern void cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, int &real_seconds );

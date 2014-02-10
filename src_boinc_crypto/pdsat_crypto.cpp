@@ -73,7 +73,7 @@ int main( int argc, char **argv ) {
 		chpt_file.close();
 	}
 	
-	string current_result_str; // if SAT then it will be changed
+	string current_result_str = ""; // if SAT then it will be changed
 	if ( !do_work( input_path, current_result_str ) ) {
 		fprintf( stderr, "%s APP: do_work() failed:\n" );
 		perror("do_work");
@@ -151,6 +151,9 @@ bool do_work( string &input_path, string &current_result_str )
 	S->max_nof_restarts = MAX_NOF_RESTARTS;
 	S->verbosity = 0;
 	fprintf( stderr, " S->max_nof_restarts %d ", S->max_nof_restarts );
+	for(int i = 0; i < cnf.size(); ++i )
+		delete cnf[i];
+	cnf.clear();
 	
 	// find size of text block before bynary block
 	ifile.open( input_path.c_str(), ios_base :: in | ios_base :: binary );
@@ -223,11 +226,13 @@ bool do_work( string &input_path, string &current_result_str )
 	if ( previous_results_str.find(" SAT") != string :: npos )
 		current_result_str = previous_results_str;
 	else {
-		str_tmp = inttostr(mpi_b.var_choose_order.size());
-		current_result_str = problem_type + " var_set size " + str_tmp + ": ";
+		sstream << mpi_b.var_choose_order.size();
+		current_result_str = problem_type + " var_set size " + sstream.str() + ": ";
+		sstream.clear(); sstream.str("");
 		for ( unsigned i=0; i < mpi_b.var_choose_order.size(); ++i ) {
-			str_tmp = inttostr( mpi_b.var_choose_order[i] );
-			current_result_str += (str_tmp + " ");
+			sstream << mpi_b.var_choose_order[i];
+			current_result_str += (sstream.str() + " ");
+			sstream.clear(); sstream.str("");
 		}
 	}
 	
@@ -237,7 +242,7 @@ bool do_work( string &input_path, string &current_result_str )
 	total_problems_count = dummy_vec.size();
 	double one_solving_time;
 	bool isSAT = false;
-
+	
 	fprintf( stderr, " before loop of solving " );
 	
 	for ( int i = last_iteration_done; i < dummy_vec.size(); ++i ) {
@@ -274,9 +279,12 @@ bool do_work( string &input_path, string &current_result_str )
 	delete S;
 	
 	int total_solved = current_launch_problems_solved + last_iteration_done;
-	str_tmp = inttostr(total_solved);
-	current_result_str += "solved " + str_tmp + " ";
-	current_result_str += "max " + doubletostr( max_solving_time ) + " ";
+	sstream << total_solved;
+	current_result_str += "solved " + sstream.str() + " ";
+	sstream.clear(); sstream.str("");
+	sstream << max_solving_time;
+	current_result_str += "max " + sstream.str() + " ";
+	sstream.clear(); sstream.str("");
 	if ( !isSAT )
 		current_result_str += "UNSAT";
 	
