@@ -8,7 +8,7 @@ BOINC_ZIP_DIR = $(BOINC_DIR)/zip
 FREETYPE_DIR = /usr/include/freetype2
 
 CPP = g++
-CPPFLAGS = -O0 -g \
+CPPFLAGS = -O2 \
     -Wall -W -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -fno-common \
     -DAPP_GRAPHICS -D __STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS -D NDEBUG \
     -I$(BOINC_DIR) \
