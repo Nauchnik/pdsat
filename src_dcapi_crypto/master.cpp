@@ -41,6 +41,8 @@ char *pass_file_name = NULL;
 bool IsTasksFile;
 string prev_path;
 
+int assumptions_count = 0;
+
 // Command line options
 
 struct config_params_crypto {
@@ -342,7 +344,7 @@ bool do_work( vector<int> &wu_id_vec )
 			}
 			
 			if ( !IsLastGenerating )
-				sleep( 7200 ); // wait 2 hours
+				sleep( 3600 ); // wait 1 hour
 		}
 	//}
 
@@ -394,17 +396,18 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	// count blocks of data in file
 	short int si;
 	unsigned long ul;
-	ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
-	if ( !ifile.is_open() ) {
-		cerr << "!ifile.is_open() " << config_p.data_file << endl;
-		exit(1);
+	if ( !assumptions_count ) {
+		ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
+		if ( !ifile.is_open() ) {
+			cerr << "!ifile.is_open() " << config_p.data_file << endl;
+			exit(1);
+		}
+		cout << "file " << config_p.data_file << " opened" << endl;
+		ifile.read( (char*)&si, sizeof(si) ); // read header
+		while ( ifile.read( (char*)&ul, sizeof(ul) ) )
+			assumptions_count++;
+		ifile.close();
 	}
-	cout << "file " << config_p.data_file << " opened" << endl;
-	ifile.read( (char*)&si, sizeof(si) ); // read header
-	int assumptions_count = 0;
-	while ( ifile.read( (char*)&ul, sizeof(ul) ) )
-		assumptions_count++;
-	ifile.close();
 	
 	int total_wu_data_count = ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
 	int values_index = config_p.created_wus * config_p.problems_in_wu;
