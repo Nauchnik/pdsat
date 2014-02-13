@@ -794,7 +794,7 @@ lbool Solver::search(int nof_conflicts)
 			
 #ifdef _MPI
 #ifndef _DEBUG
-		if ( conflictC % 10 == 0 )
+		//if ( conflictC % 10 == 0 )
 			if ( ( max_solving_time > 0 ) && ( MPI_Wtime() - start_solving_time > max_solving_time ) ) {
 				cancelUntil(0);
 				return l_Undef;
