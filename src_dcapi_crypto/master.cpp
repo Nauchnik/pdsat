@@ -53,8 +53,8 @@ struct config_params_crypto {
 	int cnf_clauses;
 	int problems_in_wu;
 	int unsent_needed_wus;
-	int total_wus;
-	int created_wus;
+	long long int total_wus;
+	long long int created_wus;
 };
 
 static void print_help(const char *prog);
@@ -288,7 +288,7 @@ bool do_work( vector<int> &wu_id_vec )
 	config_params_crypto config_p;
 	stringstream config_sstream;
 	string cnf_head;
-	int wus_for_creation_count = 0;
+	long long int wus_for_creation_count = 0;
 	
 	ParseConfigFile( config_p, cnf_head, config_sstream );
 	bool IsLastGenerating = false;
@@ -347,7 +347,7 @@ bool do_work( vector<int> &wu_id_vec )
 				sleep( 3600 ); // wait 1 hour
 		}
 	//}
-
+	
 	cout << "wus_for_creation_count " << wus_for_creation_count << endl;
 	DC_log( LOG_NOTICE, "\n Work finished" );
 
@@ -368,8 +368,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	cout << "Start create_wus()" << endl;
 	cout << "cnf_head " << cnf_head << endl;
 	cout << "wus_for_creation_count " << wus_for_creation_count << endl;
-	vector<int> :: iterator vec_it;
-	int wu_index = 0;
+	long long int wu_index = 0;
 	bool IsAddingWUneeded;
 	bool IsFastExit = false;
 	unsigned new_created_wus = 0;
@@ -397,6 +396,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	short int si;
 	unsigned long ul;
 	if ( !assumptions_count ) {
+		double assumption_counting_start_time = cpuTime();
 		ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
 		if ( !ifile.is_open() ) {
 			cerr << "!ifile.is_open() " << config_p.data_file << endl;
@@ -404,15 +404,19 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 		}
 		cout << "file " << config_p.data_file << " opened" << endl;
 		ifile.read( (char*)&si, sizeof(si) ); // read header
-		while ( ifile.read( (char*)&ul, sizeof(ul) ) )
+		cout << "assumptions_count:" << endl;
+		while ( ifile.read( (char*)&ul, sizeof(ul) ) ) {
 			assumptions_count++;
+			if ( assumptions_count % 10000000 == 0 )
+				cout << assumptions_count << " time " << cpuTime() - assumption_counting_start_time << " s" << endl;
+		}
+		cout << assumptions_count << " time " << cpuTime() - assumption_counting_start_time << " s" << endl;
 		ifile.close();
 	}
 	
-	int total_wu_data_count = ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
-	int values_index = config_p.created_wus * config_p.problems_in_wu;
+	long long int total_wu_data_count = ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
+	long long int values_index = config_p.created_wus * config_p.problems_in_wu;
 	cout << "created_wus "          << config_p.created_wus << endl;
-	cout << "assumptions_count "   << assumptions_count    << endl;
 	cout << "total_wu_data_count " << total_wu_data_count  << endl;
 	cout << "values_index "        << values_index         << endl;
 
