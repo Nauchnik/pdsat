@@ -41,7 +41,7 @@ char *pass_file_name = NULL;
 bool IsTasksFile;
 string prev_path;
 
-int assumptions_count = 0;
+long long int assumptions_count = 0;
 
 // Command line options
 
