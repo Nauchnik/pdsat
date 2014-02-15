@@ -344,7 +344,7 @@ bool do_work( vector<int> &wu_id_vec )
 			}
 			
 			if ( !IsLastGenerating )
-				sleep( 3600 ); // wait 1 hour
+				sleep( 600 ); // wait
 		}
 	//}
 	
