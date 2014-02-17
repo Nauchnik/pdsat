@@ -428,7 +428,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	ifile.read( (char*)&si, sizeof(si) );
 	// skip already sended values
 	if ( values_index > 0 ) {
-		int skipped = 0;
+		long long int skipped = 0;
 		cout << "skipped:" << endl;
 		while ( skipped < values_index ) {
 			ifile.read( (char*)&ul, sizeof(ul) );
