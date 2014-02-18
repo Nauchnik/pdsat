@@ -115,8 +115,8 @@ void MPI_Solver :: CollectAssumptionsFiles( )
 	getdir( dir, files ); // get all files in current dir
 	stringstream sstream;
 	short int si;
-	unsigned long ul;
-
+	unsigned long long ul;
+	
 	sstream << base_known_assumptions_file_name << "_" << (solving_iteration_count-1) << "_rank";
 	string old_known_assumptions_file_mask = sstream.str();
 	sstream.clear(); sstream.str("");
@@ -222,8 +222,10 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 	for ( unsigned i = 1; i < SOLVING_TIME_LEN; i++ )
 		solving_times[i] = 0;
 
-	vector< boost::dynamic_bitset<> > vec_bitset;
-	boost::dynamic_bitset<> cur_bitset;
+	//vector< boost::dynamic_bitset<> > vec_bitset;
+	//boost::dynamic_bitset<> cur_bitset;
+	vector< bitset<50> > vec_bitset;
+	bitset<50> cur_bitset;
 	
 	int before_binary_length = 0;
 	if ( solver_type == 4 ) {
@@ -231,8 +233,8 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 			MakeAssignsFromFile( current_task_index, before_binary_length, dummy_vec );
 		else
 			MakeAssignsFromMasks( full_mask, part_mask, mask_value, dummy_vec );
-
-		cur_bitset.resize( var_choose_order.size() );
+		
+		//cur_bitset.resize( var_choose_order.size() );
 		
 		if ( ( verbosity > 1 ) && ( rank == 1 ) ) {
 			cout << "dummy_vec size" << dummy_vec.size() << endl;
@@ -282,9 +284,9 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 
 			if ( cur_problem_state == Interrupted ) {
 				batch_interrupted_count++;
-				if ( cur_bitset.size() != dummy_vec[i].size() ) {
-					cerr << "cur_bitset.size() != dummy_vec[i].size()" << endl;
-					cerr << cur_bitset.size() << " != " << dummy_vec[i].size() << endl;
+				if ( cur_bitset.size() < dummy_vec[i].size() ) {
+					cerr << "cur_bitset.size() < dummy_vec[i].size()" << endl;
+					cerr << cur_bitset.size() << " < " << dummy_vec[i].size() << endl;
 					return false;
 				}
 				for ( unsigned j = 0; j < dummy_vec[i].size(); ++j )
@@ -324,9 +326,9 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 			else file.close();
 			
 			ofile.open( new_assumptions_file_name.c_str(), ios_base::out | ios_base::app | ios_base::binary );
-			unsigned long ul;
+			unsigned long long ul;
 			for( unsigned i=0; i < vec_bitset.size(); ++i ) {
-				ul = vec_bitset[i].to_ulong();
+				ul = vec_bitset[i].to_ullong();
 				ofile.write((char*)&ul, sizeof(ul)); 
 			}
 			ofile.close();
@@ -437,7 +439,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 	
 	ifstream known_assumptions_file( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
 	short int si;
-	unsigned long ul;
+	unsigned long long ul;
 	if ( known_assumptions_file.is_open() ) {
 		char cc[2];
 		known_assumptions_file.read(cc,2);

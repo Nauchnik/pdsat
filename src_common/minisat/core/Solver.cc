@@ -1021,10 +1021,10 @@ lbool Solver::solve_()
         if (!withinBudget()) break;
         curr_restarts++;
     }
-
+	
     if (verbosity >= 1)
         printf("===============================================================================\n");
-
+	
     if (status == l_True){
         // Extend & copy model:
         model.growTo(nVars());
