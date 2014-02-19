@@ -149,3 +149,35 @@ void Addit_func :: shl64( unsigned long long int &val_for_left_shift, unsigned i
 	else
 		std::cout << "\n bit_count " <<  bit_count << " is too large ";
 }
+
+unsigned long long Addit_func :: BitsetToUllong( boost::dynamic_bitset<> cur_bitset )
+{
+	if ( cur_bitset.size() > 60 ) {
+		std::cerr << "cur_bitset.size() > 60" << std::endl;
+		exit(1);
+	}
+	unsigned long long ull = 0, val;
+	for( unsigned i=0; i < cur_bitset.size(); ++i ) {
+		if (cur_bitset[i]) { 
+			val = 1;
+			shl64(val,i);
+			ull += val;
+		}
+	}
+	return ull;
+}
+
+extern boost::dynamic_bitset<> Addit_func :: UllongToBitset( unsigned long long ull )
+{
+	boost::dynamic_bitset<> bitset;
+	bitset.resize( 64 );
+	unsigned index = 0;
+	do {
+		if ( ull & 1 )
+			bitset[index] = 1;
+		ull /= 2;
+		index++;
+	} while ( ull > 0 );
+	bitset.resize( index );
+	return bitset;
+}

@@ -143,11 +143,11 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 	if ( current_task_index < batch_addit_size_count )
 		cur_batch_size++;
 	// skip unuseful strings
-	int previous_tasks_count = current_task_index*basic_batch_size;
+	int previous_problems_count = current_task_index*basic_batch_size;
 	if ( current_task_index < batch_addit_size_count )
-		previous_tasks_count += current_task_index; // add some 1 to sum
+		previous_problems_count += current_task_index; // add some 1 to sum
 	else
-		previous_tasks_count += batch_addit_size_count;
+		previous_problems_count += batch_addit_size_count;
 	
 	string str, str1;
 	ifstream ifile( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
@@ -155,13 +155,8 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 		cerr << "Error. !in.is_open(). file name " << known_assumptions_file_name << endl;
 		return false;
 	}
-
-	if ( before_binary_length > 0 ) {
-		char *buffer = new char[before_binary_length + 1];
-		buffer[before_binary_length] = '\0';
-		ifile.read( buffer, before_binary_length );
-		delete[] buffer;
-	}
+	cout << "before_binary_length " << before_binary_length << endl;
+	ifile.seekg( before_binary_length, ifile.beg ); // skip some bytes
 	
 	char *cc = new char[3];
 	cc[2] = '\0';
@@ -170,6 +165,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 	unsigned header_value;
 	sstream << cc;
 	sstream >> header_value;
+	cout << "header_value " << header_value << endl;
 	delete[] cc;
 	//ifile >> header_value; // read header in text mode
 	if ( header_value != var_choose_order.size() ) {
@@ -178,35 +174,46 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 		cerr << "cc " << cc << endl;
 		return false;
 	}
+
+	/*
 	int values_passed = 0;
-	unsigned long ul;
 	while ( values_passed < previous_tasks_count ) {
 		ifile.read( (char*)&ul, sizeof(ul) );
 		values_passed++;
-	}
+	}*/
+	
 	if ( verbosity > 0 ) {
 		cout << "current_task_index "   << current_task_index << endl;
 		cout << "all_tasks_count "      << all_tasks_count << endl;
-		cout << "previous_tasks_count " << previous_tasks_count << endl;
+		cout << "previous_problems_count " << previous_problems_count << endl;
 		cout << "assumptions_count "    << assumptions_count << endl;
 		cout << "basic_batch_size "     << basic_batch_size  << endl;
 		cout << "cur_batch_size "       << cur_batch_size << endl;
-		cout << "values_passed "        << values_passed  << endl;
+		//cout << "values_passed "        << values_passed  << endl;
 	}
 	
-	dummy_vec.resize( cur_batch_size );
-	bitset<64> bitset64;
-	int cur_var_ind;
 	// reading values from file
+	dummy_vec.resize( cur_batch_size );
+	boost::dynamic_bitset<> d_bitset;
+	int cur_var_ind;
+	unsigned long long ul;
+	int byte_count = before_binary_length + 2 + sizeof(ul)*previous_problems_count;
+	ifile.clear();
+	ifile.seekg( byte_count, ifile.beg ); // skip some bytes
 	for ( int i=0; i < cur_batch_size; ++i ) {
 		if ( !(ifile.read( (char*)&ul, sizeof(ul) ) ) ) {
 			cerr << "Error. !ifile.read( (char*)&ul, sizeof(ul) )" << endl;
 			return false;
 		}
-		bitset64 = ul; // dynamic can't use = for ulong
+		d_bitset = UllongToBitset( ul ); // dynamic can't use = for ulong
+		if ( d_bitset.size() != var_choose_order.size() ) {
+			cerr << "d_bitset.size() != var_choose_order.size()" << endl;
+			cerr << d_bitset.size() << " != " << var_choose_order.size() << endl;
+			return false;
+		}
 		for ( unsigned j=0; j < var_choose_order.size(); ++j ) {
 			cur_var_ind = var_choose_order[j] - 1;
-			if ( bitset64[j] == 1 )
+			if ( d_bitset[j] == 1 )
 				dummy_vec[i].push( mkLit( cur_var_ind ) );
 			else 
 				dummy_vec[i].push( ~mkLit( cur_var_ind ) );
@@ -324,10 +331,6 @@ bool MPI_Base :: MakeStandardMasks( unsigned &part_var_power )
 bool MPI_Base :: MakeVarChoose( )
 {
 // Make array var_choose_order with vars sorted by given rule
-	unsigned *var_literal_count_weights;
-	unsigned *var_implicant_count_weights;
-	double *var_jeroslaw_count_weights;
-	
 	string str;
 	stringstream sstream;
 	int val;
@@ -416,7 +419,6 @@ bool MPI_Base :: ReadVarCount( )
 				 lit_positiv_val = 0;
 	string line_str, word_str;
 	bool IsUncorrectLine = false;
-	int lit_val, sign, lit_index, val;
 	
 	// check file with main CNF
 	ifstream main_cnf( input_cnf_name, ios::in );
@@ -578,7 +580,6 @@ bool MPI_Base :: ReadIntCNF()
 
 	stringstream sstream;
 	string str1, str2, str3, str4;
-	int intval;
 	bool Is_InpVar = false, Is_ConstrLen = false, Is_ObjLen = false, Is_ObjVars = false;
 	while ( getline( main_cnf, line_str ) ) {
 		if ( line_str[0] == 'p' )

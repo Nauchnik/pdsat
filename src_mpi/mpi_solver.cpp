@@ -114,8 +114,6 @@ void MPI_Solver :: CollectAssumptionsFiles( )
 	vector<string> :: iterator it;
 	getdir( dir, files ); // get all files in current dir
 	stringstream sstream;
-	short int si;
-	unsigned long long ul;
 	
 	sstream << base_known_assumptions_file_name << "_" << (solving_iteration_count-1) << "_rank";
 	string old_known_assumptions_file_mask = sstream.str();
@@ -137,7 +135,8 @@ void MPI_Solver :: CollectAssumptionsFiles( )
 	
 	unsigned old_known_assumptions_file_count = 0;
 	double collecting_files_time = MPI_Wtime();
-
+	short int si;
+	unsigned long long ul;
 	for ( it = files.begin(); it != files.end(); ++it ) {
 		if ( (*it).find( old_known_assumptions_file_mask ) != string::npos ) {
 			old_known_assumptions_file_count++;
@@ -224,8 +223,8 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 
 	//vector< boost::dynamic_bitset<> > vec_bitset;
 	//boost::dynamic_bitset<> cur_bitset;
-	vector< bitset<50> > vec_bitset;
-	bitset<50> cur_bitset;
+	vector< boost::dynamic_bitset<> > vec_bitset;
+	boost::dynamic_bitset<> cur_bitset;
 	
 	int before_binary_length = 0;
 	if ( solver_type == 4 ) {
@@ -234,7 +233,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 		else
 			MakeAssignsFromMasks( full_mask, part_mask, mask_value, dummy_vec );
 		
-		//cur_bitset.resize( var_choose_order.size() );
+		cur_bitset.resize( var_choose_order.size() );
 		
 		if ( ( verbosity > 1 ) && ( rank == 1 ) ) {
 			cout << "dummy_vec size" << dummy_vec.size() << endl;
@@ -284,12 +283,12 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 
 			if ( cur_problem_state == Interrupted ) {
 				batch_interrupted_count++;
-				if ( cur_bitset.size() < dummy_vec[i].size() ) {
+				if ( cur_bitset.size() < (unsigned)dummy_vec[i].size() ) {
 					cerr << "cur_bitset.size() < dummy_vec[i].size()" << endl;
 					cerr << cur_bitset.size() << " < " << dummy_vec[i].size() << endl;
 					return false;
 				}
-				for ( unsigned j = 0; j < dummy_vec[i].size(); ++j )
+				for ( int j = 0; j < dummy_vec[i].size(); ++j )
 					cur_bitset[j] = ( dummy_vec[i][j].x % 2 == 0 ) ? 1 : 0; 
 				vec_bitset.push_back( cur_bitset );
 			}
@@ -328,8 +327,9 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 			ofile.open( new_assumptions_file_name.c_str(), ios_base::out | ios_base::app | ios_base::binary );
 			unsigned long long ul;
 			for( unsigned i=0; i < vec_bitset.size(); ++i ) {
-				ul = vec_bitset[i].to_ullong();
-				ofile.write((char*)&ul, sizeof(ul)); 
+				//ul = vec_bitset[i].to_ullong();
+				ul = BitsetToUllong( vec_bitset[i] );
+				ofile.write((char*)&ul, sizeof(ul));
 			}
 			ofile.close();
 		}
@@ -438,7 +438,6 @@ bool MPI_Solver :: ControlProcessSolve( )
 	}
 	
 	ifstream known_assumptions_file( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
-	short int si;
 	unsigned long long ul;
 	if ( known_assumptions_file.is_open() ) {
 		char cc[2];
@@ -463,7 +462,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 	unsigned max_possible_tasks_count = (unsigned)(pow( 2, ceil( log(corecount - 1)/log(2) ))) * (1<<koef_val);
 	cout << "max_possible_tasks_count " << max_possible_tasks_count << endl;
 	cout << "current part_mask_var_count " << part_mask_var_count << endl; 
-	part_mask_var_count = log(max_possible_tasks_count)/log(2);
+	part_mask_var_count = (unsigned)(log(max_possible_tasks_count)/log(2));
 	if ( part_mask_var_count > var_choose_order.size() )
 		part_mask_var_count = var_choose_order.size();
 	
@@ -538,15 +537,15 @@ bool MPI_Solver :: ControlProcessSolve( )
 	unsigned start_tasks_count = min( corecount - 1, (int)all_tasks_count );
 	cout << "start_tasks_count " << start_tasks_count << endl;
 	// send to all cores (except # 0) tasks from 1st range
-	for ( int i = 0; i < start_tasks_count; ++i ) {
+	for ( unsigned i = 0; i < start_tasks_count; ++i ) {
 		// send new index of task for reading tasks from file
 		MPI_Send( &next_task_index, 1, MPI_INT, next_task_index + 1, 0, MPI_COMM_WORLD );
 		
 		if ( assumptions_count == 0 ) { // don't send values when we have file with assimptions
 			copy( values_arr[i].begin(), values_arr[i].end(), mask_value );
-			MPI_Send( full_mask,  FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( part_mask,  FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( mask_value, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( full_mask,  FULL_MASK_LEN, MPI_UNSIGNED, (int)(i + 1), 0, MPI_COMM_WORLD );
+			MPI_Send( part_mask,  FULL_MASK_LEN, MPI_UNSIGNED, (int)(i + 1), 0, MPI_COMM_WORLD );
+			MPI_Send( mask_value, FULL_MASK_LEN, MPI_UNSIGNED, (int)(i + 1), 0, MPI_COMM_WORLD );
 		}
 		next_task_index++;
 	}

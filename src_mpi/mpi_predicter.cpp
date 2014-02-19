@@ -387,7 +387,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		
 		ProcessListNumber = status.MPI_TAG;
 		
-		if ( message_size-1 > full_var_choose_order.size() ) {
+		if ( message_size-1 > (int)full_var_choose_order.size() ) {
 			cerr << "message_size > full_var_choose_order.size()" << endl;
 			cerr << message_size << " > " << full_var_choose_order.size() << endl;
 			return false;
@@ -810,7 +810,6 @@ bool MPI_Predicter :: DeepPredictMain( )
 	// make renadom init point for 1st iteration
 	// for other ones as init use best point of prev iteration
 	int ProcessListNumber = 0;
-	MPI_Request request;
 	int stop_message = -1;
 	fstream deep_predict_file;
 	stringstream sstream;
