@@ -195,6 +195,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 	// reading values from file
 	dummy_vec.resize( cur_batch_size );
 	boost::dynamic_bitset<> d_bitset;
+	d_bitset.resize( var_choose_order.size() );
 	int cur_var_ind;
 	unsigned long long ul;
 	int byte_count = before_binary_length + 2 + sizeof(ul)*previous_problems_count;
@@ -205,7 +206,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 			cerr << "Error. !ifile.read( (char*)&ul, sizeof(ul) )" << endl;
 			return false;
 		}
-		d_bitset = UllongToBitset( ul ); // dynamic can't use = for ulong
+		UllongToBitset( ul, d_bitset ); // dynamic can't use = for ulong
 		if ( d_bitset.size() != var_choose_order.size() ) {
 			cerr << "d_bitset.size() != var_choose_order.size()" << endl;
 			cerr << d_bitset.size() << " != " << var_choose_order.size() << endl;

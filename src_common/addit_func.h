@@ -37,7 +37,7 @@ extern int getdir( string dir, vector<string> &files );
 //extern vector<int> BitsetToIntVec( boost::dynamic_bitset<> &bs );
 extern void shl64( unsigned long long int &val_for_left_shift, unsigned int bit_count );
 extern unsigned long long BitsetToUllong( boost::dynamic_bitset<> cur_bitset );
-extern boost::dynamic_bitset<> UllongToBitset( unsigned long long ull );
+extern void UllongToBitset( unsigned long long ull, boost::dynamic_bitset<> &bs );
 
 template< typename T > 
 bool next_cartesian( vector<T> &vii, vector<int> &index_arr, T &cur_vi )

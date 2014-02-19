@@ -167,17 +167,19 @@ unsigned long long Addit_func :: BitsetToUllong( boost::dynamic_bitset<> cur_bit
 	return ull;
 }
 
-extern boost::dynamic_bitset<> Addit_func :: UllongToBitset( unsigned long long ull )
+extern void Addit_func :: UllongToBitset( unsigned long long ull, boost::dynamic_bitset<> &bs )
 {
-	boost::dynamic_bitset<> bitset;
-	bitset.resize( 64 );
+	if ( bs.size() == 0 )
+		bs.resize( 64 );
 	unsigned index = 0;
 	do {
+		if ( index > bs.size() - 1 ) {
+			std::cerr << "index > bitset.size() - 1";
+			exit(1);
+		}
 		if ( ull & 1 )
-			bitset[index] = 1;
+			bs[index] = 1;
 		ull /= 2;
 		index++;
 	} while ( ull > 0 );
-	bitset.resize( index );
-	return bitset;
 }
