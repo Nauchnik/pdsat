@@ -394,23 +394,26 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	
 	// count blocks of data in file
 	short int si;
-	unsigned long ul;
+	unsigned long long ul;
 	if ( !assumptions_count ) {
-		double assumption_counting_start_time = cpuTime();
 		ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
 		if ( !ifile.is_open() ) {
 			cerr << "!ifile.is_open() " << config_p.data_file << endl;
 			exit(1);
 		}
 		cout << "file " << config_p.data_file << " opened" << endl;
-		ifile.read( (char*)&si, sizeof(si) ); // read header
-		cout << "assumptions_count:" << endl;
+		/*ifile.read( (char*)&si, sizeof(si) ); // read header
 		while ( ifile.read( (char*)&ul, sizeof(ul) ) ) {
 			assumptions_count++;
 			if ( assumptions_count % 10000000 == 0 )
 				cout << assumptions_count << " time " << cpuTime() - assumption_counting_start_time << " s" << endl;
-		}
-		cout << assumptions_count << " time " << cpuTime() - assumption_counting_start_time << " s" << endl;
+		}*/
+		ifile.seekg( 0, ifile.end );
+		long long int total_byte_length = ifile.tellg();
+		ifile.close();
+		mpi_b.assumptions_count = (total_byte_length - 2) / sizeof(ul); // skip 2 byte of prefix 
+		cout << "assumptions_count:" << endl;
+		cout << assumptions_count << " time " << endl;
 		ifile.close();
 	}
 	
@@ -428,14 +431,16 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	ifile.read( (char*)&si, sizeof(si) );
 	// skip already sended values
 	if ( values_index > 0 ) {
-		long long int skipped = 0;
-		cout << "skipped:" << endl;
-		while ( skipped < values_index ) {
+		long long int skipped_byte = 2 + values_index;
+		ifile.clear();
+		ifile.seekg( 2 + values_index, ifile.begin );
+		cout << "skipped_byte " << skipped_byte << endl;
+		/*while ( skipped < values_index ) {
 			ifile.read( (char*)&ul, sizeof(ul) );
 			skipped++;
 			if ( skipped % 10000000 == 0 )
 				cout << skipped << endl;
-		}
+		}*/
 	}
 	
 	for( int wu_index = config_p.created_wus; wu_index < config_p.created_wus + wus_for_creation_count; wu_index++ ) {

@@ -149,7 +149,6 @@ void MPI_Solver :: CollectAssumptionsFiles( )
 				known_assumptions_file.write( (char*)&ul, sizeof(ul) );
 				interrupted_count++;
 			}
-			
 			ifile.close();
 		}
 	}
@@ -329,7 +328,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 			for( unsigned i=0; i < vec_bitset.size(); ++i ) {
 				//ul = vec_bitset[i].to_ullong();
 				ul = BitsetToUllong( vec_bitset[i] );
-				ofile.write((char*)&ul, sizeof(ul));
+				ofile.write( (char*)&ul, sizeof(ul) );
 			}
 			ofile.close();
 		}
@@ -522,15 +521,24 @@ bool MPI_Solver :: ControlProcessSolve( )
 	unsigned solved_tasks_count = 0;
 	// write init info
 	WriteSolvingTimeInfo( solving_times, solved_tasks_count );
+	int *var_choose_order_int = new int[MAX_ASSIGNS_COUNT];
+	for( unsigned i=0; i < MAX_ASSIGNS_COUNT; ++i ) {
+		if ( i < var_choose_order.size() )
+			var_choose_order_int[i] = var_choose_order[i];
+		else 
+			var_choose_order_int[i] = -1;
+	}
 	
 	// send core_len once to every compute process
 	for ( int i=0; i < corecount-1; ++i ) {
-		MPI_Send( &core_len,                 1, MPI_INT,      i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( &all_tasks_count,          1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( &assumptions_count,        1, MPI_INT,      i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( &solving_iteration_count,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( &max_solving_time,         1, MPI_DOUBLE,   i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &core_len,                1, MPI_INT,      i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &all_tasks_count,         1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &assumptions_count,       1, MPI_INT,      i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &solving_iteration_count, 1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &max_solving_time,        1, MPI_DOUBLE,   i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( var_choose_order_int,     MAX_ASSIGNS_COUNT, MPI_INT, i + 1, 0, MPI_COMM_WORLD );
 	}
+	delete[] var_choose_order_int;
 	
 	unsigned next_task_index = 0;
 	
@@ -607,6 +615,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	string solving_info_file_name;
 	string str;
 	ifstream infile;
+	int *var_choose_order_int = new int[MAX_ASSIGNS_COUNT];
 	
 	if ( solver_type == 4 ) { // last version of minisat
 		ifstream in( input_cnf_name );
@@ -625,15 +634,32 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		assumptions_count = 0;
 		MPI_Recv( &core_len,                 1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &all_tasks_count,          1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
-		MPI_Recv( &assumptions_count, 1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( &assumptions_count,        1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &solving_iteration_count,  1, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &max_solving_time,         1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( var_choose_order_int,      MAX_ASSIGNS_COUNT, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
+		var_choose_order.resize(0);
+		for( unsigned i=0; i < MAX_ASSIGNS_COUNT; ++i ) {
+			if ( var_choose_order_int[i] == -1 )
+				break;
+			if ( var_choose_order_int[i] <= 0 ) {
+				cerr << "var_choose_order_int[i] <= 0" << endl;
+				cerr << var_choose_order_int[i] << endl;
+				return false;
+			}
+			var_choose_order.push_back( var_choose_order_int[i] );
+		}
+		delete[] var_choose_order_int;
 		if ( rank == 1 ) {
 			cout << "Received core_len "                 << core_len                 << endl;
 			cout << "Received all_tasks_count "          << all_tasks_count          << endl;
 			cout << "Received assumptions_count "        << assumptions_count        << endl;
 			cout << "Received solving_iteration_count "  << solving_iteration_count  << endl;
 			cout << "Received max_solving_time "         << max_solving_time         << endl;
+			cout << "Received var_choose_order.size() "  << var_choose_order.size()  << endl;
+			for ( unsigned i=0; i < var_choose_order.size(); ++i )
+				cout << var_choose_order[i] << " ";
+			cout << endl;
 		}
 		if ( ( assumptions_count <= 0 ) && ( solving_iteration_count > 0 ) ) {
 			cerr << "Error. ( ( assumptions_count <= 0 ) && ( solving_iteration_count > 0 ) )" << endl;
@@ -645,39 +671,8 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		known_assumptions_file_name = sstream.str();
 		sstream.clear(); sstream.str("");
 		
-		if ( solving_iteration_count == 0 ) {
-			// read var_choose_order from file
+		if ( solving_iteration_count == 0 )
 			solving_info_file_name = base_solving_info_file_name + "_0";
-			infile.open( solving_info_file_name.c_str() );
-			if ( !infile.is_open() ) {
-				cerr << "!infile.is_open()" << endl;
-				cerr << "solving_info_file_name" << endl;
-			}
-			bool ReadNext = false;
-			while ( getline( infile, str ) ) {
-				if ( rank == 1 )
-					cout << str << endl;
-				if ( str.find( "var_choose_order" ) != string::npos ) {
-					ReadNext = true;
-					continue;
-				}
-				if ( ReadNext ) {
-					sstream << str;
-					if ( rank == 1 )
-						cout << "parsing " << str << endl;
-					while ( sstream >> val )
-						var_choose_order.push_back( val );
-					break;
-				}
-			}
-			sstream.clear(); sstream.str("");
-			infile.close();
-			cout << "rank " << rank << endl;
-			cout << "var_choose_order.size() " << var_choose_order.size() << endl;
-			for ( unsigned i=0; i < var_choose_order.size(); ++i )
-				cout << var_choose_order[i] << " ";
-			cout << endl;
-		}
 
 		for (;;) {
 			// get index of current task

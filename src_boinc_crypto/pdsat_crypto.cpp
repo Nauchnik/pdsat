@@ -151,7 +151,7 @@ bool do_work( string &input_path, string &current_result_str )
 	S->max_nof_restarts = MAX_NOF_RESTARTS;
 	S->verbosity = 0;
 	fprintf( stderr, " S->max_nof_restarts %d ", S->max_nof_restarts );
-	for(int i = 0; i < cnf.size(); ++i )
+	for( unsigned i = 0; i < cnf.size(); ++i )
 		delete cnf[i];
 	cnf.clear();
 	
@@ -190,14 +190,18 @@ bool do_work( string &input_path, string &current_result_str )
 	ifile.read( buffer, before_binary_length );
 	delete[] buffer;
 	short int si;
-	unsigned long ul;
+	unsigned long long ul;
 	ifile.read( (char*)&si, sizeof(si) ); // read header
 	fprintf( stderr, " binary prefix %d", si );
 	mpi_b.assumptions_count = 0;
-	while ( ifile.read( (char*)&ul, sizeof(ul) ) )
-		mpi_b.assumptions_count++;
-	fprintf( stderr, " mpi_b.assumptions_count %d", mpi_b.assumptions_count );
+	/*while ( ifile.read( (char*)&ul, sizeof(ul) ) )
+		mpi_b.assumptions_count++;*/
+	ifile.clear();
+	ifile.seekg( 0, ifile.end );
+    long long int total_byte_length = ifile.tellg();
 	ifile.close();
+	mpi_b.assumptions_count = (total_byte_length - before_binary_length - 2) / sizeof(ul);
+	fprintf( stderr, " mpi_b.assumptions_count %d", mpi_b.assumptions_count );
 	mpi_b.known_assumptions_file_name = input_path;
 	mpi_b.all_tasks_count = 1;
 	vec< vec<Lit> > dummy_vec;

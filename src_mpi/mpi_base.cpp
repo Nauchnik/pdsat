@@ -138,16 +138,16 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 	// int rslos_num = 1;
 	int basic_batch_size = (int)floor( (double)assumptions_count / (double)all_tasks_count );
 	// calculate count of bathes with additional size (+1)
-	int batch_addit_size_count = assumptions_count - basic_batch_size*all_tasks_count;
+	long long int batch_addit_size_count = assumptions_count - basic_batch_size*all_tasks_count;
 	int cur_batch_size = basic_batch_size;
-	if ( current_task_index < batch_addit_size_count )
+	if ( current_task_index < (int)batch_addit_size_count )
 		cur_batch_size++;
 	// skip unuseful strings
 	int previous_problems_count = current_task_index*basic_batch_size;
-	if ( current_task_index < batch_addit_size_count )
+	if ( current_task_index < (int)batch_addit_size_count )
 		previous_problems_count += current_task_index; // add some 1 to sum
 	else
-		previous_problems_count += batch_addit_size_count;
+		previous_problems_count += (int)batch_addit_size_count;
 	
 	string str, str1;
 	ifstream ifile( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
@@ -155,7 +155,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 		cerr << "Error. !in.is_open(). file name " << known_assumptions_file_name << endl;
 		return false;
 	}
-	cout << "before_binary_length " << before_binary_length << endl;
+	//cout << "before_binary_length " << before_binary_length << endl;
 	ifile.seekg( before_binary_length, ifile.beg ); // skip some bytes
 	
 	char *cc = new char[3];
@@ -165,7 +165,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 	unsigned header_value;
 	sstream << cc;
 	sstream >> header_value;
-	cout << "header_value " << header_value << endl;
+	//cout << "header_value " << header_value << endl;
 	delete[] cc;
 	//ifile >> header_value; // read header in text mode
 	if ( header_value != var_choose_order.size() ) {
@@ -183,13 +183,12 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 	}*/
 	
 	if ( verbosity > 0 ) {
-		cout << "current_task_index "   << current_task_index << endl;
-		cout << "all_tasks_count "      << all_tasks_count << endl;
+		cout << "current_task_index "      << current_task_index << endl;
+		cout << "all_tasks_count "         << all_tasks_count << endl;
 		cout << "previous_problems_count " << previous_problems_count << endl;
-		cout << "assumptions_count "    << assumptions_count << endl;
-		cout << "basic_batch_size "     << basic_batch_size  << endl;
-		cout << "cur_batch_size "       << cur_batch_size << endl;
-		//cout << "values_passed "        << values_passed  << endl;
+		cout << "assumptions_count "       << assumptions_count << endl;
+		cout << "basic_batch_size "        << basic_batch_size  << endl;
+		cout << "cur_batch_size "          << cur_batch_size << endl;
 	}
 	
 	// reading values from file
@@ -206,7 +205,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 			cerr << "Error. !ifile.read( (char*)&ul, sizeof(ul) )" << endl;
 			return false;
 		}
-		UllongToBitset( ul, d_bitset ); // dynamic can't use = for ulong
+		UllongToBitset( ul, d_bitset );
 		if ( d_bitset.size() != var_choose_order.size() ) {
 			cerr << "d_bitset.size() != var_choose_order.size()" << endl;
 			cerr << d_bitset.size() << " != " << var_choose_order.size() << endl;
