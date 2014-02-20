@@ -36,7 +36,7 @@ public:
 	bool MPI_ConseqSolve( int argc, char **argv );
 	bool WriteTimeToFile( double whole_time_sec );
 	
-	void CollectAssumptionsFiles();
+	bool CollectAssumptionsFiles();
 	void PrintParams();
 	void WriteSolvingTimeInfo( double *solving_times, unsigned solved_tasks_count );
 	void AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 

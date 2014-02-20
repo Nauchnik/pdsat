@@ -171,6 +171,7 @@ extern void Addit_func :: UllongToBitset( unsigned long long ull, boost::dynamic
 {
 	if ( bs.size() == 0 )
 		bs.resize( 64 );
+	bs.reset();
 	unsigned index = 0;
 	do {
 		if ( index > bs.size() - 1 ) {

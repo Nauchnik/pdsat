@@ -78,8 +78,13 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 			WriteTimeToFile( iteration_final_time );
 			solving_iteration_count++;
 			max_solving_time *= max_solving_time_koef; // increase time limit
-
-			CollectAssumptionsFiles();
+			
+			if ( !CollectAssumptionsFiles() ) { // no files
+				cout << "stopping" << endl;
+				for ( int i = 1; i < corecount; i++ )
+					MPI_Send( &stop_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
+				MPI_Finalize( );
+			}
 			
 			if ( sat_count && !IsSolveAll )
 				break; // exit if SAT set found
@@ -105,15 +110,21 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	return 0;
 }
 
-void MPI_Solver :: CollectAssumptionsFiles( )
+bool MPI_Solver :: CollectAssumptionsFiles( )
 {
 // write info from all known assumptions files to 1 new file
 	string dir = string(".");
 	string str;
 	vector<string> files = vector<string>();
 	vector<string> :: iterator it;
-	getdir( dir, files ); // get all files in current dir
 	stringstream sstream;
+	getdir( dir, files ); // get all files in current dir
+	cout << "files.size() " << files.size() << endl;
+
+	if ( files.size() == 0 ) {
+		cout << "no assumption file" << endl;
+		return false;
+	}
 	
 	sstream << base_known_assumptions_file_name << "_" << (solving_iteration_count-1) << "_rank";
 	string old_known_assumptions_file_mask = sstream.str();
@@ -125,6 +136,13 @@ void MPI_Solver :: CollectAssumptionsFiles( )
 
 	interrupted_count = 0;
 	
+	// wait for ending of other file operations 
+#ifdef _WIN32
+	Sleep(10000);
+#else
+	sleep(10);
+#endif
+	
 	ofstream known_assumptions_file;
 	known_assumptions_file.open( known_assumptions_file_name.c_str(), ios_base::out | ios_base :: binary );
 	if ( !known_assumptions_file.is_open() ) {
@@ -132,6 +150,7 @@ void MPI_Solver :: CollectAssumptionsFiles( )
 		cerr << known_assumptions_file_name << endl;
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
+	cout << "known_assumptions_file_name opened" << endl;
 	
 	unsigned old_known_assumptions_file_count = 0;
 	double collecting_files_time = MPI_Wtime();
@@ -161,6 +180,7 @@ void MPI_Solver :: CollectAssumptionsFiles( )
 	cout << "interrupted_count " << interrupted_count << endl;
 	
 	known_assumptions_file.close();
+	return true;
 }
 
 void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
@@ -439,21 +459,30 @@ bool MPI_Solver :: ControlProcessSolve( )
 	ifstream known_assumptions_file( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
 	unsigned long long ul;
 	if ( known_assumptions_file.is_open() ) {
-		char cc[2];
+		char *cc = new char[3];
+		cc[2] = '\0';
 		known_assumptions_file.read(cc,2);
-		unsigned header_value = atoi(cc);
+		stringstream sstream;
+		unsigned header_value;
+		sstream << cc;
+		sstream >> header_value;
+		delete[] cc;
+
 		if ( header_value != var_choose_order.size() ) {
 			cerr << "header_value != var_choose_order.size()" << endl;
 			cerr << header_value << " != " << var_choose_order.size() << endl;
 			return false;
 		}
-		assumptions_count = 0;
 		cout << "reading of known_assumptions_file_name " << known_assumptions_file_name << endl;
-		string str;
-		while ( known_assumptions_file.read( (char*)&ul, sizeof(ul) ) )
-			assumptions_count++;
-		cout << "assumptions_count " << assumptions_count << endl;
+		assumptions_count = 0;
+		/*while ( known_assumptions_file.read( (char*)&ul, sizeof(ul) ) )
+			assumptions_count++;*/
+		known_assumptions_file.clear();
+		known_assumptions_file.seekg( 0, known_assumptions_file.end );
+		unsigned long long byte_length = known_assumptions_file.tellg();
+		assumptions_count = (byte_length - 2)/sizeof(ul); // 2 is prefix length
 		known_assumptions_file.close();
+		cout << "assumptions_count " << assumptions_count << endl;
 	}
 	else
 		cout << "could not open known_assumptions_file " << known_assumptions_file_name << endl;
@@ -531,11 +560,11 @@ bool MPI_Solver :: ControlProcessSolve( )
 	
 	// send core_len once to every compute process
 	for ( int i=0; i < corecount-1; ++i ) {
-		MPI_Send( &core_len,                1, MPI_INT,      i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( &all_tasks_count,         1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( &assumptions_count,       1, MPI_INT,      i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( &solving_iteration_count, 1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( &max_solving_time,        1, MPI_DOUBLE,   i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &core_len,                1, MPI_INT,       i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &all_tasks_count,         1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &assumptions_count,       1, MPI_UNSIGNED_LONG_LONG, i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &solving_iteration_count, 1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &max_solving_time,        1, MPI_DOUBLE,    i + 1, 0, MPI_COMM_WORLD );
 		MPI_Send( var_choose_order_int,     MAX_ASSIGNS_COUNT, MPI_INT, i + 1, 0, MPI_COMM_WORLD );
 	}
 	delete[] var_choose_order_int;
@@ -615,7 +644,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	string solving_info_file_name;
 	string str;
 	ifstream infile;
-	int *var_choose_order_int = new int[MAX_ASSIGNS_COUNT];
+	int *var_choose_order_int;
 	
 	if ( solver_type == 4 ) { // last version of minisat
 		ifstream in( input_cnf_name );
@@ -632,9 +661,10 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	for (;;) {
 		IsFirstTaskRecieved = false;
 		assumptions_count = 0;
+		var_choose_order_int = new int[MAX_ASSIGNS_COUNT];
 		MPI_Recv( &core_len,                 1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &all_tasks_count,          1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
-		MPI_Recv( &assumptions_count,        1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( &assumptions_count,        1, MPI_UNSIGNED_LONG_LONG, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &solving_iteration_count,  1, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &max_solving_time,         1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( var_choose_order_int,      MAX_ASSIGNS_COUNT, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
