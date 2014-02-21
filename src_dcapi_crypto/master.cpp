@@ -411,7 +411,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 		ifile.seekg( 0, ifile.end );
 		long long int total_byte_length = ifile.tellg();
 		ifile.close();
-		mpi_b.assumptions_count = (total_byte_length - 2) / sizeof(ul); // skip 2 byte of prefix 
+		assumptions_count = (total_byte_length - 2) / sizeof(ul); // skip 2 byte of prefix 
 		cout << "assumptions_count:" << endl;
 		cout << assumptions_count << " time " << endl;
 		ifile.close();
@@ -433,7 +433,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	if ( values_index > 0 ) {
 		long long int skipped_byte = 2 + values_index;
 		ifile.clear();
-		ifile.seekg( 2 + values_index, ifile.begin );
+		ifile.seekg( 2 + values_index, ifile.beg );
 		cout << "skipped_byte " << skipped_byte << endl;
 		/*while ( skipped < values_index ) {
 			ifile.read( (char*)&ul, sizeof(ul) );

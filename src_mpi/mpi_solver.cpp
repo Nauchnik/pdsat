@@ -136,19 +136,23 @@ bool MPI_Solver :: CollectAssumptionsFiles( )
 
 	interrupted_count = 0;
 	
-	// wait for ending of other file operations 
-#ifdef _WIN32
-	Sleep(10000);
-#else
-	sleep(10);
-#endif
-	
 	ofstream known_assumptions_file;
-	known_assumptions_file.open( known_assumptions_file_name.c_str(), ios_base::out | ios_base :: binary );
+	unsigned attempt_count = 0;
+	while ( !known_assumptions_file.is_open() ) {
+		cout << "attempt to open # " << attempt_count << endl;
+		// wait for ending of other file operations 
+#ifdef _WIN32
+		Sleep(20000);
+#else
+		sleep(20);
+#endif
+		known_assumptions_file.open( known_assumptions_file_name.c_str(), ios_base::out | ios_base :: binary );
+		attempt_count++;
+	}
 	if ( !known_assumptions_file.is_open() ) {
 		cerr << "!known_assumptions_file.is_open()" << endl;
 		cerr << known_assumptions_file_name << endl;
-		MPI_Abort( MPI_COMM_WORLD, 0 );
+		return false;
 	}
 	cout << "known_assumptions_file_name opened" << endl;
 	
