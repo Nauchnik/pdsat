@@ -174,10 +174,8 @@ extern void Addit_func :: UllongToBitset( unsigned long long ull, boost::dynamic
 	bs.reset();
 	unsigned index = 0;
 	do {
-		if ( index > bs.size() - 1 ) {
-			std::cerr << "index > bitset.size() - 1";
-			exit(1);
-		}
+		if ( index > bs.size() - 1 )
+			bs.resize( index + 1 );
 		if ( ull & 1 )
 			bs[index] = 1;
 		ull /= 2;
