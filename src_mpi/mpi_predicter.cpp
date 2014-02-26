@@ -45,7 +45,9 @@ MPI_Predicter :: MPI_Predicter( ) :
 	predict_every_sec ( 2 ),
 	max_L2_hamming_distance ( 2 ),
 	start_sample_variance_limit ( 0.000000001 ),
-	evaluation_type ( "time" )
+	evaluation_type ( "time" ),
+	te ( 0 ),
+	er ( 1 )
 { 
 	array_message = NULL;
 }
@@ -969,6 +971,8 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	}
 	
 	vec_IsDecompSetSendedToProcess.resize( corecount - 1 );
+	if ( te > 0 )
+		max_solving_time = te; // for (ro, es, te) predict mode
 	
 	if ( rank == 0 ) { // control node
 		cout << "MPI_Predict is running " << endl;
@@ -1033,6 +1037,8 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "IsFirstStage " << IsFirstStage << endl;
 		cout << "max_L2_hamming_distance " << max_L2_hamming_distance << endl;
 		cout << "evaluation_type " << evaluation_type << endl;
+		cout << "te for (ro, es, te) " << te << endl;
+		cout << "er for (ro, es, te)" << er << endl;
 		
 		DeepPredictMain( );
 
@@ -1231,14 +1237,14 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	sstream << "predict_" << record_count;
 	predict_file_name = sstream.str();
 	
-	if ( ( !IsFirstStage ) || ( record_count == 1 ) ) // don't write in first stage - it's expansive
+	//if ( ( !IsFirstStage ) || ( record_count == 1 ) ) // don't write in first stage - it's expansive
 		WritePredictToFile( 0, 0 );
 	predict_file_name = "predict";
 	
 	ofstream graph_file, var_activity_file;
 	if ( IsFirstPoint ) {
 		graph_file.open( "graph_file", ios_base :: out ); // erase info from previous launches 
-		graph_file << "# best_var_num best_predict_time cnf_in_set_count last_predict_record_time current_predict_time";
+		graph_file << "# best_var_num best_predict_time best_sum_time cnf_in_set_count last_predict_record_time current_predict_time";
 		if ( deep_predict == 5 ) // simulated anealing
 			graph_file << " cur_temperature";
 		graph_file << endl;
@@ -1256,19 +1262,19 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		var_activity_file << *it << " ";
 	var_activity_file << endl;
 	
-	graph_file << record_count << " " << best_var_num << " " << best_predict_time << " " 
+	graph_file << record_count << " " << best_var_num << " " << best_predict_time << " " << best_sum_time << " "
 		       << cnf_in_set_count << " " << last_predict_record_time << " " << current_predict_time;
 	if ( deep_predict == 5 ) 
 		graph_file << " " << cur_temperature;
 
-	/*if ( ( IsFirstStage ) && ( !IsFirstPoint ) && ( best_var_num > old_best_var_num ) ) {
+	if ( ( IsFirstStage ) && ( !IsFirstPoint ) && ( best_var_num > old_best_var_num ) ) {
 		IsFirstStage = false;
 		cout << "IsFirstStage "      << IsFirstStage      << endl;
 		cout << "best_var_num "      << best_var_num      << endl;
 		cout << "best_predict_time " << best_predict_time << endl;
 		sstream << endl << " *** First stage done ***" << best_predict_time << endl;
 		graph_file << " first stage done";
-	}*/
+	}
 	graph_file << endl;
 	
 	graph_file.close();
@@ -1343,7 +1349,6 @@ bool MPI_Predicter :: GetPredict()
 			continue; // skip UNSAT, SAT and STOPPED
 		cur_cnf_to_stop_count = 0; // every time create array again
 		cur_cnf_to_skip_count = 0;
-		sum_time_arr[i]       = 0.0; // init value of sum - every time must start from 0.0
 		// count of CNF in set == ( set_index_arr[i + 1] - set_index_arr[i] )
 		cur_cnf_in_set_count = set_index_arr[i + 1] - set_index_arr[i];
 		solved_in_sample_count = 0;
@@ -1374,31 +1379,45 @@ bool MPI_Predicter :: GetPredict()
 		// further will be only sets whisch are being solved right now
 		solved_cnf_count_arr[i] = solved_in_sample_count;
 
+		sum_time_arr[i] = 0.0; // init value of sum - every time must start from 0.0
 		//max_real_time_sample = 0;
-		for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ ) {
-			// if real time from node doesn't exist, use roundly time from 0-core
-			if ( cnf_real_time_arr[j] > 0 ) {
-				cur_cnf_time = cnf_real_time_arr[j];
-				//if ( cur_cnf_time > max_real_time_sample ) 
-				//	max_real_time_sample = cur_cnf_time; // compute only real time
+		if ( te == 0 ) {
+			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ ) {
+				// if real time from node doesn't exist, use roundly time from 0-core
+				if ( cnf_real_time_arr[j] > 0 ) {
+					cur_cnf_time = cnf_real_time_arr[j];
+					//if ( cur_cnf_time > max_real_time_sample ) 
+					//	max_real_time_sample = cur_cnf_time; // compute only real time
+				}
+				else if ( cnf_start_time_arr[j] > 0 )
+					cur_cnf_time = MPI_Wtime( ) - cnf_start_time_arr[j];
+				else
+					cur_cnf_time = 0; // computing of task wasn't started yet
+				// we can stop processing of sample with such task if needed
+				sum_time_arr[i] += cur_cnf_time;
 			}
-			else if ( cnf_start_time_arr[j] > 0 )
-				cur_cnf_time = MPI_Wtime( ) - cnf_start_time_arr[j];
-			else
-				cur_cnf_time = 0; // computing of task wasn't started yet
-			// we can stop processing of sample with such task if needed
-			sum_time_arr[i] += cur_cnf_time;
+		}
+		else if ( te > 0 ) { // (ro, es, te) mode, here sum for sample is number of solved problems with time < te  
+			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ ) {
+				if ( ( cnf_real_time_arr[j] > 0 ) && ( cnf_real_time_arr[j] < te ) )
+					sum_time_arr[i] += 1;
+			}
 		}
 		
 		if ( deep_predict )
 			cur_var_num = decomp_set_arr[i].set_var_count;
 		else // if !deep_predict
 			cur_var_num = predict_to - i;
-
+		
 		// get current predict time
 		med_time_arr[i] = sum_time_arr[i] / (double)cur_cnf_in_set_count;
-		cur_predict_time = med_time_arr[i] / (double)proc_count;
-		cur_predict_time *= pow( 2, (double)cur_var_num );
+		if ( te == 0 ) {
+			cur_predict_time = med_time_arr[i] / (double)proc_count;
+			cur_predict_time *= pow( 2, (double)cur_var_num );
+		}
+		else if ( te > 0 )
+			cur_predict_time = (double)cur_var_num / pow(med_time_arr[i],er);
+		
 		predict_time_arr[i] = cur_predict_time;
 		
 		// if in set all sat-problems solved and unsat then set can has best predict
@@ -1413,6 +1432,7 @@ bool MPI_Predicter :: GetPredict()
 			set_status_arr[i] = 2;
 			IsRecordUpdated = true;
 			best_predict_time = predict_time_arr[i];
+			best_sum_time     = sum_time_arr[i];
 			
 			if ( deep_predict ) // Write info about new point in deep mode
 				NewRecordPoint( i );

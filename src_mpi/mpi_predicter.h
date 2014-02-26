@@ -98,6 +98,8 @@ public:
 	double whole_add_new_unchecked_area_time;
 	int predict_every_sec;
 	double start_sample_variance_limit;
+	double te;
+	double er;
 
 	bool MPI_Predict( int argc, char **argv );
 	bool ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control );
@@ -143,6 +145,7 @@ private:
 	
 	int best_var_num;
 	double best_predict_time;
+	double best_sum_time;
 	int *array_message; // for sending via MPI
 	unsigned array_message_size;
 	

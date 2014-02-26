@@ -49,6 +49,8 @@ struct Flags
 	string evaluation_type;
 	double max_solving_time_koef;
 	bool no_increm;
+	double te; // for (ro es te) predict strategy
+	double er;
 };
 
 // prototypes
@@ -147,6 +149,10 @@ int main( int argc, char** argv )
 		if ( myflags.evaluation_type != "" )
 			mpi_p.evaluation_type = myflags.evaluation_type;
 		mpi_p.IsFirstStage = myflags.IsFirstStage;
+		if ( myflags.te > 0 )
+			mpi_p.te = myflags.te;
+		if ( myflags.er > 0 )
+			mpi_p.er = myflags.er;
 
 		// Predict compute cost
 		if ( !mpi_p.MPI_Predict( argc, argv ) ) {
@@ -218,7 +224,7 @@ void WriteUsage( )
 {
 // Write info about usage
 	std :: cout << 
-	"\n USAGE: p-sat [options] <input_cnf> <split_var_count>"
+	"\n USAGE: pdsat [options] <input_cnf> <split_var_count>"
 	"\n options::"
 	"\n   -solver = { dm, m2_orig, m2_mod }, -s = -solver"
 	"\n	    dm		     - mod of minisat 1.14 for (9+11+11) schema,"
@@ -275,6 +281,8 @@ void WriteUsage( )
 	"\n   -skip_tasks - count of already solved tasks";
 	"\n   -eval - type of prediction evaluation {time, propagation}";
 	"\n   -no_increm - disable incremental mode while solving";
+	"\n   -te - for (ro, es, te) strategy in predict";
+	"\n   -er - power of median for (ro, es, te) strategy in predict";
 }
 
 //---------------------------------------------------------
@@ -334,9 +342,11 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.evaluation_type = "";
 	myflags.max_solving_time_koef = 0;
 	myflags.no_increm = false;
+	myflags.te = 0;
+	myflags.er = 0;
 	
 	k = 0;
-
+	
 	// check every input parameters for flag existing
     for ( i = 0; i < argc; i++ ) {
 		sstream.str( "" );
@@ -385,6 +395,10 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.max_solving_time = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-max_solving_time_koef=", value ) )
 			myflags.max_solving_time_koef = atof( value.c_str( ) );
+		else if ( hasPrefix_String( argv_string, "-te=", value ) )
+			myflags.te = atof( value.c_str( ) );
+		else if ( hasPrefix_String( argv_string, "-er=", value ) )
+			myflags.er = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-deep_predict=", value ) )  {
 			myflags.deep_predict = atoi( value.c_str( ) );
 			switch ( myflags.deep_predict ) {
