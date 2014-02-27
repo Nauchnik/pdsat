@@ -1038,7 +1038,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "max_L2_hamming_distance " << max_L2_hamming_distance << endl;
 		cout << "evaluation_type " << evaluation_type << endl;
 		cout << "te for (ro, es, te) " << te << endl;
-		cout << "er for (ro, es, te)" << er << endl;
+		cout << "er for (ro, es, te) " << er << endl;
 		
 		DeepPredictMain( );
 
@@ -1352,8 +1352,7 @@ bool MPI_Predicter :: GetPredict()
 		// count of CNF in set == ( set_index_arr[i + 1] - set_index_arr[i] )
 		cur_cnf_in_set_count = set_index_arr[i + 1] - set_index_arr[i];
 		solved_in_sample_count = 0;
-
-		tmp_time = MPI_Wtime();
+		
 		// if sat-problem is being solved (status 0 or 1) get current time
 		for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ ) {
 			switch ( cnf_status_arr[j] ) {
@@ -1372,7 +1371,7 @@ bool MPI_Predicter :: GetPredict()
 					break;
 			}
 		} // for ( j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ )
-
+		
 		if ( solved_in_sample_count == cur_cnf_in_set_count ) // if all CNF in set has UNSAT status
 			set_status_arr[i] = 4; // then mark status UNSAT to set
 		
@@ -1417,11 +1416,12 @@ bool MPI_Predicter :: GetPredict()
 		}
 		else if ( te > 0 )
 			cur_predict_time = (double)cur_var_num / pow(med_time_arr[i],er);
+			//cur_predict_time = pow( 2, (double)cur_var_num ) / pow(med_time_arr[i],er);
 		
 		predict_time_arr[i] = cur_predict_time;
 		
 		// if in set all sat-problems solved and unsat then set can has best predict
-		if ( ( set_status_arr[i] == 4  ) && 
+		if ( ( ( set_status_arr[i] == 4  ) || ( te > 0 ) ) && 
 			 ( ( best_predict_time == 0.0 ) ||
 			   ( ( best_predict_time > 0.0 ) && ( ( predict_time_arr[i] < best_predict_time ) ) ) || 
 			   ( ( deep_predict == 5 ) && ( IfSimulatedGranted( predict_time_arr[i] ) ) )
@@ -1508,7 +1508,7 @@ bool MPI_Predicter :: GetPredict()
 		deep_predict_file << sstream.rdbuf();
 		deep_predict_file.close();
 	}
-
+	
 	whole_get_predict_time += MPI_Wtime() - current_time;
 
 	if ( verbosity > 2 )
@@ -1728,19 +1728,29 @@ void MPI_Predicter :: GetNewHammingPoint( vector<int> var_choose_order, int cur_
 
 void MPI_Predicter :: AllocatePredictArrays( int &cur_tasks_count )
 {
-	unsigned uint;
-
+	/*unsigned uint;
 	if ( deep_predict_cur_var > MAX_STEP_CNF_IN_SET ) // if too many vars
 		cur_tasks_count = cnf_in_set_count;
 	else {
 		uint = ( 1 << deep_predict_cur_var ); // current count of all tasks
 		cur_tasks_count = ( cnf_in_set_count < (int)uint ) ? cnf_in_set_count : uint;
-	}
+	}*/
 	
+	all_tasks_count = 0;
+	unsigned uint;
 	// array of random set lengths 
 	set_len_arr.clear();
-	for ( unsigned i = 0; i < decomp_set_arr.size(); i++ )
-	    set_len_arr.push_back( cur_tasks_count );
+	for ( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
+		if ( decomp_set_arr[i].set_var_count > MAX_STEP_CNF_IN_SET ) // if too many vars
+			cur_tasks_count = cnf_in_set_count;
+		else {
+			uint = ( 1 << deep_predict_cur_var ); // current count of all tasks
+			cur_tasks_count = ( cnf_in_set_count < (int)uint ) ? cnf_in_set_count : uint;
+		}
+		if ( decomp_set_arr[i].set_var_count )
+	    set_len_arr.push_back( cnf_in_set_count );
+		all_tasks_count += cur_tasks_count;
+	}
 	
 	all_tasks_count = decomp_set_arr.size() * cur_tasks_count;
 }
