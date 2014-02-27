@@ -11,7 +11,6 @@ MPI_Predicter :: MPI_Predicter( ) :
 	real_best_var_num      ( 0 ),
 	real_best_predict_time ( 0.0 ),
 	block_count         ( 0 ),
-	deep_predict_cur_var( 0 ),
 	deep_predict        ( 6 ),
 	IsRestartNeeded     ( false ),
 	IsDecDecomp         ( false ),
@@ -820,7 +819,6 @@ bool MPI_Predicter :: DeepPredictMain( )
 
 	cout << "DeepPredictMain() started" << endl;
 
-	deep_predict_cur_var = predict_to;
 	// for equal conditions for every dimension
 	global_count_var_changing.resize( max_var_deep_predict );
 	for ( unsigned i = 0; i < global_count_var_changing.size(); i++ )
@@ -828,17 +826,11 @@ bool MPI_Predicter :: DeepPredictMain( )
 	
 	// read from file if one exists. if not, get random vector
 	GetInitPoint( );
-	if ( best_var_num )
-		deep_predict_cur_var = best_var_num; // don't use predict_to if known start point
 	bool IsFastExit = false;
 	double current_time = 0;
 	string str;
 	
 	while (
-		   ( ( deep_predict <= 2 ) && 
-		     ( deep_predict_cur_var >= predict_from ) 
-			 )
-			||
 		   ( ( deep_predict == 5 ) && 
 		     ( ( cur_temperature == 0 ) ||
 		       ( cur_temperature > min_temperature ) ) 
@@ -1171,8 +1163,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	deep_predict_file.open( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
 	global_count_var_changing[decomp_set_arr[set_index].cur_var_changing - 1]++;
 	int old_best_var_num = best_var_num;
-	best_var_num = decomp_set_arr[set_index].set_var_count;
-	deep_predict_cur_var = best_var_num;
+	best_var_num = decomp_set_arr[set_index].var_choose_order.size();
 	var_choose_order = decomp_set_arr[set_index].var_choose_order;
 	real_var_choose_order = var_choose_order;
 	sort( var_choose_order.begin(), var_choose_order.end() );
@@ -1371,6 +1362,17 @@ bool MPI_Predicter :: GetPredict()
 					break;
 			}
 		} // for ( j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ )
+
+		if ( deep_predict )
+			cur_var_num = decomp_set_arr[i].var_choose_order.size();
+		else // if !deep_predict
+			cur_var_num = predict_to - i;
+		
+		if ( ( cur_var_num <= MAX_STEP_CNF_IN_SET ) && ( solved_in_sample_count > ( 1 << cur_var_num ) ) ) {
+			cerr << "solved_in_sample_count > ( 1 << cur_var_num )" << endl;
+			cerr << solved_in_sample_count << " > " << ( 1 << cur_var_num ) << endl;
+			return false;
+		}
 		
 		if ( solved_in_sample_count == cur_cnf_in_set_count ) // if all CNF in set has UNSAT status
 			set_status_arr[i] = 4; // then mark status UNSAT to set
@@ -1402,11 +1404,6 @@ bool MPI_Predicter :: GetPredict()
 					sum_time_arr[i] += 1;
 			}
 		}
-		
-		if ( deep_predict )
-			cur_var_num = decomp_set_arr[i].set_var_count;
-		else // if !deep_predict
-			cur_var_num = predict_to - i;
 		
 		// get current predict time
 		med_time_arr[i] = sum_time_arr[i] / (double)cur_cnf_in_set_count;
@@ -1557,7 +1554,7 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 		sstream << endl << " ";
 
 		if ( deep_predict )
-			sstream << decomp_set_arr[i].set_var_count;
+			sstream << decomp_set_arr[i].var_choose_order.size();
 		else // if !deep_predict
 			sstream << predict_to - i;
 
@@ -1728,31 +1725,24 @@ void MPI_Predicter :: GetNewHammingPoint( vector<int> var_choose_order, int cur_
 
 void MPI_Predicter :: AllocatePredictArrays( int &cur_tasks_count )
 {
-	/*unsigned uint;
-	if ( deep_predict_cur_var > MAX_STEP_CNF_IN_SET ) // if too many vars
-		cur_tasks_count = cnf_in_set_count;
-	else {
-		uint = ( 1 << deep_predict_cur_var ); // current count of all tasks
-		cur_tasks_count = ( cnf_in_set_count < (int)uint ) ? cnf_in_set_count : uint;
-	}*/
-	
 	all_tasks_count = 0;
 	unsigned uint;
 	// array of random set lengths 
 	set_len_arr.clear();
 	for ( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
-		if ( decomp_set_arr[i].set_var_count > MAX_STEP_CNF_IN_SET ) // if too many vars
+		if ( decomp_set_arr[i].var_choose_order.size() > MAX_STEP_CNF_IN_SET ) // if too many vars
 			cur_tasks_count = cnf_in_set_count;
 		else {
-			uint = ( 1 << deep_predict_cur_var ); // current count of all tasks
+			uint = ( 1 << decomp_set_arr[i].var_choose_order.size() ); // current count of all tasks
 			cur_tasks_count = ( cnf_in_set_count < (int)uint ) ? cnf_in_set_count : uint;
 		}
-		if ( decomp_set_arr[i].set_var_count )
-	    set_len_arr.push_back( cnf_in_set_count );
+	    set_len_arr.push_back( cur_tasks_count );
 		all_tasks_count += cur_tasks_count;
 	}
-	
-	all_tasks_count = decomp_set_arr.size() * cur_tasks_count;
+	ofstream ofile("set_len_arr", ios_base::out);
+	for ( unsigned i=0; i < set_len_arr.size(); ++i )
+		ofile << i << " " << set_len_arr[i] << endl;
+	ofile.close();
 }
 
 bool MPI_Predicter :: IsPointInCheckedArea( boost::dynamic_bitset<> &point )
@@ -1925,12 +1915,11 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	}
 	
 	int cur_tasks_count;
-	int cur_var_count; // deep_predict_cur_var may be changed
 	unsigned cur_index;
 	boost::dynamic_bitset<> new_point;
 
-	if ( ( deep_predict == 6 ) && ( !IsFirstPoint ) )
-		deep_predict_cur_var = current_unchecked_area.center.count();
+	//if ( ( deep_predict == 6 ) && ( !IsFirstPoint ) )
+	//	deep_predict_cur_var = current_unchecked_area.center.count();
 	
 	if ( verbosity > 1 ) {
 		cout << "AllocateDeepArrays() done" << endl;
@@ -1943,7 +1932,6 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	vector<int> new_var_choose_order;
 	//sstream << "current point to check" << endl;
 	for ( unsigned i = 0; i < points_to_check; ++i ) { // several decomp sets
-		cur_var_count = deep_predict_cur_var; // in Hamming mode (deep_predict >= 3) count can be changed
 		if ( IsFirstPoint )
 			new_var_choose_order = var_choose_order;
 		else {
@@ -1962,13 +1950,11 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 				new_point = current_unchecked_area.center; // new point based on center point
 				new_point[cur_index] = ( current_unchecked_area.center[cur_index] == 1 ) ? 0 : 1;
 				new_var_choose_order = BitsetToIntVecPredict( new_point );
-				cur_var_count = new_var_choose_order.size();
 			}
 		}
 		
 		d_s.var_choose_order = new_var_choose_order;
 		d_s.cur_var_changing = cur_vars_changing;
-		d_s.set_var_count    = cur_var_count;
 		d_s.IsAddedToL2      = false;
 		decomp_set_arr.push_back( d_s ); // add new decomp set
 	} // for ( int i = 0; i < decomp_set_count; i++ )
@@ -2001,7 +1987,6 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	if ( verbosity > 0 )
 		cout << "AllocatePredictArrays() done " << endl;
 	
-	sstream << endl << "***deep_predict_cur_var " << deep_predict_cur_var << endl;
 	sstream << "total_decomp_set_count " << total_decomp_set_count << endl;
 	sstream << "global_deep_point_index " << global_deep_point_index << endl;
 	sstream << "must be checked " << decomp_set_arr.size() << " from " << points_to_check << endl;
