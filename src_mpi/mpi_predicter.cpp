@@ -46,7 +46,8 @@ MPI_Predicter :: MPI_Predicter( ) :
 	start_sample_variance_limit ( 0.000000001 ),
 	evaluation_type ( "time" ),
 	te ( 0 ),
-	er ( 1 )
+	er ( 1 ),
+	best_cnf_in_set_count ( 0 )
 { 
 	array_message = NULL;
 }
@@ -843,7 +844,8 @@ bool MPI_Predicter :: DeepPredictMain( )
 		    current_predict_start_time = MPI_Wtime( );
 		
 		current_time = MPI_Wtime( );
-		GetDeepPredictTasks( );
+		if ( !GetDeepPredictTasks() )
+		{ cerr << "Error in GetDeepPredictTasks" << endl; return false; }
 		if ( verbosity > 0 )
 			cout << " GetDeepPredictTasks() done" << endl;
 		whole_get_deep_tasks_time += MPI_Wtime( ) - current_time;
@@ -851,12 +853,11 @@ bool MPI_Predicter :: DeepPredictMain( )
 
 		current_time = MPI_Wtime( );
 		if ( !PrepareForPredict( ) )
-			{ cout << "Error in PrepareForPredict" << endl; return false; }
+			{ cerr << "Error in PrepareForPredict" << endl; return false; }
 		if ( verbosity > 0 )
 			cout << "PrepareForPredict() done" << endl;
 
 		if ( !ControlProcessPredict( ProcessListNumber++, sstream_control ) ) {
-			cout << endl << "Error in ControlProcessPredict" << endl;
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 
@@ -1125,23 +1126,23 @@ bool MPI_Predicter :: PrepareForPredict()
 	predict_time_arr.resize( decomp_set_arr.size() );
 	// array of partly predict times
 	predict_part_time_arr.resize( decomp_set_arr.size() );
-	// array of indexes of array of lengths of sets for modelling
-	set_index_arr.resize( decomp_set_arr.size() + 1 );
 	// array of CNF set status
 	set_status_arr.resize( decomp_set_arr.size() );
 	stopped_cnf_count_arr.resize( decomp_set_arr.size() );
 	skipped_cnf_count_arr.resize( decomp_set_arr.size() );
 	solved_cnf_count_arr.resize( decomp_set_arr.size() );
 
-	val = 0;
+	// array of indexes of array of lengths of sets for modelling
+	set_index_arr.resize( decomp_set_arr.size() + 1 );
 	set_index_arr[0] = 0;
+	val = 0;
 	// set_index_arr = array of CNF set indexes, it depends on set_len_arr
-	for( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
+	for( unsigned i = 0; i < decomp_set_arr.size(); ++i ) {
 		val += set_len_arr[i];
 		set_index_arr[i + 1] = val;
 	}
-
-	for( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
+	
+	for( unsigned i = 0; i < decomp_set_arr.size(); ++i ) {
 		set_status_arr[i]        = 0;
 		stopped_cnf_count_arr[i] = 0;
 		skipped_cnf_count_arr[i] = 0;
@@ -1254,7 +1255,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	var_activity_file << endl;
 	
 	graph_file << record_count << " " << best_var_num << " " << best_predict_time << " " << best_sum_time << " "
-		       << cnf_in_set_count << " " << last_predict_record_time << " " << current_predict_time;
+		       << best_cnf_in_set_count << " " << last_predict_record_time << " " << current_predict_time;
 	if ( deep_predict == 5 ) 
 		graph_file << " " << cur_temperature;
 
@@ -1412,7 +1413,8 @@ bool MPI_Predicter :: GetPredict()
 			cur_predict_time *= pow( 2, (double)cur_var_num );
 		}
 		else if ( te > 0 )
-			cur_predict_time = (double)cur_var_num / pow(med_time_arr[i],er);
+			cur_predict_time = (log(cur_var_num)/log(2)) / pow(med_time_arr[i],er);
+			//cur_predict_time = (double)cur_var_num / pow(med_time_arr[i],er);
 			//cur_predict_time = pow( 2, (double)cur_var_num ) / pow(med_time_arr[i],er);
 		
 		predict_time_arr[i] = cur_predict_time;
@@ -1430,6 +1432,7 @@ bool MPI_Predicter :: GetPredict()
 			IsRecordUpdated = true;
 			best_predict_time = predict_time_arr[i];
 			best_sum_time     = sum_time_arr[i];
+			best_cnf_in_set_count = cur_cnf_in_set_count;
 			
 			if ( deep_predict ) // Write info about new point in deep mode
 				NewRecordPoint( i );
@@ -1723,10 +1726,11 @@ void MPI_Predicter :: GetNewHammingPoint( vector<int> var_choose_order, int cur_
 }
 */
 
-void MPI_Predicter :: AllocatePredictArrays( int &cur_tasks_count )
+void MPI_Predicter :: AllocatePredictArrays()
 {
 	all_tasks_count = 0;
 	unsigned uint;
+	int cur_tasks_count;
 	// array of random set lengths 
 	set_len_arr.clear();
 	for ( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
@@ -1739,10 +1743,10 @@ void MPI_Predicter :: AllocatePredictArrays( int &cur_tasks_count )
 	    set_len_arr.push_back( cur_tasks_count );
 		all_tasks_count += cur_tasks_count;
 	}
-	ofstream ofile("set_len_arr", ios_base::out);
+	/*ofstream ofile("set_len_arr", ios_base::out);
 	for ( unsigned i=0; i < set_len_arr.size(); ++i )
 		ofile << i << " " << set_len_arr[i] << endl;
-	ofile.close();
+	ofile.close();*/
 }
 
 bool MPI_Predicter :: IsPointInCheckedArea( boost::dynamic_bitset<> &point )
@@ -1914,7 +1918,6 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 		points_to_check = total_decomp_set_count - global_deep_point_index; // how many points to check
 	}
 	
-	int cur_tasks_count;
 	unsigned cur_index;
 	boost::dynamic_bitset<> new_point;
 
@@ -1982,7 +1985,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	global_skipped_points_count += current_skipped;
 
 	// Common for all procedures of getting deep tasks
-	AllocatePredictArrays( cur_tasks_count );
+	AllocatePredictArrays();
 
 	if ( verbosity > 0 )
 		cout << "AllocatePredictArrays() done " << endl;

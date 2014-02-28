@@ -115,7 +115,7 @@ public:
 	bool IsPointInUnCheckedArea( boost::dynamic_bitset<> &point );
 	void AddNewUncheckedArea( boost::dynamic_bitset<> &point, stringstream &sstream );
 	
-	void AllocatePredictArrays( int &cur_tasks_count );
+	void AllocatePredictArrays();
 	/*void ChangeVarChooseOrder( vector<int> var_choose_order, unsigned cur_vars_changing, 
 		                       unsigned current_var_count, vector<int> &new_var_choose_order );
 	void GetNewHammingPoint( vector<int> var_choose_order, int change_var_count, int &current_var_count, 
@@ -146,6 +146,7 @@ private:
 	int best_var_num;
 	double best_predict_time;
 	double best_sum_time;
+	int best_cnf_in_set_count;
 	int *array_message; // for sending via MPI
 	unsigned array_message_size;
 	
