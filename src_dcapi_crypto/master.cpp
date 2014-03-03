@@ -291,6 +291,9 @@ bool do_work( vector<int> &wu_id_vec )
 	long long int wus_for_creation_count = 0;
 	
 	ParseConfigFile( config_p, cnf_head, config_sstream );
+	bool isRangeMode = false;
+	if ( config_p.data_file == "no" )
+		isRangeMode = true;
 	bool IsLastGenerating = false;
 	
 	/*if ( IsTasksFile ) // get problems_in_wu assumptions for every task
@@ -372,8 +375,9 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	bool IsAddingWUneeded;
 	bool IsFastExit = false;
 	unsigned new_created_wus = 0;
-	string str;
+	string str, word1;
 	ifstream ifile;
+	vector<int> var_choose_order;
 	
 	// read header data once - it's common for every wu
 	ifile.open( config_p.settings_file.c_str() ); // write common head to every wu
@@ -385,63 +389,73 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	//cout << "header:" << endl;
 	unsigned header_str_count = 0;
 	while ( getline( ifile, str ) ) {
+		sstream << str;
+		sstream >> word1;
+		if ( word1 == "var_set" ) {
+			while ( sstream >> val )
+				var_choose_order.push_back( val );
+			sstream.clear(); sstream.str("");
+			sort( var_choose_order.begin(), var_choose_order.end() );
+		}
 		header_sstream << str << endl;
 		header_str_count++;
 		//cout << str << endl;
 	}
 	ifile.close();
 	cout << "header_str_count " << header_str_count << endl;
-	
-	// count blocks of data in file
 	short int si;
 	unsigned long long ul;
-	if ( !assumptions_count ) {
-		ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
-		if ( !ifile.is_open() ) {
-			cerr << "!ifile.is_open() " << config_p.data_file << endl;
-			exit(1);
+	
+	if ( isRangeMode ) {
+		cout << "isRangeMode" << endl;
+		assumptions_count = shl64( assumptions_count, var_choose_order.size() );
+		cout << "var_choose_order.size() " << var_choose_order.size() << endl;
+		cout << "assumptions_count " << endl;
+	}
+	else {
+		// count blocks of data in file
+		if ( !assumptions_count ) {
+			ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
+			if ( !ifile.is_open() ) {
+				cerr << "!ifile.is_open() " << config_p.data_file << endl;
+				exit(1);
+			}
+			cout << "file " << config_p.data_file << " opened" << endl;
+			/*ifile.read( (char*)&si, sizeof(si) ); // read header
+			while ( ifile.read( (char*)&ul, sizeof(ul) ) ) {
+				assumptions_count++;
+				if ( assumptions_count % 10000000 == 0 )
+					cout << assumptions_count << " time " << cpuTime() - assumption_counting_start_time << " s" << endl;
+			}*/
+			ifile.seekg( 0, ifile.end );
+			long long int total_byte_length = ifile.tellg();
+			ifile.close();
+			assumptions_count = (total_byte_length - 2) / sizeof(ul); // skip 2 byte of prefix 
+			cout << "assumptions_count:" << endl;
+			cout << assumptions_count << " time " << endl;
+			ifile.close();
 		}
-		cout << "file " << config_p.data_file << " opened" << endl;
-		/*ifile.read( (char*)&si, sizeof(si) ); // read header
-		while ( ifile.read( (char*)&ul, sizeof(ul) ) ) {
-			assumptions_count++;
-			if ( assumptions_count % 10000000 == 0 )
-				cout << assumptions_count << " time " << cpuTime() - assumption_counting_start_time << " s" << endl;
-		}*/
-		ifile.seekg( 0, ifile.end );
-		long long int total_byte_length = ifile.tellg();
-		ifile.close();
-		assumptions_count = (total_byte_length - 2) / sizeof(ul); // skip 2 byte of prefix 
-		cout << "assumptions_count:" << endl;
-		cout << assumptions_count << " time " << endl;
-		ifile.close();
+	
+		long long int values_index = config_p.created_wus * config_p.problems_in_wu;
+		cout << "values_index "        << values_index         << endl;
+		
+		ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
+		ifile.read( (char*)&si, sizeof(si) );
+		// skip already sended values
+		if ( values_index > 0 ) {
+			long long int skipped_byte = 2 + values_index;
+			ifile.clear();
+			ifile.seekg( 2 + values_index, ifile.beg );
+			cout << "skipped_byte " << skipped_byte << endl;
+		}
 	}
 	
-	long long int total_wu_data_count = ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
-	long long int values_index = config_p.created_wus * config_p.problems_in_wu;
-	cout << "created_wus "          << config_p.created_wus << endl;
+	cout << "created_wus "         << config_p.created_wus << endl;
 	cout << "total_wu_data_count " << total_wu_data_count  << endl;
-	cout << "values_index "        << values_index         << endl;
-
+	long long int total_wu_data_count = ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
 	if ( total_wu_data_count > config_p.total_wus )
 		total_wu_data_count = config_p.total_wus;
 	cout << "total_wu_data_count changed to " << total_wu_data_count << endl;
-	
-	ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
-	ifile.read( (char*)&si, sizeof(si) );
-	// skip already sended values
-	if ( values_index > 0 ) {
-		long long int skipped_byte = 2 + values_index;
-		ifile.clear();
-		ifile.seekg( 2 + values_index, ifile.beg );
-		cout << "skipped_byte " << skipped_byte << endl;
-		/*while ( skipped < values_index ) {
-			ifile.read( (char*)&ul, sizeof(ul) );
-			skipped++;
-			if ( skipped % 10000000 == 0 )
-				cout << skipped << endl;
-		}*/
-	}
 	
 	for( int wu_index = config_p.created_wus; wu_index < config_p.created_wus + wus_for_creation_count; wu_index++ ) {
 		if ( IsFastExit )
@@ -454,26 +468,34 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 			exit(1);
 		}
 		output << header_sstream.str();
-		output.close();
 		
-		output.open( "wu-input.txt", ios_base::out | ios_base::app | ios_base::binary );
-		output.write( (char*)&si, sizeof(si) ); // write first 2 symbols
-		IsAddingWUneeded = false; // if no values will be added then WU not needed
-		for ( int i = 0; i < config_p.problems_in_wu; i++ ) {
-			if ( values_index >= assumptions_count ) {
-				cout << "in create_wus() last data was added to WU" << endl;
-				cout << "values_index " << values_index << endl;
-				IsFastExit = true; // add last values to WU and exit
-				IsLastGenerating = true; // tell to high-level function about ending of generation
-				break;
+		if ( isRangeMode )
+			if ( header_sstream.str().find( "before_range" ) == string::npos )
+				output << "before_range" << endl;
+			output << wu_index*problems_in_wu << " " << (wu_index+1)*problems_in_wu - 1 << endl;
+		else {
+			if ( header_sstream.str().find( "before_assignments" ) == string::npos )
+				output << "before_assignments" << endl;
+			output.close();
+			output.open( "wu-input.txt", ios_base::out | ios_base::app | ios_base::binary );
+			output.write( (char*)&si, sizeof(si) ); // write first 2 symbols
+			IsAddingWUneeded = false; // if no values will be added then WU not needed
+			for ( int i = 0; i < config_p.problems_in_wu; i++ ) {
+				if ( values_index >= assumptions_count ) {
+					cout << "in create_wus() last data was added to WU" << endl;
+					cout << "values_index " << values_index << endl;
+					IsFastExit = true; // add last values to WU and exit
+					IsLastGenerating = true; // tell to high-level function about ending of generation
+					break;
+				}
+				ifile.read( (char*)&ul, sizeof(ul) );
+				output.write( (char*)&ul, sizeof(ul) );
+				values_index++;
+				IsAddingWUneeded = true;
 			}
-			ifile.read( (char*)&ul, sizeof(ul) );
-			output.write( (char*)&ul, sizeof(ul) );
-			values_index++;
-			IsAddingWUneeded = true;
 		}
 		output.close();
-		
+	
 		if ( !IsAddingWUneeded ) {
 			cout << "IsAddingWUneeded true" << endl;
 			break; // don't create new WU

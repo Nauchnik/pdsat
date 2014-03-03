@@ -100,6 +100,8 @@ bool do_work( string &input_path, string &current_result_str )
 	MPI_Base mpi_b;
 	stringstream sstream;
 	string str_tmp;
+	bool isRangeMode = false;
+	unsigned long long range1 = 0, range2 = 0;
 	
 	// read var_choose_order and assignments from file in text mode
 	string problem_type, str, word1;
@@ -110,6 +112,18 @@ bool do_work( string &input_path, string &current_result_str )
 	while ( getline( ifile, str ) ) {
 		if ( str == "before_assignments")
 			break;
+		if ( str == "before_range" ) {
+			isRangeMode = true;
+			getline( ifile, str );
+			sstream << str;
+			sstream >> range1 >> range2;
+			if ( range2 < range1 ) {
+				cerr << "range2 < range1" << endl;
+				return false;
+			}
+			fprintf( stderr, "range1 %llu range2 %llu ", range1, range2 );
+			break;
+		}
 		sstream << str;
 		sstream >> word1;
 		if ( word1 == "var_set" ) {
@@ -154,66 +168,89 @@ bool do_work( string &input_path, string &current_result_str )
 	for( unsigned i = 0; i < cnf.size(); ++i )
 		delete cnf[i];
 	cnf.clear();
-	
-	// find size of text block before bynary block
-	ifile.open( input_path.c_str(), ios_base :: in | ios_base :: binary );
-	ifile.seekg (0, ifile.end);
-    int length = ifile.tellg();
-	if ( length <= 0 ) {
-		fprintf( stderr, " length of buffer is %d ", length );
-		return false;
-	}
-    ifile.seekg (0, ifile.beg);
-	char *buffer = new char[length + 1];
-	buffer[length] = '\0';
-	ifile.read( buffer, length ); // read text data as a block:
-	char *result = strstr( buffer, "before_assignments" );
-	int before_binary_length = -1;
-	if ( result ) {
-		while ( !isNumber( result[0] ) )
-			result++;
-		before_binary_length = result - buffer;
-	}
-	delete[] buffer;
-	if ( before_binary_length <= 0 ) {
-		fprintf( stderr, "before_binary_length <= 0");
-		return false;
-	}
-	ifile.close();
-
-	fprintf( stderr, " size of before_binary_length %d", before_binary_length );
-	
-	// make vector of assunptions basing on bunary data
-	ifile.open( input_path.c_str(), ios_base :: in | ios_base :: binary );
-	buffer = new char[before_binary_length + 1];
-	buffer[before_binary_length] = '\0';
-	ifile.read( buffer, before_binary_length );
-	delete[] buffer;
-	short int si;
-	unsigned long long ul;
-	ifile.read( (char*)&si, sizeof(si) ); // read header
-	fprintf( stderr, " binary prefix %d", si );
-	mpi_b.assumptions_count = 0;
-	/*while ( ifile.read( (char*)&ul, sizeof(ul) ) )
-		mpi_b.assumptions_count++;*/
-	ifile.clear();
-	ifile.seekg( 0, ifile.end );
-    long long int total_byte_length = ifile.tellg();
-	ifile.close();
-	mpi_b.assumptions_count = (total_byte_length - before_binary_length - 2) / sizeof(ul);
-	fprintf( stderr, " mpi_b.assumptions_count %d", mpi_b.assumptions_count );
-	mpi_b.known_assumptions_file_name = input_path;
-	mpi_b.all_tasks_count = 1;
 	vec< vec<Lit> > dummy_vec;
-	int current_task_index = 0;
-	if ( !mpi_b.MakeAssignsFromFile( current_task_index, before_binary_length, dummy_vec ) ) {
-		cerr << "MakeAssignsFromFile()";
-		return false;
-	}
-	fprintf( stderr, " vector of assumptions was made " );
-
-	// add to assumptions vectors known data (initially it's oneliteral clauses)
+	
 	int cur_var_ind;
+	if ( isRangeMode ) { // read range of values and made assumptions
+		fprintf( stderr, "start of range mode " );
+		boost::dynamic_bitset<> d_b;
+		d_b.resize( mpi_b.var_choose_order.size() );
+		unsigned k=0;
+		dummy_vec.resize( range2-range1 );
+		for( unsigned long long i=range1; i < range2; ++i ) {
+			UllongToBitset( i, d_b );
+			if ( d_b.size() > mpi_b.var_choose_order.size() ) {
+				fprintf( stderr, "d_b.size() > mpi_b.var_choose_order.size()" );
+				return false;
+			}
+			for ( unsigned j=0; j < d_b.size(); ++j ) {
+				cur_var_ind = mpi_b.var_choose_order[j] - 1;
+				if ( d_b[j] == 1 )
+					dummy_vec[k].push( mkLit( cur_var_ind ) );
+				else 
+					dummy_vec[k].push( ~mkLit( cur_var_ind ) );
+			}
+			k++;
+		}
+		fprintf( stderr, "dummy_vec.size() %d ", dummy_vec.size() );
+	}
+	else {
+		// find size of text block before bynary block
+		ifile.open( input_path.c_str(), ios_base :: in | ios_base :: binary );
+		ifile.seekg (0, ifile.end);
+		int length = ifile.tellg();
+		if ( length <= 0 ) {
+			fprintf( stderr, " length of buffer is %d ", length );
+			return false;
+		}
+		ifile.seekg (0, ifile.beg);
+		char *buffer = new char[length + 1];
+		buffer[length] = '\0';
+		ifile.read( buffer, length ); // read text data as a block:
+		char *result = strstr( buffer, "before_assignments" );
+		int before_binary_length = -1;
+		if ( result ) {
+			while ( !isNumber( result[0] ) )
+				result++;
+			before_binary_length = result - buffer;
+		}
+		delete[] buffer;
+		if ( before_binary_length <= 0 ) {
+			fprintf( stderr, "before_binary_length <= 0");
+			return false;
+		}
+		ifile.close();
+		fprintf( stderr, " size of before_binary_length %d", before_binary_length );
+		// make vector of assunptions basing on bunary data
+		ifile.open( input_path.c_str(), ios_base :: in | ios_base :: binary );
+		buffer = new char[before_binary_length + 1];
+		buffer[before_binary_length] = '\0';
+		ifile.read( buffer, before_binary_length );
+		delete[] buffer;
+		short int si;
+		unsigned long long ul;
+		ifile.read( (char*)&si, sizeof(si) ); // read header
+		fprintf( stderr, " binary prefix %d", si );
+		mpi_b.assumptions_count = 0;
+		/*while ( ifile.read( (char*)&ul, sizeof(ul) ) )
+			mpi_b.assumptions_count++;*/
+		ifile.clear();
+		ifile.seekg( 0, ifile.end );
+		long long int total_byte_length = ifile.tellg();
+		ifile.close();
+		mpi_b.assumptions_count = (total_byte_length - before_binary_length - 2) / sizeof(ul);
+		fprintf( stderr, " mpi_b.assumptions_count %d", mpi_b.assumptions_count );
+		mpi_b.known_assumptions_file_name = input_path;
+		mpi_b.all_tasks_count = 1;
+		int current_task_index = 0;
+		if ( !mpi_b.MakeAssignsFromFile( current_task_index, before_binary_length, dummy_vec ) ) {
+			cerr << "MakeAssignsFromFile()";
+			return false;
+		}
+		fprintf( stderr, " vector of assumptions was made " );
+	}
+	
+	// add to assumptions vectors known data (initially in oneliteral clauses)
 	for ( unsigned i=0; i < var_values_vec.size(); ++i ) {
 		cur_var_ind = abs( var_values_vec[i] ) - 1;
 		if ( var_values_vec[i] > 0 )
@@ -223,6 +260,7 @@ bool do_work( string &input_path, string &current_result_str )
 			for ( int j=0; j < dummy_vec.size(); ++j )
 				dummy_vec[j].push( ~mkLit( cur_var_ind ) );
 	}
+	fprintf( stderr, "dummy_vec completed " );
 	
 	double time_last_checkpoint = Minisat :: cpuTime();
 	double current_time = 0;
@@ -251,7 +289,12 @@ bool do_work( string &input_path, string &current_result_str )
 	
 	for ( int i = last_iteration_done; i < dummy_vec.size(); ++i ) {
 		S->last_time = Minisat :: cpuTime();
+		/*fprintf( stderr, "\n S->solveLimited() start " );
+		for ( unsigned j=0; j < dummy_vec[i].size(); ++j )
+			fprintf( stderr, "%d ", dummy_vec[i][j].x);
+		fprintf( stderr, "\n" );*/
 		ret = S->solveLimited( dummy_vec[i] );
+		//fprintf( stderr, "\n S->solveLimited() done " );
 		one_solving_time = Minisat :: cpuTime() - S->last_time;
 		if ( max_solving_time < one_solving_time )
 			max_solving_time = one_solving_time;
