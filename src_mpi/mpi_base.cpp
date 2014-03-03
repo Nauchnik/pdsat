@@ -182,15 +182,6 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 		values_passed++;
 	}*/
 	
-	if ( verbosity > 0 ) {
-		cout << "current_task_index "      << current_task_index << endl;
-		cout << "all_tasks_count "         << all_tasks_count << endl;
-		cout << "previous_problems_count " << previous_problems_count << endl;
-		cout << "assumptions_count "       << assumptions_count << endl;
-		cout << "basic_batch_size "        << basic_batch_size  << endl;
-		cout << "cur_batch_size "          << cur_batch_size << endl;
-	}
-	
 	// reading values from file
 	dummy_vec.resize( cur_batch_size );
 	boost::dynamic_bitset<> d_bitset;
@@ -198,11 +189,27 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 	int cur_var_ind;
 	unsigned long long ul;
 	int byte_count = before_binary_length + 2 + sizeof(ul)*previous_problems_count;
+	stringstream sstream_info;
+	sstream_info << "current_task_index "      << current_task_index << endl;
+	sstream_info << "all_tasks_count "         << all_tasks_count << endl;
+	sstream_info << "previous_problems_count " << previous_problems_count << endl;
+	sstream_info << "assumptions_count "       << assumptions_count << endl;
+	sstream_info << "basic_batch_size "        << basic_batch_size  << endl;
+	sstream_info << "cur_batch_size "          << cur_batch_size << endl;
+	sstream_info << "byte_count "              << byte_count << endl;
+	if ( verbosity > 0 )
+		cout << sstream_info.str() << endl;
 	ifile.clear();
 	ifile.seekg( byte_count, ifile.beg ); // skip some bytes
+	if ( ifile.fail() || ifile.eof() ) {
+		cerr << "Error. ifile.fail() || ifile.eof()" << endl;
+		cerr << sstream_info.str();
+		return false;
+	}
 	for ( int i=0; i < cur_batch_size; ++i ) {
 		if ( !(ifile.read( (char*)&ul, sizeof(ul) ) ) ) {
 			cerr << "Error. !ifile.read( (char*)&ul, sizeof(ul) )" << endl;
+			cerr << sstream_info.str();
 			return false;
 		}
 		UllongToBitset( ul, d_bitset );

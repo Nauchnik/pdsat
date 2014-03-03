@@ -1413,7 +1413,8 @@ bool MPI_Predicter :: GetPredict()
 			cur_predict_time *= pow( 2, (double)cur_var_num );
 		}
 		else if ( te > 0 )
-			cur_predict_time = (log(cur_var_num)/log(2)) / pow(med_time_arr[i],er);
+			cur_predict_time = (log(cur_var_num)/log(10)) / pow(med_time_arr[i],er);
+			//cur_predict_time = (log(cur_var_num)/log(2)) / pow(med_time_arr[i],er);
 			//cur_predict_time = (double)cur_var_num / pow(med_time_arr[i],er);
 			//cur_predict_time = pow( 2, (double)cur_var_num ) / pow(med_time_arr[i],er);
 		
