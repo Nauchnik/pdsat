@@ -23,8 +23,10 @@
 #include <cmath>
 
 #include "../src_common/common.h"
+#include "../src_common/addit_func.h"
 
 using namespace std;
+using namespace Addit_func;
 
 const int MIN_WUS_FOR_CREATION = 100;
 
@@ -41,7 +43,8 @@ char *pass_file_name = NULL;
 bool IsTasksFile;
 string prev_path;
 
-long long int assumptions_count = 0;
+unsigned long long assumptions_count = 0;
+bool isRangeMode = false;
 
 // Command line options
 
@@ -291,7 +294,6 @@ bool do_work( vector<int> &wu_id_vec )
 	long long int wus_for_creation_count = 0;
 	
 	ParseConfigFile( config_p, cnf_head, config_sstream );
-	bool isRangeMode = false;
 	if ( config_p.data_file == "no" )
 		isRangeMode = true;
 	bool IsLastGenerating = false;
@@ -347,7 +349,7 @@ bool do_work( vector<int> &wu_id_vec )
 			}
 			
 			if ( !IsLastGenerating )
-				sleep( 600 ); // wait
+				sleep( 1800 ); // wait
 		}
 	//}
 	
@@ -378,6 +380,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	string str, word1;
 	ifstream ifile;
 	vector<int> var_choose_order;
+	unsigned long long values_index;
 	
 	// read header data once - it's common for every wu
 	ifile.open( config_p.settings_file.c_str() ); // write common head to every wu
@@ -392,10 +395,10 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 		sstream << str;
 		sstream >> word1;
 		if ( word1 == "var_set" ) {
+			int val;
 			while ( sstream >> val )
 				var_choose_order.push_back( val );
 			sstream.clear(); sstream.str("");
-			sort( var_choose_order.begin(), var_choose_order.end() );
 		}
 		header_sstream << str << endl;
 		header_str_count++;
@@ -408,7 +411,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	
 	if ( isRangeMode ) {
 		cout << "isRangeMode" << endl;
-		assumptions_count = shl64( assumptions_count, var_choose_order.size() );
+		shl64( assumptions_count, var_choose_order.size() );
 		cout << "var_choose_order.size() " << var_choose_order.size() << endl;
 		cout << "assumptions_count " << endl;
 	}
@@ -435,9 +438,9 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 			cout << assumptions_count << " time " << endl;
 			ifile.close();
 		}
-	
-		long long int values_index = config_p.created_wus * config_p.problems_in_wu;
-		cout << "values_index "        << values_index         << endl;
+		
+		values_index = config_p.created_wus * config_p.problems_in_wu;
+		cout << "values_index " << values_index << endl;
 		
 		ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
 		ifile.read( (char*)&si, sizeof(si) );
@@ -451,8 +454,8 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	}
 	
 	cout << "created_wus "         << config_p.created_wus << endl;
-	cout << "total_wu_data_count " << total_wu_data_count  << endl;
 	long long int total_wu_data_count = ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
+	cout << "total_wu_data_count " << total_wu_data_count  << endl;
 	if ( total_wu_data_count > config_p.total_wus )
 		total_wu_data_count = config_p.total_wus;
 	cout << "total_wu_data_count changed to " << total_wu_data_count << endl;
@@ -469,10 +472,11 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 		}
 		output << header_sstream.str();
 		
-		if ( isRangeMode )
+		if ( isRangeMode ) {
 			if ( header_sstream.str().find( "before_range" ) == string::npos )
 				output << "before_range" << endl;
-			output << wu_index*problems_in_wu << " " << (wu_index+1)*problems_in_wu - 1 << endl;
+			output << wu_index*config_p.problems_in_wu << " " << (wu_index+1)*config_p.problems_in_wu - 1 << endl;
+		}
 		else {
 			if ( header_sstream.str().find( "before_assignments" ) == string::npos )
 				output << "before_assignments" << endl;

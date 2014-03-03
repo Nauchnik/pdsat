@@ -125,7 +125,7 @@ bool MPI_Base :: GetMainMasksFromVarChoose( vector<int> &var_choose_order )
 	return true;
 }
 
-bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_length, vec< vec<Lit> > &dummy_vec )
+bool MPI_Base :: MakeAssignsFromFile( unsigned long long current_task_index, unsigned long long before_binary_length, vec< vec<Lit> > &dummy_vec )
 {
 	if ( verbosity > 0 )
 		cout << "MakeAssignsFromFile()" << endl;
@@ -143,7 +143,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 	if ( current_task_index < (int)batch_addit_size_count )
 		cur_batch_size++;
 	// skip unuseful strings
-	int previous_problems_count = current_task_index*basic_batch_size;
+	unsigned long long previous_problems_count = current_task_index*basic_batch_size;
 	if ( current_task_index < (int)batch_addit_size_count )
 		previous_problems_count += current_task_index; // add some 1 to sum
 	else
@@ -188,7 +188,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, int before_binary_
 	d_bitset.resize( var_choose_order.size() );
 	int cur_var_ind;
 	unsigned long long ul;
-	int byte_count = before_binary_length + 2 + sizeof(ul)*previous_problems_count;
+	unsigned long long byte_count = before_binary_length + 2 + sizeof(ul)*previous_problems_count;
 	stringstream sstream_info;
 	sstream_info << "current_task_index "      << current_task_index << endl;
 	sstream_info << "all_tasks_count "         << all_tasks_count << endl;

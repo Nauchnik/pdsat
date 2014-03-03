@@ -4,7 +4,7 @@
 
 #include "mpi_base.h"
 
-const int	 MAX_STEP_CNF_IN_SET		   = 30;
+const unsigned MAX_STEP_CNF_IN_SET		   = 30;
 
 const int    MAX_WORD_LENGTH			   = 64;
 const int    MAX_LINE_LENGTH               = 524288;

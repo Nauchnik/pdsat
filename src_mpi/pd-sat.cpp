@@ -566,7 +566,6 @@ void TestSolve()
 	mpi_s.solver_type = 4;
 	mpi_s.ReadIntCNF();
 	mpi_s.MakeVarChoose();
-	double cnf_time_from_node;
 	int current_task_index = 0;
 	
 	for ( unsigned i=0; i < FULL_MASK_LEN; i++ )

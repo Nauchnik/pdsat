@@ -221,11 +221,12 @@ void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, doubl
 	}
 }
 
-bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_time_from_node, int current_task_index )
+bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count, 
+							  double &cnf_time_from_node, unsigned long long current_task_index )
 {
 	if ( verbosity > 1 )
 		cout << "start SolverRun()" << endl;
-
+	
 	process_sat_count = 0;
 	vec< vec<Lit> > dummy_vec;
 	lbool ret;
@@ -249,7 +250,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, int &process_sat_count, double &cnf_ti
 	vector< boost::dynamic_bitset<> > vec_bitset;
 	boost::dynamic_bitset<> cur_bitset;
 	
-	int before_binary_length = 0;
+	unsigned long long before_binary_length = 0;
 	if ( solver_type == 4 ) {
 		if ( assumptions_count ) // if assumptions in file 
 			MakeAssignsFromFile( current_task_index, before_binary_length, dummy_vec );
@@ -461,7 +462,6 @@ bool MPI_Solver :: ControlProcessSolve( )
 	}
 	
 	ifstream known_assumptions_file( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
-	unsigned long long ul;
 	if ( known_assumptions_file.is_open() ) {
 		char *cc = new char[3];
 		cc[2] = '\0';
@@ -484,6 +484,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 		known_assumptions_file.clear();
 		known_assumptions_file.seekg( 0, known_assumptions_file.end );
 		unsigned long long byte_length = known_assumptions_file.tellg();
+		unsigned long long ul = 0;
 		assumptions_count = (byte_length - 2)/sizeof(ul); // 2 is prefix length
 		known_assumptions_file.close();
 		cout << "assumptions_count " << assumptions_count << endl;
@@ -540,7 +541,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 	
-	values_arr.resize( all_tasks_count );
+	values_arr.resize( (unsigned)all_tasks_count );
 	for ( unsigned i = 0; i < values_arr.size(); ++i )
 		values_arr[i].resize( FULL_MASK_LEN );
 	
@@ -640,11 +641,10 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	Solver *S;
 	MPI_Status status;
 	stringstream sstream;
-	int current_task_index;
-	int process_sat_count = 0;
+	unsigned long long current_task_index;
+	unsigned long long process_sat_count = 0;
 	double cnf_time_from_node = 0.0;
 	bool IsFirstTaskRecieved;
-	int val;
 	string solving_info_file_name;
 	string str;
 	ifstream infile;
@@ -770,7 +770,7 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 	vector<string> cnf_files;
 	fstream out_file;
 	int current_obj_val = -1;
-	int process_sat_count= 0;
+	unsigned long long process_sat_count= 0;
 	double cnf_time_from_node;
 	//PBSolver_cut pbs_cut;
 	stringstream solve_sstream;

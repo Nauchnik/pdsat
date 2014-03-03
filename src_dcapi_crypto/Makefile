@@ -1,7 +1,8 @@
 CPP = g++
 BOOST = ../../
 MYSQL = /usr/include/mysql
-INCDIRS  = -I${MYSQL} -I${BOOST}
+COMMON = ../src_common/
+INCDIRS  = -I${MYSQL} -I${BOOST} -I${COMMON}
 
 CPP_DEBUG_FLAGS = -O0 -DDEBUG_ALL -g ${INCDIRS}
 CPP_RELEASE_FLAGS = -O2 -D NDEBUG -D __STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS ${INCDIRS} 
@@ -16,11 +17,14 @@ release: pdsat-crypto-master
 debug: CPPFLAGS = $(CPP_DEBUG_FLAGS)
 debug: pdsat-crypto-master
 
-pdsat-crypto-master: master.o
-	${CPP} ${CPPFLAGS} master.o -o pdsat-crypto-master ${DCAPI_MASTER_LIBS} ${DCAPI_MASTER_FLAGS}
-	
+pdsat-crypto-master: master.o addit_func.o
+	${CPP} ${CPPFLAGS} master.o addit_func.o -o pdsat-crypto-master ${DCAPI_MASTER_LIBS} ${DCAPI_MASTER_FLAGS}
+
 master.o: master.cpp
 	${CPP} ${CPPFLAGS} master.cpp -c
+
+addit_func.o: ../src_common/addit_func.cpp
+	${CPP} ${CPPFLAGS} ../src_common/addit_func.cpp -cb
 	
 clean:
 	rm -fr *.o

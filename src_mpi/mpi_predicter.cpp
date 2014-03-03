@@ -1325,7 +1325,6 @@ bool MPI_Predicter :: GetPredict()
 	double cur_predict_time = 0.0,
 		   cur_sum_part_time = 0.0,
 		   cur_med_part_time = 0.0,
-		   tmp_time,
 		   time1 = 0,
 		   cur_cnf_time = 0;
 	unsigned long long temp_llint = 0;

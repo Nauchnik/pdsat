@@ -41,8 +41,8 @@ public:
 	void WriteSolvingTimeInfo( double *solving_times, unsigned solved_tasks_count );
 	void AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
    	                            double *solving_times );
-	bool SolverRun( Solver *&S, int &process_sat_count, double &cnf_time_from_node, 
-				    int current_task_index );
+	bool SolverRun( Solver *&S, unsigned long long &process_sat_count, double &cnf_time_from_node, 
+				    unsigned long long current_task_index );
 };
 
 #endif
