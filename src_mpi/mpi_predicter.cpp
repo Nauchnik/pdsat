@@ -1368,7 +1368,7 @@ bool MPI_Predicter :: GetPredict()
 		else // if !deep_predict
 			cur_var_num = predict_to - i;
 		
-		if ( ( cur_var_num <= MAX_STEP_CNF_IN_SET ) && ( solved_in_sample_count > ( 1 << cur_var_num ) ) ) {
+		if ( ( cur_var_num <= MAX_STEP_CNF_IN_SET ) && ( solved_in_sample_count > (unsigned)( 1 << cur_var_num ) ) ) {
 			cerr << "solved_in_sample_count > ( 1 << cur_var_num )" << endl;
 			cerr << solved_in_sample_count << " > " << ( 1 << cur_var_num ) << endl;
 			return false;
