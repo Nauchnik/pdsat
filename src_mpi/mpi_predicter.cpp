@@ -1009,7 +1009,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			MPI_Send( full_local_decomp_set, core_len, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 		}
 		delete[] full_local_decomp_set;
-
+		
 		array_message = NULL;
 		
 		cout << "verbosity "     << verbosity           << endl;

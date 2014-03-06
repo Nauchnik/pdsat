@@ -527,9 +527,9 @@ bool MPI_Solver :: ControlProcessSolve( )
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 
-	if ( ( assumptions_count ) && ( assumptions_count < all_tasks_count ) ) {
+	if ( ( assumptions_count ) && ( (unsigned long long)all_tasks_count > assumptions_count ) ) {
 		cout << "solving_iteration_count < all_tasks_count" << endl;
-		all_tasks_count = assumptions_count;
+		all_tasks_count = (unsigned)assumptions_count;
 		cout << "all_tasks_count changed to " << assumptions_count << endl;
 	}
 	
@@ -542,7 +542,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 	
-	values_arr.resize( (unsigned)all_tasks_count );
+	values_arr.resize( all_tasks_count );
 	for ( unsigned i = 0; i < values_arr.size(); ++i )
 		values_arr[i].resize( FULL_MASK_LEN );
 	
@@ -576,7 +576,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 	}
 	delete[] var_choose_order_int;
 	
-	unsigned next_task_index = 0;
+	int next_task_index = 0;
 	
 	unsigned start_tasks_count = min( corecount - 1, (int)all_tasks_count );
 	cout << "start_tasks_count " << start_tasks_count << endl;
@@ -621,7 +621,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 		if ( sat_count && !IsSolveAll )
 			break; // exit if SAT set found
 		
-		if ( next_task_index < all_tasks_count ) {
+		if ( next_task_index < (int)all_tasks_count ) {
 			// send new index of task
 			MPI_Send( &next_task_index, 1, MPI_INT, current_status.MPI_SOURCE, solving_iteration_count, MPI_COMM_WORLD );
 			if ( assumptions_count == 0 ) {
@@ -643,7 +643,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	Solver *S;
 	MPI_Status status;
 	stringstream sstream;
-	unsigned long long current_task_index;
+	int current_task_index;
 	unsigned long long process_sat_count = 0;
 	double cnf_time_from_node = 0.0;
 	bool IsFirstTaskRecieved;
@@ -671,7 +671,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		assumptions_count = 0;
 		var_choose_order_int = new int[MAX_ASSIGNS_COUNT];
 		MPI_Recv( &core_len,                 1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
-		MPI_Recv( &all_tasks_count,          1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( &all_tasks_count,          1, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &assumptions_count,        1, MPI_UNSIGNED_LONG_LONG, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &solving_iteration_count,  1, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &max_solving_time,         1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
