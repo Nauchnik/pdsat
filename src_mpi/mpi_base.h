@@ -122,7 +122,7 @@ public:
 							   unsigned *part_mask, 
 						       unsigned *value, 
 							   vec< vec<Lit> > &dummy_vec );
-	bool MakeAssignsFromFile( unsigned long long current_task_index, unsigned long long before_binary_length, vec< vec<Lit> > &dummy_vec );
+	bool MakeAssignsFromFile( int current_task_index, unsigned long long before_binary_length, vec< vec<Lit> > &dummy_vec );
 	
 	unsigned uint_rand();
 	bool bool_rand();

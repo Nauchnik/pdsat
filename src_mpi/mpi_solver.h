@@ -10,7 +10,7 @@ class MPI_Solver : public MPI_Base
 private:
 	double *solving_times;
 	vector<double> total_solving_times;
-	unsigned solving_iteration_count;
+	int solving_iteration_count;
 	unsigned interrupted_count;
 	string base_solving_info_file_name;
 	string solving_info_file_name;
@@ -42,7 +42,7 @@ public:
 	void AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
    	                            double *solving_times );
 	bool SolverRun( Solver *&S, unsigned long long &process_sat_count, double &cnf_time_from_node, 
-				    unsigned long long current_task_index );
+				    int current_task_index );
 };
 
 #endif

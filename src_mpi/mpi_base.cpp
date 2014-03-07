@@ -125,29 +125,40 @@ bool MPI_Base :: GetMainMasksFromVarChoose( vector<int> &var_choose_order )
 	return true;
 }
 
-bool MPI_Base :: MakeAssignsFromFile( unsigned long long current_task_index, unsigned long long before_binary_length, vec< vec<Lit> > &dummy_vec )
+bool MPI_Base :: MakeAssignsFromFile( int current_task_index, unsigned long long before_binary_length, vec< vec<Lit> > &dummy_vec )
 {
 	if ( verbosity > 0 )
 		cout << "MakeAssignsFromFile()" << endl;
+
+	if ( current_task_index < 0 ) {
+		cerr << "current_task_index < 0" << endl;
+		return false;
+	}
 	
 	if ( var_choose_order.size() == 0 ) {
-		cerr << "Error. var_choose_order.size() == 0 " << endl;
+		cerr << "var_choose_order.size() == 0 " << endl;
 		return false;
 	}
 	
 	// int rslos_num = 1;
-	int basic_batch_size = (int)floor( (double)assumptions_count / (double)all_tasks_count );
+	unsigned long long basic_batch_size = (unsigned long long)floor( (double)assumptions_count / (double)all_tasks_count );
 	// calculate count of bathes with additional size (+1)
-	long long int batch_addit_size_count = assumptions_count - basic_batch_size*all_tasks_count;
-	int cur_batch_size = basic_batch_size;
-	if ( current_task_index < (int)batch_addit_size_count )
+	unsigned long long batch_addit_size_count = assumptions_count - basic_batch_size*all_tasks_count;
+	unsigned long long cur_batch_size = basic_batch_size;
+	if ( (unsigned long long)current_task_index < batch_addit_size_count )
 		cur_batch_size++;
+
+	unsigned max_int = (1 << 31);
+	if ( cur_batch_size > (unsigned long long)max_int ) {
+		cerr << "cur_batch_size > (unsigned long long)max_int" << endl;
+		return false;
+	}
 	// skip unuseful strings
-	unsigned long long previous_problems_count = current_task_index*basic_batch_size;
-	if ( current_task_index < (int)batch_addit_size_count )
-		previous_problems_count += current_task_index; // add some 1 to sum
+	unsigned long long previous_problems_count = (unsigned long long)current_task_index*basic_batch_size;
+	if ( (unsigned long long)current_task_index < batch_addit_size_count )
+		previous_problems_count += (unsigned long long)current_task_index; // add some 1 to sum
 	else
-		previous_problems_count += (int)batch_addit_size_count;
+		previous_problems_count += batch_addit_size_count;
 	
 	string str, str1;
 	ifstream ifile( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
@@ -174,16 +185,9 @@ bool MPI_Base :: MakeAssignsFromFile( unsigned long long current_task_index, uns
 		cerr << "cc " << cc << endl;
 		return false;
 	}
-
-	/*
-	int values_passed = 0;
-	while ( values_passed < previous_tasks_count ) {
-		ifile.read( (char*)&ul, sizeof(ul) );
-		values_passed++;
-	}*/
 	
 	// reading values from file
-	dummy_vec.resize( cur_batch_size );
+	dummy_vec.resize( (unsigned)cur_batch_size );
 	boost::dynamic_bitset<> d_bitset;
 	d_bitset.resize( var_choose_order.size() );
 	int cur_var_ind;
@@ -206,7 +210,7 @@ bool MPI_Base :: MakeAssignsFromFile( unsigned long long current_task_index, uns
 		cerr << sstream_info.str();
 		return false;
 	}
-	for ( int i=0; i < cur_batch_size; ++i ) {
+	for ( unsigned i=0; i < (unsigned)cur_batch_size; ++i ) {
 		if ( !(ifile.read( (char*)&ul, sizeof(ul) ) ) ) {
 			cerr << "Error. !ifile.read( (char*)&ul, sizeof(ul) )" << endl;
 			cerr << sstream_info.str();

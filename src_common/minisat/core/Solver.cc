@@ -961,8 +961,8 @@ lbool Solver::solve_()
 	MPI_Status mpi_status;
 	MPI_Request mpi_request;
 	int iprobe_message,
-		irecv_message,
-		test_message;
+		test_message,
+		irecv_message;
 	start_solving_time = MPI_Wtime();
 #endif
 #else

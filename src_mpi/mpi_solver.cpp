@@ -222,7 +222,7 @@ void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, doubl
 }
 
 bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count, 
-							  double &cnf_time_from_node, unsigned long long current_task_index )
+							  double &cnf_time_from_node, int current_task_index )
 {
 	if ( verbosity > 1 )
 		cout << "start SolverRun()" << endl;
@@ -537,7 +537,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 		PrintParams( );
 	
 	if ( skip_tasks >= all_tasks_count ) {
-		cerr << "Error. skip_tasks >= all_tasks_count " << endl;
+		cerr << "skip_tasks >= all_tasks_count " << endl;
 		cerr << skip_tasks << " >= " << all_tasks_count << endl;
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
@@ -570,7 +570,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 		MPI_Send( &core_len,                1, MPI_INT,       i + 1, 0, MPI_COMM_WORLD );
 		MPI_Send( &all_tasks_count,         1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
 		MPI_Send( &assumptions_count,       1, MPI_UNSIGNED_LONG_LONG, i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( &solving_iteration_count, 1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &solving_iteration_count, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 		MPI_Send( &max_solving_time,        1, MPI_DOUBLE,    i + 1, 0, MPI_COMM_WORLD );
 		MPI_Send( var_choose_order_int,     MAX_ASSIGNS_COUNT, MPI_INT, i + 1, 0, MPI_COMM_WORLD );
 	}
@@ -581,19 +581,23 @@ bool MPI_Solver :: ControlProcessSolve( )
 	unsigned start_tasks_count = min( corecount - 1, (int)all_tasks_count );
 	cout << "start_tasks_count " << start_tasks_count << endl;
 	// send to all cores (except # 0) tasks from 1st range
-	for ( unsigned i = 0; i < start_tasks_count; ++i ) {
+	for ( int i = 0; i < (int)start_tasks_count; ++i ) {
 		// send new index of task for reading tasks from file
-		MPI_Send( &next_task_index, 1, MPI_INT, next_task_index + 1, solving_iteration_count, MPI_COMM_WORLD );
+		MPI_Send( &next_task_index, 1, MPI_INT, i + 1, 0, MPI_COMM_WORLD );
+
+		if ( ( verbosity > 1 ) && ( i == 0 ) )
+			cout << "sended next_task_index " << next_task_index << endl;
 		
 		if ( assumptions_count == 0 ) { // don't send values when we have file with assimptions
 			copy( values_arr[i].begin(), values_arr[i].end(), mask_value );
-			MPI_Send( full_mask,  FULL_MASK_LEN, MPI_UNSIGNED, (int)(i + 1), 0, MPI_COMM_WORLD );
-			MPI_Send( part_mask,  FULL_MASK_LEN, MPI_UNSIGNED, (int)(i + 1), 0, MPI_COMM_WORLD );
-			MPI_Send( mask_value, FULL_MASK_LEN, MPI_UNSIGNED, (int)(i + 1), 0, MPI_COMM_WORLD );
+			MPI_Send( full_mask,  FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( part_mask,  FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( mask_value, FULL_MASK_LEN, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 		}
 		next_task_index++;
 	}
-
+	cout << "after sending start_tasks_count" << endl;
+	
 	total_solving_times[0] = 1 << 30; // start min len
 	for ( unsigned i = 1; i < total_solving_times.size(); ++i )
 		total_solving_times[i] = 0;
@@ -623,7 +627,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 		
 		if ( next_task_index < (int)all_tasks_count ) {
 			// send new index of task
-			MPI_Send( &next_task_index, 1, MPI_INT, current_status.MPI_SOURCE, solving_iteration_count, MPI_COMM_WORLD );
+			MPI_Send( &next_task_index, 1, MPI_INT, current_status.MPI_SOURCE, 0, MPI_COMM_WORLD );
 			if ( assumptions_count == 0 ) {
 				// send to free core new task in format of minisat input masks
 				copy( values_arr[next_task_index].begin(), values_arr[next_task_index].end(), mask_value );
@@ -673,7 +677,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		MPI_Recv( &core_len,                 1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &all_tasks_count,          1, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &assumptions_count,        1, MPI_UNSIGNED_LONG_LONG, 0, 0, MPI_COMM_WORLD, &status );
-		MPI_Recv( &solving_iteration_count,  1, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( &solving_iteration_count,  1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &max_solving_time,         1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( var_choose_order_int,      MAX_ASSIGNS_COUNT, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
 		
@@ -690,18 +694,18 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		}
 		delete[] var_choose_order_int;
 		if ( rank == 1 ) {
-			cout << "Received core_len "                 << core_len                 << endl;
-			cout << "Received all_tasks_count "          << all_tasks_count          << endl;
-			cout << "Received assumptions_count "        << assumptions_count        << endl;
-			cout << "Received solving_iteration_count "  << solving_iteration_count  << endl;
-			cout << "Received max_solving_time "         << max_solving_time         << endl;
-			cout << "Received var_choose_order.size() "  << var_choose_order.size()  << endl;
+			cout << "Received core_len "                << core_len                 << endl;
+			cout << "Received all_tasks_count "         << all_tasks_count          << endl;
+			cout << "Received assumptions_count "       << assumptions_count        << endl;
+			cout << "Received solving_iteration_count " << solving_iteration_count  << endl;
+			cout << "Received max_solving_time "        << max_solving_time         << endl;
+			cout << "Received var_choose_order.size() " << var_choose_order.size()  << endl;
 			for ( unsigned i=0; i < var_choose_order.size(); ++i )
 				cout << var_choose_order[i] << " ";
 			cout << endl;
 		}
-		if ( ( assumptions_count <= 0 ) && ( solving_iteration_count > 0 ) ) {
-			cerr << "Error. ( ( assumptions_count <= 0 ) && ( solving_iteration_count > 0 ) )" << endl;
+		if ( ( assumptions_count == 0 ) && ( solving_iteration_count > 0 ) ) {
+			cerr << "( ( assumptions_count <= 0 ) && ( solving_iteration_count > 0 ) )" << endl;
 			return false;
 		}
 		S->core_len         = core_len;
@@ -712,11 +716,15 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		
 		if ( solving_iteration_count == 0 )
 			solving_info_file_name = base_solving_info_file_name + "_0";
-
-		unsigned control_solving_iteration_count = 0;
+		
+		if ( rank == 1 )
+			cout << "before loop of recv tasks" << endl;
 		for (;;) {
 			// get index of current task
-			MPI_Recv( &current_task_index, 1, MPI_INT, 0, control_solving_iteration_count, MPI_COMM_WORLD, &status );
+			MPI_Recv( &current_task_index, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
+			
+			if ( ( rank == 1 ) && ( verbosity > 2 ) )
+				cout << "recv current_task_index " << current_task_index << endl;
 			
 			if ( current_task_index == -1 ) {
 				if ( rank == 1 )
@@ -725,13 +733,6 @@ bool MPI_Solver :: ComputeProcessSolve( )
 			}
 			else if ( current_task_index == -2 )
 				MPI_Finalize( ); // finalize-message from control process
-			
-			// check that tasks corresponds to current macro iteration of solving
-			if ( solving_iteration_count != control_solving_iteration_count ) {
-				cerr << "compute process. solving_iteration_count != control_solving_iteration_count" << endl;
-				cerr << solving_iteration_count << " != " << control_solving_iteration_count << endl;
-				return false;
-			}
 			
 			// with assumptions file we need only current_task_index for reading values from file 
 			if ( assumptions_count == 0 ) {
@@ -742,7 +743,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 				}
 				MPI_Recv( mask_value, FULL_MASK_LEN, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 			}
-
+			
 			if ( verbosity > 2 ){
 				cout << "full_mask" << endl;
 				for( unsigned i=0; i<FULL_MASK_LEN; ++i )
@@ -757,7 +758,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 					cout << mask_value[i] << " ";
 				cout << endl;
 			}
-		
+			
 			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index ) ) { 
 				cout << endl << "Error in SolverRun"; return false; 
 			}

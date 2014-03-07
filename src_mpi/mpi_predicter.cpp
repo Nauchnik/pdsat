@@ -66,7 +66,7 @@ bool ds_compareByActivity(const decomp_set &a, const decomp_set &b)
 	return a.med_var_activity > b.med_var_activity;
 }
 
-void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number_to_send, unsigned &cur_task_index, unsigned &cur_decomp_set_index )
+void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number_to_send, int &cur_task_index, unsigned &cur_decomp_set_index )
 {
 	if ( verbosity > 1 )
 		cout << "SendPredictTask() start" << endl;
@@ -74,7 +74,7 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 	cnf_start_time_arr[cur_task_index] = MPI_Wtime(); // fix current time
 	node_list[cur_task_index] = process_number_to_send; // fix node where SAT problem will be solved
 	
-	if ( ( !cur_task_index ) || ( cur_task_index % cnf_in_set_count == 0 ) ) { // if new sample then new set to all precesses
+	if ( ( !cur_task_index ) || ( cur_task_index % (int)cnf_in_set_count == 0 ) ) { // if new sample then new set to all precesses
 		if ( verbosity > 1 ) {
 			cout << "In SendPredictTask() new decomp set" << endl; 
 			cout << "cur_task_index " << cur_task_index << " cnf_in_set_count " << cnf_in_set_count << endl;
@@ -141,7 +141,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 	
-	unsigned cur_task_index = 0; 
+	int cur_task_index = 0; 
 	unsigned cur_decomp_set_index = 0;
 	unsigned part_mask_index = 0;
 	int IsSolvedOnPreprocessing;
@@ -273,9 +273,9 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 			cout << "cur_task_index " << cur_task_index << endl;
 		}
 		
-		if ( cur_task_index < all_tasks_count ) {
+		if ( (unsigned)cur_task_index < all_tasks_count ) {
 			// skip sending stopped tasks
-			while ( ( cnf_status_arr[cur_task_index] == 1 ) && ( cur_task_index < all_tasks_count ) ) {
+			while ( ( cnf_status_arr[cur_task_index] == 1 ) && ( (unsigned)cur_task_index < all_tasks_count ) ) {
 				solved_tasks_count++;
 				all_skip_count++;
 				cur_task_index++;
@@ -286,7 +286,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 			}
 			
 			// if last tasks were skipped
-			if ( cur_task_index >= all_tasks_count ) {
+			if ( (unsigned)cur_task_index >= all_tasks_count ) {
 				sstream_control << "cur_task_index >= all_tasks_count" << endl;
 				sstream_control << cur_task_index << " >= " << all_tasks_count << endl;
 				break;
