@@ -24,7 +24,7 @@ master.o: master.cpp
 	${CPP} ${CPPFLAGS} master.cpp -c
 
 addit_func.o: ../src_common/addit_func.cpp
-	${CPP} ${CPPFLAGS} ../src_common/addit_func.cpp -cb
+	${CPP} ${CPPFLAGS} ../src_common/addit_func.cpp -c
 	
 clean:
 	rm -fr *.o

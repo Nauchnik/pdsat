@@ -398,8 +398,8 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 			int val;
 			while ( sstream >> val )
 				var_choose_order.push_back( val );
-			sstream.clear(); sstream.str("");
 		}
+		sstream.clear(); sstream.str("");
 		header_sstream << str << endl;
 		header_str_count++;
 		//cout << str << endl;
@@ -460,6 +460,8 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 		total_wu_data_count = config_p.total_wus;
 	cout << "total_wu_data_count changed to " << total_wu_data_count << endl;
 	
+	cout << "before creating wus" << endl;
+	int now_created = 0;
 	for( int wu_index = config_p.created_wus; wu_index < config_p.created_wus + wus_for_creation_count; wu_index++ ) {
 		if ( IsFastExit )
 			break;
@@ -505,10 +507,16 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 			break; // don't create new WU
 		}
 		
+		sstream.clear(); sstream.str("");
 		sstream << config_p.problem_type;
 		sstream << "--" << wu_index + 1; // save info about CNF name
 		wu_tag_str = sstream.str();
 		sstream.str( "" ); sstream.clear();
+		if ( !now_created ) {
+			cout << "isRangeMode " << isRangeMode << endl;
+			cout << "first wu_tag_str " << wu_tag_str << endl;
+		}
+		now_created++;
 		wu = DC_createWU( "pdsat_crypto", NULL, 0, wu_tag_str.c_str() );
 		if ( !wu ) {
 			DC_log( LOG_ERR, "Work unit creation has failed" );
