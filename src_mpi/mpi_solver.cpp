@@ -65,18 +65,18 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	}
 	else { // rank == 0
 		cout << "*** MPI_Solve is running ***" << endl;
-		total_start_time = MPI_Wtime();
+		total_start_time = Minisat::cpuTime();
 		for (;;) {
 			sstream << base_solving_info_file_name << "_" << solving_iteration_count;
 			solving_info_file_name = sstream.str();
 			sstream.clear(); sstream.str("");
 			cout << "solving_info_file_name " << solving_info_file_name << endl; 
 			
-			iteration_start_time = MPI_Wtime();
+			iteration_start_time = Minisat::cpuTime();
 
 			ControlProcessSolve();
 
-			iteration_final_time = MPI_Wtime() - iteration_start_time;
+			iteration_final_time = Minisat::cpuTime() - iteration_start_time;
 			WriteTimeToFile( iteration_final_time );
 			solving_iteration_count++;
 			max_solving_time *= max_solving_time_koef; // increase time limit
@@ -157,7 +157,7 @@ bool MPI_Solver :: CollectAssumptionsFiles( )
 	cout << "known_assumptions_file_name opened" << endl;
 	
 	unsigned old_known_assumptions_file_count = 0;
-	double collecting_files_time = MPI_Wtime();
+	double collecting_files_time = Minisat::cpuTime();
 	short int si;
 	unsigned long long ul;
 	for ( it = files.begin(); it != files.end(); ++it ) {
@@ -175,7 +175,7 @@ bool MPI_Solver :: CollectAssumptionsFiles( )
 			ifile.close();
 		}
 	}
-	collecting_files_time = MPI_Wtime() - collecting_files_time;
+	collecting_files_time = Minisat::cpuTime() - collecting_files_time;
 	cout << "collecting_files_time " << collecting_files_time << endl;
 	cout << "old_known_assumptions_file count " << old_known_assumptions_file_count << endl;
 	str = "rm " + old_known_assumptions_file_mask + "*";
@@ -195,6 +195,10 @@ void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, doubl
 	// solving_times[2]  == med
 	// solving_times[3]  == sat
 	if( cur_problem_state != Interrupted ){
+		if ( cnf_time_from_node < 0 ) {
+			cerr << "cnf_time_from_node " << cnf_time_from_node << " < 0" << endl;
+			exit(1);
+		}
 		if ( cnf_time_from_node < solving_times[0] )
 			solving_times[0] = cnf_time_from_node;
 		if ( cnf_time_from_node > solving_times[1] )
@@ -276,24 +280,22 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 		
 		uint64_t prev_starts, prev_conflicts, prev_decisions;
 		for ( int i=0; i < dummy_vec.size(); ++i ) {
-#ifndef _DEBUG
-			cnf_time_from_node = MPI_Wtime( );
-#endif
 			// save current state to check differences
 			prev_starts    = S->starts;
 			prev_conflicts = S->conflicts;
 			prev_decisions = S->decisions;
 			
 			S->last_time = Minisat :: cpuTime();
+
+			cnf_time_from_node = Minisat :: cpuTime();
 			ret = S->solveLimited( dummy_vec[i] );
+			cnf_time_from_node = Minisat :: cpuTime() - cnf_time_from_node;
 			
 			if ( no_increm )
 				S->clearDB(); // clear database if incremental solving disabled
 			
 			//ret = S->solveLimited( dummy_vec[i], true, false ); // for SimpSolver
-#ifndef _DEBUG
-			cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
-#endif
+
 			total_time += cnf_time_from_node;
 
 			if ( ret == l_Undef )
@@ -370,6 +372,10 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_
 {
 	int time_sec, time_minutes, time_hours;
 	
+	if ( solving_times[0] < 0 ) {
+		cerr << "solving_times[0] < 0" << endl;
+		exit(1);
+	}
 	if ( solving_times[0] < total_solving_times[0] ) // update min time
 		total_solving_times[0] = solving_times[0];
 	if ( solving_times[1] > total_solving_times[1] ) // update max time
@@ -617,7 +623,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 			sat_count += process_sat_count;
 			cout << "sat_count " << sat_count << endl;
 			if ( finding_first_sat_time == 0 ) // first time only
-				finding_first_sat_time = MPI_Wtime() - total_start_time;
+				finding_first_sat_time = Minisat::cpuTime() - total_start_time;
 		}
 		
 		WriteSolvingTimeInfo( solving_times, solved_tasks_count );

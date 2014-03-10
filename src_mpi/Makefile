@@ -1,10 +1,8 @@
-CC = mpiicc
 CPP = mpiicpc
 INC1 = ../../boost/
 INC2 = ../src_common/
 INCDIRS = -I${INC1} -I${INC2}
-CFLAGS = -O3 -std=c99 -lz -lm -Wall -Wmissing-prototypes -Wstrict-prototypes -Wsign-compare -D NDEBUG -D _MPI
-CPPFLAGS = -O3 ${INCDIRS} -D __STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS -D _MPI
+CPPFLAGS = -O3 -std=c++0x ${INCDIRS} -D __STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS -D _MPI
 
 pd-sat: pd-sat.o mpi_base.o mpi_solver.o mpi_predicter.o addit_func.o minisat22_wrapper.o Solver.o SimpSolver.o System.o Options.o
 	${CPP} ${CPPFLAGS} pd-sat.o mpi_base.o mpi_solver.o mpi_predicter.o addit_func.o minisat22_wrapper.o Solver.o SimpSolver.o System.o Options.o -o pd-sat
