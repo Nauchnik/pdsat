@@ -22,6 +22,7 @@ using std::stringstream;
 
 namespace Addit_func {
 
+double cpuTime(void);
 extern int strtoint( string str );
 //extern string inttostr( int num );
 //extern string doubletostr( double num );

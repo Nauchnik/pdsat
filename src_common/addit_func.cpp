@@ -2,6 +2,10 @@
 
 using namespace Addit_func;
 
+double Addit_func :: cpuTime(void) { 
+	return (double)clock() / CLOCKS_PER_SEC;
+}
+
 int Addit_func :: strtoint( string str )
 {
 	stringstream sstream;
