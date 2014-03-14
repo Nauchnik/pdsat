@@ -28,13 +28,13 @@
 using namespace std;
 using namespace Addit_func;
 
-const int MIN_WUS_FOR_CREATION = 100;
+const long long MIN_WUS_FOR_CREATION = 100;
 
 // Number of results we have received so far
-static int all_processed_wus;
-static int processed_wus;
-static int unsent_wus;
-static int running_wus;
+static long long all_processed_wus;
+static long long processed_wus;
+static long long unsent_wus;
+static long long running_wus;
 
 char *dcapi_config_file_name = NULL;
 char *master_config_file_name = NULL;
@@ -52,23 +52,23 @@ struct config_params_crypto {
 	string problem_type;
 	string settings_file;
 	string data_file;
-	int cnf_variables;
-	int cnf_clauses;
-	int problems_in_wu;
-	int unsent_needed_wus;
-	long long int total_wus;
-	long long int created_wus;
+	long long cnf_variables;
+	long long cnf_clauses;
+	long long problems_in_wu;
+	long long unsent_needed_wus;
+	long long total_wus;
+	long long created_wus;
 };
 
 static void print_help(const char *prog);
-bool do_work( vector<int> &wu_id_vec );
+bool do_work( vector<long long> &wu_id_vec );
 void ParseConfigFile( string &cnf_head, stringstream &config_sstream );
 static void create_wus( stringstream &config_sstream, config_params_crypto &config_p, 
-	                    string cnf_head, int wus_for_creation_count, vector<int> &wu_id_vec, bool &IsLastGenerating );
+	                    string cnf_head, long long wus_for_creation_count, vector<long long> &wu_id_vec, bool &IsLastGenerating );
 void add_result_to_file( string output_filename, char *tag, char *id );
-void GetCountOfUnsentWUs( int &unsent_count );
+void GetCountOfUnsentWUs( long long &unsent_count );
 bool ProcessQuery( MYSQL *conn, string str, vector< vector<stringstream *> > &result_vec );
-bool find_sat( int cnf_index );
+//bool find_sat( int cnf_index );
 double cpuTime( void ) { return ( double )clock( ) / CLOCKS_PER_SEC; }
 
 static const struct option longopts[] =
@@ -85,7 +85,7 @@ int main( int argc, char *argv[] )
 {
 	int c;
 	double start_time = cpuTime();
-	vector<int> wu_id_vec;
+	vector<long long> wu_id_vec;
 	string str;
 	IsTasksFile= false;
 
@@ -279,7 +279,7 @@ void ParseConfigFile( config_params_crypto &config_p, string &cnf_head, stringst
 	master_config_file.close();
 }
 
-bool do_work( vector<int> &wu_id_vec )
+bool do_work( vector<long long> &wu_id_vec )
 {
 	double start_time = cpuTime();
 
@@ -287,11 +287,11 @@ bool do_work( vector<int> &wu_id_vec )
 
 	processed_wus     = 0;
 	all_processed_wus = 0;
-	int unsent_count = 0;
+	long long unsent_count = 0;
 	config_params_crypto config_p;
 	stringstream config_sstream;
 	string cnf_head;
-	long long int wus_for_creation_count = 0;
+	long long wus_for_creation_count = 0;
 	
 	ParseConfigFile( config_p, cnf_head, config_sstream );
 	if ( config_p.data_file == "no" )
@@ -304,7 +304,7 @@ bool do_work( vector<int> &wu_id_vec )
 	{*/
 		// create wus - supply needed level of unsent wus
 		wus_for_creation_count = 0;
-		int old_wus_for_creation_count = 0;
+		long long old_wus_for_creation_count = 0;
 		for (;;) {
 			if ( IsLastGenerating ) {
 				if ( config_p.created_wus == config_p.total_wus ) {
@@ -373,7 +373,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	cout << "Start create_wus()" << endl;
 	cout << "cnf_head " << cnf_head << endl;
 	cout << "wus_for_creation_count " << wus_for_creation_count << endl;
-	long long int wu_index = 0;
+	long long wu_index = 0;
 	bool IsAddingWUneeded;
 	bool IsFastExit = false;
 	unsigned new_created_wus = 0;
@@ -381,6 +381,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	ifstream ifile;
 	vector<int> var_choose_order;
 	unsigned long long values_index;
+	long long skipped_byte;
 	
 	// read header data once - it's common for every wu
 	ifile.open( config_p.settings_file.c_str() ); // write common head to every wu
@@ -431,7 +432,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 					cout << assumptions_count << " time " << cpuTime() - assumption_counting_start_time << " s" << endl;
 			}*/
 			ifile.seekg( 0, ifile.end );
-			long long int total_byte_length = ifile.tellg();
+			long long total_byte_length = ifile.tellg();
 			ifile.close();
 			assumptions_count = (total_byte_length - 2) / sizeof(ul); // skip 2 byte of prefix 
 			cout << "assumptions_count:" << endl;
@@ -446,26 +447,25 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 		ifile.read( (char*)&si, sizeof(si) );
 		// skip already sended values
 		if ( values_index > 0 ) {
-			long long int skipped_byte = 2 + values_index;
+			skipped_byte = 2 + values_index;
 			ifile.clear();
-			ifile.seekg( 2 + values_index, ifile.beg );
+			ifile.seekg( skipped_byte, ifile.beg );
 			cout << "skipped_byte " << skipped_byte << endl;
 		}
 	}
 	
 	cout << "created_wus "         << config_p.created_wus << endl;
-	long long int total_wu_data_count = ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
+	long long total_wu_data_count = ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
 	cout << "total_wu_data_count " << total_wu_data_count  << endl;
 	if ( total_wu_data_count > config_p.total_wus )
 		total_wu_data_count = config_p.total_wus;
 	cout << "total_wu_data_count changed to " << total_wu_data_count << endl;
 	
 	cout << "before creating wus" << endl;
-	int now_created = 0;
-	for( int wu_index = config_p.created_wus; wu_index < config_p.created_wus + wus_for_creation_count; wu_index++ ) {
+	long long now_created = 0;
+	for( long long wu_index = config_p.created_wus; wu_index < config_p.created_wus + wus_for_creation_count; wu_index++ ) {
 		if ( IsFastExit )
 			break;
-
 		output.open( "wu-input.txt", ios_base :: out );
 		if ( !output.is_open() ) {
 			DC_log(LOG_ERR, "Failed to create wu-input.txt: %s",
@@ -486,7 +486,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 			output.open( "wu-input.txt", ios_base::out | ios_base::app | ios_base::binary );
 			output.write( (char*)&si, sizeof(si) ); // write first 2 symbols
 			IsAddingWUneeded = false; // if no values will be added then WU not needed
-			for ( int i = 0; i < config_p.problems_in_wu; i++ ) {
+			for ( long long i = 0; i < config_p.problems_in_wu; i++ ) {
 				if ( values_index >= assumptions_count ) {
 					cout << "in create_wus() last data was added to WU" << endl;
 					cout << "values_index " << values_index << endl;
@@ -595,7 +595,7 @@ void add_result_to_file( string output_filename, char *tag, char *id )
 	result_file.close();
 }
 
-void GetCountOfUnsentWUs( int &unsent_count )
+void GetCountOfUnsentWUs( long long &unsent_count )
 {
 	char *host = "localhost";
     char *db;
@@ -685,6 +685,7 @@ bool ProcessQuery( MYSQL *conn, string str, vector< vector<stringstream *> > &re
 	return true;
 }
 
+/*
 // Concatenate all results in their original order to form the final output
 // Try to find SAT in results
 bool find_sat( int cnf_index )
@@ -708,7 +709,7 @@ bool find_sat( int cnf_index )
 
 	string result_filename, input_str;
 	ifstream result_file;
-	/*for( int i = 1; i < created_wus + 1; i++ ) { // try all files
+	for( int i = 1; i < created_wus + 1; i++ ) { // try all files
 		sstream << "result_" << i << ".txt";
 		result_filename = sstream.str();
 		sstream.str( "" );
@@ -729,10 +730,11 @@ bool find_sat( int cnf_index )
 			result_file.close();
 			result_file.clear();
 		}
-	}*/
+	}
     
 	output_file << final_sstream.rdbuf();
 	output_file.close();
 	
 	return flag;
 }
+*/
