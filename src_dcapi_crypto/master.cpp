@@ -69,7 +69,7 @@ void add_result_to_file( string output_filename, char *tag, char *id );
 void GetCountOfUnsentWUs( long long &unsent_count );
 bool ProcessQuery( MYSQL *conn, string str, vector< vector<stringstream *> > &result_vec );
 //bool find_sat( int cnf_index );
-double cpuTime( void ) { return ( double )clock( ) / CLOCKS_PER_SEC; }
+//double cpuTime( void ) { return ( double )clock( ) / CLOCKS_PER_SEC; }
 
 static const struct option longopts[] =
 {
@@ -84,7 +84,7 @@ static const struct option longopts[] =
 int main( int argc, char *argv[] )
 {
 	int c;
-	double start_time = cpuTime();
+	//double start_time = cpuTime();
 	vector<long long> wu_id_vec;
 	string str;
 	IsTasksFile= false;
@@ -167,8 +167,8 @@ int main( int argc, char *argv[] )
 	//DC_setMasterCb( process_result, NULL, NULL );
 
 	do_work( wu_id_vec );
-	double total_time = cpuTime() - start_time;
-	cout << "total time " << total_time << endl;
+	//double total_time = cpuTime() - start_time;
+	//cout << "total time " << total_time << endl;
 		
 	return 0;
 }
@@ -281,7 +281,7 @@ void ParseConfigFile( config_params_crypto &config_p, string &cnf_head, stringst
 
 bool do_work( vector<long long> &wu_id_vec )
 {
-	double start_time = cpuTime();
+	//double start_time = cpuTime();
 
 	DC_log( LOG_NOTICE, "Master: Creating work units" );
 
@@ -356,14 +356,14 @@ bool do_work( vector<long long> &wu_id_vec )
 	cout << "wus_for_creation_count " << wus_for_creation_count << endl;
 	DC_log( LOG_NOTICE, "\n Work finished" );
 
-	double total_time = cpuTime() - start_time;
-	cout << "total time " << total_time << endl;
+	//double total_time = cpuTime() - start_time;
+	//cout << "total time " << total_time << endl;
 
 	return 0;
 }
 
 void create_wus( stringstream &config_sstream, config_params_crypto &config_p, string cnf_head, 
-				 int wus_for_creation_count, vector<int> &wu_id_vec, bool &IsLastGenerating )
+				 long long wus_for_creation_count, vector<long long> &wu_id_vec, bool &IsLastGenerating )
 {
 	DC_Workunit *wu;
 	ofstream output;
@@ -376,12 +376,12 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	long long wu_index = 0;
 	bool IsAddingWUneeded;
 	bool IsFastExit = false;
-	unsigned new_created_wus = 0;
+	long long new_created_wus = 0;
 	string str, word1;
 	ifstream ifile;
 	vector<int> var_choose_order;
+	long long skip_byte;
 	unsigned long long values_index;
-	long long skipped_byte;
 	
 	// read header data once - it's common for every wu
 	ifile.open( config_p.settings_file.c_str() ); // write common head to every wu
@@ -408,7 +408,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	ifile.close();
 	cout << "header_str_count " << header_str_count << endl;
 	short int si;
-	unsigned long long ul;
+	unsigned long long ul = 0;
 	
 	if ( isRangeMode ) {
 		cout << "isRangeMode" << endl;
@@ -441,16 +441,15 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 		}
 		
 		values_index = config_p.created_wus * config_p.problems_in_wu;
-		cout << "values_index " << values_index << endl;
+		skip_byte = 2 + sizeof(ul)*values_index;
+		cout << "skip_byte " << skip_byte << endl;
 		
 		ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
 		ifile.read( (char*)&si, sizeof(si) );
 		// skip already sended values
-		if ( values_index > 0 ) {
-			skipped_byte = 2 + values_index;
+		if ( skip_byte > 0 ) {
 			ifile.clear();
-			ifile.seekg( skipped_byte, ifile.beg );
-			cout << "skipped_byte " << skipped_byte << endl;
+			ifile.seekg( skip_byte, ifile.beg );
 		}
 	}
 	
