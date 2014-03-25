@@ -9,8 +9,6 @@ const int    MEDIUM_STRING_LEN             = 4096;
 const double TRANSP_COAST                  = 0.000001;
 const int    NUM_KEY_BITS                  = 64;
 
-boost::random::mt19937 gen;
-
 //=================================================================================================
 // Constructor/Destructor:
 
@@ -47,7 +45,8 @@ MPI_Base :: MPI_Base( ) :
 	keybit_count         ( 4 ),
 	rslos_table_name     ( "" ),
 	assumptions_count    ( 0 ),
-	activity_vec_len	 ( 0 )
+	activity_vec_len	 ( 0 ),
+	stream_len           ( 200 )
 {
 	full_mask  = new unsigned[FULL_MASK_LEN];
 	part_mask  = new unsigned[FULL_MASK_LEN];
@@ -894,17 +893,6 @@ bool MPI_Base :: AnalyzeSATset( )
 	return true;
 }
 
-// TODO move to Addit_func namespace
-unsigned MPI_Base ::  uint_rand() {
-	boost::random::uniform_int_distribution<uint32_t> dist;
-	return dist(gen);
-}
-
-bool MPI_Base ::  bool_rand() {
-	boost::random::uniform_int_distribution<uint32_t> dist(0,1);
-	return bool( dist(gen) );
-}
-
 void MPI_Base :: MakeRandArr( vector< vector<unsigned> > &rand_arr, unsigned vec_len, unsigned rnd_uint32_count )
 {
 // make array of pseudorandom values using Mersenne Twister generator
@@ -913,7 +901,7 @@ void MPI_Base :: MakeRandArr( vector< vector<unsigned> > &rand_arr, unsigned vec
 	for ( it = rand_arr.begin(); it != rand_arr.end(); it++ ) {
 		(*it).resize( rnd_uint32_count );
 		for ( unsigned j = 0; j < (*it).size(); j++ )
-			(*it)[j] = uint_rand();
+			(*it)[j] = uint_rand( gen );
 	}
 }
 
@@ -929,7 +917,7 @@ void MPI_Base :: MakeUniqueRandArr( vector<unsigned> &rand_arr, unsigned rand_ar
 	bool IsOldValue;
 	for ( unsigned i = 0; i < rand_arr_len; i++ ) {
 		do { // if value is not unique get value again
-			rand_numb = uint_rand();
+			rand_numb = uint_rand( gen );
 			rand_numb %= max_rand_val;
 			IsOldValue = false;
 			for ( unsigned k = 0; k < i; ++k ) {

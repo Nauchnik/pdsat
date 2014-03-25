@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src_common\addit_func.cpp" />
+    <ClCompile Include="..\src_common\Bivium.cpp" />
     <ClCompile Include="..\src_common\minisat22_wrapper.cpp" />
     <ClCompile Include="..\src_common\minisat\core\Solver.cc" />
     <ClCompile Include="..\src_common\minisat\utils\Options.cc" />
@@ -23,6 +24,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src_common\addit_func.h" />
+    <ClInclude Include="..\src_common\Bivium.h" />
+    <ClInclude Include="..\src_common\IStreamCipher.h" />
     <ClInclude Include="..\src_common\minisat22_wrapper.h" />
     <ClInclude Include="..\src_common\minisat\core\Dimacs.h" />
     <ClInclude Include="..\src_common\minisat\core\Solver.h" />

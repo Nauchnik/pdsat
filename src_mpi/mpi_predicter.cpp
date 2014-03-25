@@ -454,7 +454,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			dummy.resize( var_choose_order.size() );
 			for ( unsigned i=0; i < var_choose_order.size(); ++i ) {
 				val = var_choose_order[i] - 1;
-				dummy[i] = bool_rand() ? mkLit( val ) : ~mkLit( val );
+				dummy[i] = bool_rand( gen ) ? mkLit( val ) : ~mkLit( val );
 			}
 
 			if ( ( verbosity > 2 ) && ( rank == corecount-1 ) ) {
@@ -709,8 +709,8 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 						if ( IsAdding )
 						power_values.push_back( (*L2_it).center.count() );
 					}
-					rand_L2_start_search_index = uint_rand() % L2_matches.size();
-					rand_power_value           = uint_rand() % power_values.size();
+					rand_L2_start_search_index = uint_rand( gen ) % L2_matches.size();
+					rand_power_value           = uint_rand( gen ) % power_values.size();
 					L2_index = 0;
 					IsAdding = false;
 					// choose randomly area from randoml class of area center power
@@ -1279,7 +1279,7 @@ bool MPI_Predicter :: IfSimulatedGranted( double predict_time )
 		return false;
 	double rand_num = 0;
 	while ( rand_num == 0 ) {
-		rand_num = ( unsigned )( uint_rand() % 10 );
+		rand_num = ( unsigned )( uint_rand( gen ) % 10 );
 		rand_num *= 0.1;
 	}
 	delta = predict_time - best_predict_time;
@@ -2034,6 +2034,37 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	fstream deep_predict_file( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
 	deep_predict_file << sstream.rdbuf();
 	deep_predict_file.close();
+
+	return true;
+}
+
+bool MPI_Predicter :: MakeSatSample()
+{
+	// make [sample_size] different pairs <register_state, keystream> via generating secret keys
+	vector<bool> stream_vec, state_vec;
+	Bivium biv;
+	vector<bool> key_bool_vec;
+	key_bool_vec.resize( cnf_in_set_count );
+	vector< vector<bool> > state_vec_vec, stream_vec_vec;
+	vector<bool> iv_bool_vec;
+
+	// generate [sample_size] secret keys, save corresponding initial register state and keystream
+	for ( unsigned i=0; i < cnf_in_set_count; i++ ) {
+		key_bool_vec.clear();
+		iv_bool_vec.clear();
+		for ( unsigned j=0; j < 64; j++ ) {
+			key_bool_vec.push_back( bool_rand( gen ) ? true : false );
+			iv_bool_vec.push_back( bool_rand( gen ) ? true : false );
+		}
+		biv.setKey( key_bool_vec );
+		biv.setIV( iv_bool_vec );
+		biv.init();
+		biv.getRegisterState( state_vec );
+		state_vec_vec.push_back( state_vec );
+		biv.getStreamBit( stream_vec, stream_len );
+		stream_vec_vec.push_back( stream_vec );
+		biv.reset();
+	}
 
 	return true;
 }

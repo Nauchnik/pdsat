@@ -186,3 +186,14 @@ extern void Addit_func :: UllongToBitset( unsigned long long ull, boost::dynamic
 		index++;
 	} while ( ull > 0 );
 }
+
+// TODO move to Addit_func namespace
+extern unsigned Addit_func :: uint_rand( boost::random::mt19937 &gen ) {
+	static boost::random::uniform_int_distribution<uint32_t> dist;
+	return dist(gen);
+}
+
+extern bool Addit_func :: bool_rand( boost::random::mt19937 &gen ) {
+	static boost::random::uniform_int_distribution<uint32_t> dist(0,1);
+	return ( dist(gen) == 0 );
+}

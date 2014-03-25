@@ -49,6 +49,7 @@ protected:
 	vector<int> b_SAT_set_array;
 	vector< vector<unsigned> > values_arr;
 	map<int, unsigned> core_var_indexes; // indeces of variables in core set
+	boost::random::mt19937 gen;
 public:
     MPI_Base();
     ~MPI_Base();
@@ -63,6 +64,7 @@ public:
 	bool IsConseq;
 	int check_every_conflict;
 	bool IsPredict;
+	unsigned stream_len;
 	
 	unsigned *full_mask;
 	unsigned *part_mask;
@@ -124,8 +126,6 @@ public:
 							   vec< vec<Lit> > &dummy_vec );
 	bool MakeAssignsFromFile( int current_task_index, unsigned long long before_binary_length, vec< vec<Lit> > &dummy_vec );
 	
-	unsigned uint_rand();
-	bool bool_rand();
 	void MakeRandArr( vector< vector<unsigned> > &rand_arr, unsigned shortcnf_count, unsigned rnd_uint32_count );
 	void MakeUniqueRandArr( vector<unsigned> &rand_arr, unsigned rand_arr_len, unsigned max_rand_val );
 	
