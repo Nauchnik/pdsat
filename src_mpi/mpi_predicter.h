@@ -101,7 +101,9 @@ public:
 	double start_sample_variance_limit;
 	double te;
 	double er;
-
+	vector< vector<bool> > stream_vec_vec;
+	vector< vector<bool> > state_vec_vec;
+	
 	bool MPI_Predict( int argc, char **argv );
 	bool ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control );
 	bool ComputeProcessPredict();
@@ -117,7 +119,7 @@ public:
 	void AddNewUncheckedArea( boost::dynamic_bitset<> &point, stringstream &sstream );
 	
 	void AllocatePredictArrays();
-	bool MakeSatSample();
+	void MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< vector<bool> > &stream_vec_vec );
 	
 	bool PrepareForPredict();
 	bool GetRandomValuesArray( unsigned shortcnf_count, vector< vector<unsigned> > &values_arr );

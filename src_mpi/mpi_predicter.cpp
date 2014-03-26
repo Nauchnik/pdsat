@@ -327,6 +327,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	}
 	
 	MPI_Status status;
+	int message_size;
 	// get core_len before getting tasks
 	MPI_Recv( &core_len,         1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &activity_vec_len, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
@@ -337,6 +338,36 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		full_var_choose_order[i] = full_local_decomp_set[i];
 	delete[] full_local_decomp_set;
 
+	if ( te > 0 ) { // ro es te mode
+		int stream_char_len, state_char_len, stream_vec_len, state_vec_len;
+
+		MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		MPI_Get_count( &status, MPI_INT, &stream_char_len );
+		char *stream_arr = new char[stream_char_len];
+		MPI_Recv( stream_arr, stream_char_len, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		stream_vec_len = stream_char_len / cnf_in_set_count;
+		if ( rank == 1 ) 
+			cout << "stream_vec_len " << stream_vec_len << endl; 
+		stream_vec_vec.resize( cnf_in_set_count );
+		for( unsigned i=0; i < cnf_in_set_count; i++ )
+			for( unsigned j=0; j < stream_vec_len; j++ )
+				stream_vec_vec[i].push_back( stream_arr[i*stream_vec_len + j] ? true : false );
+		delete[] stream_arr;
+		
+		MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		MPI_Get_count( &status, MPI_INT, &state_char_len );
+		char *state_arr = new char[state_char_len];
+		MPI_Recv( state_arr, state_char_len, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		state_vec_len = state_char_len / cnf_in_set_count;
+		if ( rank == 1 )
+			cout << "state_vec_len " << state_vec_len << endl;
+		state_vec_vec.resize( cnf_in_set_count );
+		for( unsigned i=0; i < cnf_in_set_count; i++ )
+			for( unsigned j=0; j < state_vec_len; j++ )
+				state_vec_vec[i].push_back( state_arr[i*state_vec_len + j] ? true : false );
+		delete[] state_arr;
+	}
+	
 	var_choose_order = full_var_choose_order;
 	
 	if ( ( verbosity > 0 ) && ( rank == corecount-1 ) ) {
@@ -359,7 +390,6 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	int process_sat_count;
 	uint64_t prev_starts, prev_conflicts, prev_decisions;
 	int IsSolvedOnPreprocessing;
-	int message_size;
 	int val;
 	unsigned large_message_count = 0, small_message_count = 0;
 	
@@ -1009,6 +1039,39 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			MPI_Send( full_local_decomp_set, core_len, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 		}
 		delete[] full_local_decomp_set;
+
+		if ( te > 0 ) {
+			MakeSatSample( stream_vec_vec, state_vec_vec );
+			unsigned message_len = stream_vec_vec.size() * stream_vec_vec[0].size();
+			cout << "stream_vec_vec.size() " << stream_vec_vec.size() << endl;
+			cout << "state_vec_vec.size() "  << state_vec_vec.size()  << endl;
+			cout << "message_len "           << message_len           << endl;
+			char *stream_arr = new char[message_len];
+			char *state_arr  = new char[message_len];
+			int k = 0;
+			for ( auto &x : stream_vec_vec )
+				for ( auto &y : x )
+					stream_arr[k++] = y ? 1 : 0;
+			cout << "stream_arr size " << k << endl;
+			if ( k != message_len ) {
+				cerr << "k != message_len" << endl;
+				exit(1);
+			}
+			k = 0;
+			for ( auto &x : state_vec_vec )
+				for ( auto &y : x )
+					state_arr[k++] = y ? 1 : 0;
+			cout << "state_arr size " << k << endl;
+			
+			for( int i=0; i < corecount-1; ++i ) {
+				MPI_Send( stream_arr, message_len, MPI_CHAR,  i + 1, 0, MPI_COMM_WORLD );
+				MPI_Send( state_arr,  message_len, MPI_CHAR,  i + 1, 0, MPI_COMM_WORLD );
+			}
+			cout << "stream_arr and state_arr sended" << endl;
+			
+			delete[] stream_arr;
+			delete[] state_arr;
+		}
 		
 		array_message = NULL;
 		
@@ -2038,24 +2101,21 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	return true;
 }
 
-bool MPI_Predicter :: MakeSatSample()
+void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< vector<bool> > &stream_vec_vec )
 {
 	// make [sample_size] different pairs <register_state, keystream> via generating secret keys
 	vector<bool> stream_vec, state_vec;
 	Bivium biv;
 	vector<bool> key_bool_vec;
-	key_bool_vec.resize( cnf_in_set_count );
-	vector< vector<bool> > state_vec_vec, stream_vec_vec;
 	vector<bool> iv_bool_vec;
 
 	// generate [sample_size] secret keys, save corresponding initial register state and keystream
 	for ( unsigned i=0; i < cnf_in_set_count; i++ ) {
-		key_bool_vec.clear();
-		iv_bool_vec.clear();
 		for ( unsigned j=0; j < 64; j++ ) {
 			key_bool_vec.push_back( bool_rand( gen ) ? true : false );
 			iv_bool_vec.push_back( bool_rand( gen ) ? true : false );
 		}
+
 		biv.setKey( key_bool_vec );
 		biv.setIV( iv_bool_vec );
 		biv.init();
@@ -2063,8 +2123,9 @@ bool MPI_Predicter :: MakeSatSample()
 		state_vec_vec.push_back( state_vec );
 		biv.getStreamBit( stream_vec, stream_len );
 		stream_vec_vec.push_back( stream_vec );
-		biv.reset();
-	}
 
-	return true;
+		biv.reset();
+		key_bool_vec.clear();
+		iv_bool_vec.clear();
+	}
 }
