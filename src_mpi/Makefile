@@ -4,8 +4,8 @@ INC2 = ../src_common/
 INCDIRS = -I${INC1} -I${INC2}
 CPPFLAGS = -O3 -std=c++0x ${INCDIRS} -D __STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS -D _MPI
 
-pd-sat: pd-sat.o mpi_base.o mpi_solver.o mpi_predicter.o addit_func.o minisat22_wrapper.o Solver.o SimpSolver.o System.o Options.o
-	${CPP} ${CPPFLAGS} pd-sat.o mpi_base.o mpi_solver.o mpi_predicter.o addit_func.o minisat22_wrapper.o Solver.o SimpSolver.o System.o Options.o -o pd-sat
+pd-sat: pd-sat.o Bivium.o mpi_base.o mpi_solver.o mpi_predicter.o addit_func.o minisat22_wrapper.o Solver.o SimpSolver.o System.o Options.o
+	${CPP} ${CPPFLAGS} pd-sat.o Bivium.o mpi_base.o mpi_solver.o mpi_predicter.o addit_func.o minisat22_wrapper.o Solver.o SimpSolver.o System.o Options.o -o pd-sat
 	
 Options.o: ../src_common/minisat/utils/Options.cc
 	${CPP} ${CPPFLAGS} ../src_common/minisat/utils/Options.cc -c
@@ -33,6 +33,9 @@ mpi_solver.o: mpi_solver.cpp
 	
 mpi_base.o: mpi_base.cpp 
 	${CPP} ${CPPFLAGS} mpi_base.cpp -c
+
+Bivium.o: ../src_common/Bivium.cpp 
+	${CPP} ${CPPFLAGS} ../src_common/Bivium.cpp -c
 	
 pd-sat.o: pd-sat.cpp
 	${CPP} ${CPPFLAGS} pd-sat.cpp -c

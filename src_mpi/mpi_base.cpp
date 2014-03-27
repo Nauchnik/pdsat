@@ -46,7 +46,10 @@ MPI_Base :: MPI_Base( ) :
 	rslos_table_name     ( "" ),
 	assumptions_count    ( 0 ),
 	activity_vec_len	 ( 0 ),
-	stream_len           ( 200 )
+	stream_len           ( 200 ),
+	first_stream_var_index ( 577 ),
+	te ( 0 ),
+	er ( 1 )
 {
 	full_mask  = new unsigned[FULL_MASK_LEN];
 	part_mask  = new unsigned[FULL_MASK_LEN];
@@ -742,6 +745,11 @@ bool MPI_Base :: ReadIntCNF()
 					current_lit_count++;
 				} // if ( ( line_str[i] == ' ' ) ...
 			} // for ( i = 0; i < line_str.length( ) - 1; i++ )
+			
+			if ( ( te > 0 ) && ( current_lit_count == 1 ) ) {
+				cerr << "( te > 0 ) && ( current_lit_count == 1 ). change CNF file to template one" << endl;
+				exit(1);
+			}
 			
 			if ( current_lit_count )
 				current_clause_count++;

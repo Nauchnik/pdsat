@@ -88,10 +88,12 @@ public:
 	unsigned var_count;
 	unsigned lit_count;
 	unsigned clause_count;
-
 	unsigned full_mask_var_count;
 	unsigned part_mask_var_count;
 	unsigned all_tasks_count;
+	double te;
+	double er;
+	unsigned first_stream_var_index;
 
 	vector<int> rslos_lengths;
 
