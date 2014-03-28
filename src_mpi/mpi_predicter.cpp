@@ -313,7 +313,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	return true;
 }
 
-bool MPI_Predicter :: ComputeProcessPredict( )
+bool MPI_Predicter :: ComputeProcessPredict()
 {
 	ofstream ofile;
 
@@ -341,9 +341,8 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	if ( te > 0 ) { // ro es te mode
 		int stream_char_len, state_char_len;
 		unsigned stream_vec_len, state_vec_len;
-
 		MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		MPI_Get_count( &status, MPI_INT, &stream_char_len );
+		MPI_Get_count( &status, MPI_CHAR, &stream_char_len );
 		if ( rank == 1 )
 			cout << "stream_char_len " << stream_char_len << endl;
 		char *stream_arr = new char[stream_char_len];
@@ -358,9 +357,8 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			cout << "stream_vec_len " << stream_vec_len << endl; 
 			cout << "stream_vec_vec.size() " << stream_vec_vec.size() << endl;
 		}
-		
 		MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		MPI_Get_count( &status, MPI_INT, &state_char_len );
+		MPI_Get_count( &status, MPI_CHAR, &state_char_len );
 		if ( rank == 1 )
 			cout << "state_char_len " << state_char_len << endl;
 		char *state_arr = new char[state_char_len];
@@ -496,11 +494,11 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 				dummy.clear();
 				sat_sample_index = current_task_index % cnf_in_set_count;
 				// TODO delete
-				ofile.open( "sat_sample_index", ios_base :: out | ios_base :: app );
+				/*ofile.open( "sat_sample_index", ios_base :: out | ios_base :: app );
 				ofile << sat_sample_index << endl;
 				if ( isNewDecompSetReceived )
 					ofile << "---" << endl;
-				ofile.close();
+				ofile.close();*/
 
 				for ( auto &x : var_choose_order ) {
 					cur_var_ind = x-1;
@@ -550,8 +548,8 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) && ( S->decisions == prev_decisions ) )
 				IsSolvedOnPreprocessing = 1;  // solved by BCP
 
-			if ( ( te > 0 ) && ( ret != l_True ) ) { // in ro es te mode all instances are satisfiable
-				cerr << "( te > 0 ) && ( ret != l_True ) " << endl;
+			if ( ( te > 0 ) && ( ret == l_False ) ) { // in ro es te mode all instances are satisfiable
+				cerr << "( te > 0 ) && ( ret == l_False ) " << endl;
 				exit(1);
 			}
 			
@@ -561,15 +559,17 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			if ( cnf_time_from_node < MIN_SOLVE_TIME ) // TODO. maybe 0 - but why?!
 				cnf_time_from_node = MIN_SOLVE_TIME;
 			if ( ret == l_True ) {
-				process_sat_count++;
-				cout << "SAT found" << endl;
-				cout << "process_sat_count " << process_sat_count << endl;
-				b_SAT_set_array.resize( S->model.size() );
-				for ( int i=0; i < S->model.size(); i++ )
-					b_SAT_set_array[i] = ( S->model[i] == l_True) ? 1 : 0;
-				if ( !AnalyzeSATset( ) ) { 	// check res file for SAT set existing
-					cout << "Error in Analyzer procedute" << endl;
-					return false;
+				if ( te == 0 ) {
+					process_sat_count++;
+ 					cout << "SAT found" << endl;
+					cout << "process_sat_count " << process_sat_count << endl;
+					b_SAT_set_array.resize( S->model.size() );
+					for ( int i=0; i < S->model.size(); i++ )
+						b_SAT_set_array[i] = ( S->model[i] == l_True) ? 1 : 0;
+					if ( !AnalyzeSATset( ) ) { 	// check res file for SAT set existing
+						cout << "Error in Analyzer procedute" << endl;
+						return false;
+					}
 				}
 			}
 		    S->clearDB();
@@ -1281,10 +1281,10 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	real_var_choose_order = var_choose_order;
 	sort( var_choose_order.begin(), var_choose_order.end() );
 
-	double last_predict_record_time = Minisat::cpuTime() - current_predict_start_time;
+	double last_predict_record_time = MPI_Wtime() - current_predict_start_time;
 	current_predict_time += last_predict_record_time;
-	current_predict_start_time = MPI_Wtime( ); // update time
-
+	current_predict_start_time = MPI_Wtime(); // update time
+	
 	sstream << "best_predict_time " << best_predict_time << " s" << endl;
 
 	if ( deep_predict == 5 ) { // Simulated annealing
