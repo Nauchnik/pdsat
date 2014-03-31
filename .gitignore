@@ -41,7 +41,6 @@ local.properties
 *.user
 *.sln.docstates
 # new
-*.filters
 *.uset
 *.sdf
 

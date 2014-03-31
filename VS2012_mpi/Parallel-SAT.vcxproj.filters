@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\src_common\minisat\core\Solver.cc">
+      <Filter>minisat</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_common\minisat\utils\System.cc">
+      <Filter>minisat</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_common\minisat\utils\Options.cc">
+      <Filter>minisat</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_common\addit_func.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_common\minisat22_wrapper.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_mpi\mpi_base.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_mpi\mpi_predicter.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_mpi\mpi_solver.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_mpi\pd-sat.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_common\Bivium.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src_common\minisat\core\Solver.h">
+      <Filter>minisat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat\core\SolverTypes.h">
+      <Filter>minisat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat\utils\System.h">
+      <Filter>minisat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat\mtl\Vec.h">
+      <Filter>minisat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat\utils\ParseUtils.h">
+      <Filter>minisat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat\utils\Options.h">
+      <Filter>minisat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat\core\Dimacs.h">
+      <Filter>minisat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\addit_func.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat22_wrapper.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_mpi\mpi_predicter.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_mpi\mpi_solver.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_mpi\mpi_base.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\Bivium.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\IStreamCipher.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src_mpi\Makefile" />
+    <None Include="..\src_mpi\ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="headers">
+      <UniqueIdentifier>{ccf1efd1-e424-4761-b8d1-ad221a8ce890}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="sources">
+      <UniqueIdentifier>{d307920b-af8c-4c8d-93a0-3bda452aa63d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="minisat">
+      <UniqueIdentifier>{3a08cdcc-1841-47ea-a8a3-ca344a191f1b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
