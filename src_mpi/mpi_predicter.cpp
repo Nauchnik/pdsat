@@ -1438,7 +1438,8 @@ bool MPI_Predicter :: GetPredict()
 		   cur_sum_part_time = 0.0,
 		   cur_med_part_time = 0.0,
 		   time1 = 0,
-		   cur_cnf_time = 0;
+		   cur_cnf_time = 0.0;
+	double ro_limit = 0.25;
 	unsigned long long temp_llint = 0;
 	int set_index_bound = 0,
 		cur_cnf_in_set_count = 0;
@@ -1524,9 +1525,9 @@ bool MPI_Predicter :: GetPredict()
 			cur_predict_time *= pow( 2, (double)cur_var_num );
 		}
 		else if ( te > 0 ) // here med_time_arr in (0,1)
-			//cur_predict_time = (log(cur_var_num)/log(10)) / pow(med_time_arr[i],er);
-			//cur_predict_time = (log(cur_var_num)/log(2)) / pow(med_time_arr[i],er);
-			cur_predict_time = (double)cur_var_num / pow(med_time_arr[i],er);
+			//cur_predict_time = pow( er, (double)cur_var_num ) / med_time_arr[i];
+			cur_predict_time = pow( er, (double)cur_var_num ) / med_time_arr[i] + 
+			pow( 2.0, (ro_limit - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 ); // penalty1
 		
 		predict_time_arr[i] = cur_predict_time;
 		
