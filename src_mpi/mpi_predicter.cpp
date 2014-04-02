@@ -287,6 +287,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 			if ( (unsigned)cur_task_index >= all_tasks_count ) {
 				sstream_control << "cur_task_index >= all_tasks_count" << endl;
 				sstream_control << cur_task_index << " >= " << all_tasks_count << endl;
+				sstream_control << "skip" << endl;
 				break;
 			}
 			SendPredictTask( ProcessListNumber, current_status.MPI_SOURCE, cur_task_index, cur_decomp_set_index );
@@ -331,6 +332,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	// get core_len before getting tasks
 	MPI_Recv( &core_len,         1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &activity_vec_len, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &known_last_bits,  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	int *full_local_decomp_set = new int[core_len];
 	MPI_Recv( full_local_decomp_set, core_len, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	full_var_choose_order.resize( core_len );
@@ -377,9 +379,10 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	
 	var_choose_order = full_var_choose_order;
 	
-	if ( ( verbosity > 0 ) && ( rank == corecount-1 ) ) {
+	if ( rank == 1 ) {
 		cout << "Received core_len "         << core_len         << endl;
 		cout << "Received activity_vec_len " << activity_vec_len << endl;
+		cout << "Received known_last_bits "  << known_last_bits  << endl;
 		cout << "Received full_var_choose_order " << endl;
 		for ( unsigned i=0; i < full_var_choose_order.size(); ++i )
 			cout << full_var_choose_order[i] << " ";
@@ -503,6 +506,12 @@ bool MPI_Predicter :: ComputeProcessPredict()
 				for ( auto &x : var_choose_order ) {
 					cur_var_ind = x-1;
 					dummy.push( (state_vec_vec[sat_sample_index][cur_var_ind]) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
+				}
+				if ( known_last_bits ) { // add some last known bits
+					for ( unsigned i=0; i < known_last_bits; i++ ) {
+						cur_var_ind = core_len - known_last_bits + i;
+						dummy.push( (state_vec_vec[sat_sample_index][cur_var_ind]) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
+					}
 				}
 				cur_stream_index = 0;
 				for ( auto it = stream_vec_vec[sat_sample_index].begin(); it != stream_vec_vec[sat_sample_index].end(); it++ ) {
@@ -964,7 +973,7 @@ bool MPI_Predicter :: DeepPredictMain( )
 		deep_predict_file.close();
 		sstream.str( "" ); sstream.clear( );
 		
-		// stop all current tasks if not first stage (in this stage all problems must be solve)
+		// stop all current tasks if not first stage (in this stage all problems must be solved)
 		/*if ( !IsFirstStage ) {
 			if ( verbosity > 1 )
 				cout << "Extra stop sending " << endl;
@@ -1077,6 +1086,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		for( int i=0; i < corecount-1; ++i ) {
 			MPI_Send( &core_len,         1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &activity_vec_len, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &known_last_bits,  1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( full_local_decomp_set, core_len, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 		}
 		delete[] full_local_decomp_set;
@@ -1342,7 +1352,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	predict_file_name = sstream.str();
 	
 	//if ( ( !IsFirstStage ) || ( record_count == 1 ) ) // don't write in first stage - it's expansive
-		WritePredictToFile( 0, 0 );
+	WritePredictToFile( 0, 0 );
 	predict_file_name = "predict";
 	
 	ofstream graph_file, var_activity_file;
@@ -2170,7 +2180,7 @@ void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vect
 		biv.init();
 		biv.getRegisterState( state_vec );
 		state_vec_vec.push_back( state_vec );
-		biv.getStreamBit( stream_vec, stream_len );
+		biv.getStreamBit( stream_vec, keystream_len );
 		stream_vec_vec.push_back( stream_vec );
 
 		biv.reset();

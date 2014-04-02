@@ -46,10 +46,11 @@ MPI_Base :: MPI_Base( ) :
 	rslos_table_name     ( "" ),
 	assumptions_count    ( 0 ),
 	activity_vec_len	 ( 0 ),
-	stream_len           ( 200 ),
 	first_stream_var_index ( 577 ),
 	te ( 0 ),
-	er ( 1 )
+	er ( 1 ),
+	known_last_bits ( 0 ),
+	keystream_len ( 200 )
 {
 	full_mask  = new unsigned[FULL_MASK_LEN];
 	part_mask  = new unsigned[FULL_MASK_LEN];
@@ -569,8 +570,7 @@ bool MPI_Base :: ReadIntCNF()
 	vector<int> :: iterator vec_it;
 
 	if ( !ReadVarCount( ) ) {
-		cerr << "Error in ReadVarCount" << endl;
-		return false;
+		cerr << "Error in ReadVarCount" << endl; return false;
 	}
 
 	cout << "ReadVarCount() done" << endl;
@@ -587,7 +587,7 @@ bool MPI_Base :: ReadIntCNF()
 			 << input_cnf_name << endl;
 		return false;
 	}
-
+	
 	first_obj_var = 0;
 	current_clause_count = 0;
 
@@ -616,7 +616,19 @@ bool MPI_Base :: ReadIntCNF()
 
 			sstream >> str3 >> str4; // get and parse words in string
 			sstream.str( "" ); sstream.clear( );
-
+			
+			if ( str2 == "known_last_bits" ) {
+				istringstream( str3 ) >> known_last_bits;
+				cout << "known_last_bits " << known_last_bits << endl;
+				continue;
+			}
+			
+			if ( str2 == "keystream_len" ) {
+				istringstream( str3 ) >> keystream_len;
+				cout << "keystream_len " << keystream_len << endl;
+				continue;
+			}
+			
 			if ( ( !Is_InpVar ) && ( str2 == "input" ) && ( str3 == "variables" ) ) {
 				istringstream( str4 ) >> input_var_num;
 				if ( input_var_num > 0 ) {
@@ -780,6 +792,11 @@ bool MPI_Base :: ReadIntCNF()
 		cout << "core_var_indexes" << endl;
 		for ( map<int,unsigned> :: iterator map_it = core_var_indexes.begin(); map_it != core_var_indexes.end(); ++map_it )
 			cout << map_it->first << " " << map_it->second << endl;
+	}
+
+	if ( known_last_bits ) {
+		core_len -= known_last_bits;
+		cout << "new core_len (less to known_last_bits) " << core_len << endl;
 	}
 	
 	cout << "ReadIntCNF() done" << endl;

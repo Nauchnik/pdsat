@@ -64,7 +64,6 @@ public:
 	bool IsConseq;
 	int check_every_conflict;
 	bool IsPredict;
-	unsigned stream_len;
 	
 	unsigned *full_mask;
 	unsigned *part_mask;
@@ -94,7 +93,9 @@ public:
 	double te;
 	double er;
 	unsigned first_stream_var_index;
-
+	unsigned known_last_bits;
+	unsigned keystream_len;
+	
 	vector<int> rslos_lengths;
 
 	int sat_count;
