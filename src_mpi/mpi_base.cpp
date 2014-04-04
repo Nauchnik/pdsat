@@ -46,7 +46,7 @@ MPI_Base :: MPI_Base( ) :
 	rslos_table_name     ( "" ),
 	assumptions_count    ( 0 ),
 	activity_vec_len	 ( 0 ),
-	first_stream_var_index ( 577 ),
+	first_stream_var_index ( 0 ),
 	te ( 0 ),
 	er ( 1 ),
 	known_last_bits ( 0 ),

@@ -339,8 +339,11 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	for ( unsigned i=0; i < core_len; ++i )
 		full_var_choose_order[i] = full_local_decomp_set[i];
 	delete[] full_local_decomp_set;
-
+	
 	if ( te > 0 ) { // ro es te mode
+		MPI_Recv( &first_stream_var_index,  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		if ( rank == 1 )
+			cout << "received first_stream_var_index " << first_stream_var_index << endl;
 		int stream_char_len, state_char_len;
 		unsigned stream_vec_len, state_vec_len;
 		MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
@@ -1092,6 +1095,9 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		delete[] full_local_decomp_set;
 		
 		if ( te > 0 ) {
+			first_stream_var_index = var_count - keystream_len;
+			cout << "first_stream_var_index " << first_stream_var_index << endl;
+
 			MakeSatSample( state_vec_vec, stream_vec_vec );
 			stream_char_len = stream_vec_vec.size() * stream_vec_vec[0].size();
 			state_char_len  = state_vec_vec.size()  * state_vec_vec[0].size();
@@ -1123,8 +1129,9 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			}
 			
 			for( int i=0; i < corecount-1; ++i ) {
-				MPI_Send( stream_arr, stream_char_len, MPI_CHAR,  i + 1, 0, MPI_COMM_WORLD );
-				MPI_Send( state_arr,  state_char_len,  MPI_CHAR,  i + 1, 0, MPI_COMM_WORLD );
+				MPI_Send( &first_stream_var_index,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+				MPI_Send( stream_arr, stream_char_len, MPI_CHAR,     i + 1, 0, MPI_COMM_WORLD );
+				MPI_Send( state_arr,  state_char_len,  MPI_CHAR,     i + 1, 0, MPI_COMM_WORLD );
 			}
 			cout << "stream_arr and state_arr sended" << endl;
 			
