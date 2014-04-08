@@ -105,7 +105,7 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 			cout << "Sending array_message with size " << array_message_size << endl;
 	}
 	else {
-		MPI_Send( &cur_task_index,  1, MPI_INT, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
+		MPI_Send( &cur_task_index, 1, MPI_INT, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
 		if ( verbosity > 1 )
 			cout << "Sending cur_task_index " << cur_task_index << endl;
 	}
@@ -151,7 +151,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	cout << "Sending of first tasks done" << endl;
 
 	int process_sat_count = 0,
-	   current_task_index = -1,
+	    task_index_from_node = -1,
 	   stop_message = -1,
 	   iprobe_message = 0,
 	   all_skip_count = 0;
@@ -223,7 +223,8 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 			cout << "In ControlProcess() before recieving results" << endl;
 		
 		// recieve from core message about solved task    
-		MPI_Recv( &current_task_index,         1, MPI_INT,    MPI_ANY_SOURCE,            MPI_ANY_TAG, MPI_COMM_WORLD, &status ); 
+		MPI_Recv( &task_index_from_node,         1, MPI_INT,    MPI_ANY_SOURCE,            MPI_ANY_TAG, MPI_COMM_WORLD, &status ); 
+		//cout << "recv current_task_index " << current_task_index << endl;
 		// if 1st message from core # i then get 2nd message from that core
 		current_status = status;
 		// then get 1 more mes
@@ -239,7 +240,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		}
 
 		if ( verbosity > 1 )
-			cout << "Recieved result with current_task_index " << current_task_index << endl;
+			cout << "Recieved result with current_task_index " << task_index_from_node << endl;
 		
 		// skip old message
 		if ( current_status.MPI_TAG < ProcessListNumber ) {
@@ -252,23 +253,31 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		}
 
 		// SAT-problem was solved
-		cnf_real_time_arr[current_task_index] = cnf_time_from_node; // real time of solving
-		cnf_prepr_arr[current_task_index] = IsSolvedOnPreprocessing;
+		cnf_real_time_arr[task_index_from_node] = cnf_time_from_node; // real time of solving
+		cnf_prepr_arr[task_index_from_node] = IsSolvedOnPreprocessing;
 		
 		if ( process_sat_count == 1 ) {
 			total_sat_count += process_sat_count;
 			//cout << "total_sat_count " << total_sat_count << endl;
-			cnf_status_arr[current_task_index] = 3; // status of CNF is SAT
-			cnf_issat_arr[cur_task_index] = true;
+			cnf_status_arr[task_index_from_node] = 3; // status of CNF is SAT
+			cnf_issat_arr[task_index_from_node] = true;
 		}
 		else if ( process_sat_count == 0 ) {
-			if ( cnf_status_arr[current_task_index] == 0 ) // if status of CNF is not STOPPED
-				cnf_status_arr[current_task_index] = 2; // then status of CNF is UNSAT
+			if ( cnf_status_arr[task_index_from_node] == 0 ) // if status of CNF is not STOPPED
+				cnf_status_arr[task_index_from_node] = 2; // then status of CNF is UNSAT
 		}
 		else if ( process_sat_count > 1 ) {
 			cerr << "process_sat_count > 1" << endl;
 			exit(1);
 		}
+
+		/*unsigned sat_count = 0;
+		for ( auto x = cnf_issat_arr.begin(); x != cnf_issat_arr.end(); x++ )
+			if (*x) sat_count++;
+		cout << endl << "solved_tasks_count " << solved_tasks_count << endl;
+		cout << "cnf_issat_arr.size() " << cnf_issat_arr.size() << endl; 
+		cout << "current_task_index " << task_index_from_node << endl;
+		cout << "sat_count " << sat_count << endl;*/
 		
 		solved_tasks_count++;
 		if ( verbosity > 1 ) {
@@ -460,7 +469,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			array_message = new int[message_size];
 			MPI_Recv( array_message, message_size, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 			isNewDecompSetReceived = true;
-			if ( ( verbosity > 2 ) && ( rank == corecount-1 ) ) {
+			if ( ( verbosity > 2 ) && ( rank == 1 ) ) {
 				cout << "Received array_message" << endl;
 				for ( int i = 0; i < message_size; ++i )
 					cout << array_message[i] << " ";
@@ -491,7 +500,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			isFirstDecompSetReceived = true;
 		}
 		
-		if ( ( verbosity > 0 ) && ( rank == corecount-1 ) )
+		if ( ( verbosity > 0 ) && ( rank == 1 ) )
 			cout << "current_task_index " << current_task_index << endl;
 
 		if ( !isFirstDecompSetReceived ) {
@@ -504,7 +513,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			if ( te > 0 ) { // make satisfiable instanse by known state and keystream
 				dummy.clear();
 				sat_sample_index = current_task_index % cnf_in_set_count;
-				
+
 				for ( auto &x : var_choose_order ) {
 					cur_var_ind = x-1;
 					dummy.push( (state_vec_vec[sat_sample_index][cur_var_ind]) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
@@ -1530,10 +1539,10 @@ bool MPI_Predicter :: GetPredict()
 			}
 		}
 		else if ( te > 0 ) { // (ro, es, te) mode, here sum for sample is number of solved problems with time < te  
-			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ ) {
+			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ )
 				if ( ( cnf_issat_arr[j] )  && ( cnf_real_time_arr[j] > 0 ) && ( cnf_real_time_arr[j] <= te ) )
 					sum_time_arr[i] += 1;
-			}
+
 		}
 		
 		// get current predict time
