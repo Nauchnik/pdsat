@@ -92,6 +92,7 @@ public:
 	unsigned all_tasks_count;
 	double te;
 	double er;
+	double penalty;
 	unsigned first_stream_var_index;
 	unsigned known_last_bits;
 	unsigned keystream_len;

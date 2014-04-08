@@ -51,6 +51,7 @@ struct Flags
 	bool no_increm;
 	double te; // for (ro es te) predict strategy
 	double er;
+	double penalty;
 };
 
 // prototypes
@@ -153,6 +154,8 @@ int main( int argc, char** argv )
 			mpi_p.te = myflags.te;
 		if ( myflags.er > 0 )
 			mpi_p.er = myflags.er;
+		if ( myflags.penalty > 0 )
+			mpi_p.penalty = myflags.penalty;
 
 		// Predict compute cost
 		if ( !mpi_p.MPI_Predict( argc, argv ) ) {
@@ -283,6 +286,7 @@ void WriteUsage( )
 	"\n   -no_increm - disable incremental mode while solving";
 	"\n   -te - for (ro, es, te) strategy in predict";
 	"\n   -er - power of median for (ro, es, te) strategy in predict";
+	"\n   -penalty - penalty for function in satisfiably predict mode";
 }
 
 //---------------------------------------------------------
@@ -344,6 +348,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.no_increm = false;
 	myflags.te = 0;
 	myflags.er = 0;
+	myflags.penalty = 0;
 	
 	k = 0;
 	
@@ -399,6 +404,8 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.te = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-er=", value ) )
 			myflags.er = atof( value.c_str( ) );
+		else if ( hasPrefix_String( argv_string, "-penalty=", value ) )
+			myflags.penalty = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-deep_predict=", value ) )  {
 			myflags.deep_predict = atoi( value.c_str( ) );
 			switch ( myflags.deep_predict ) {

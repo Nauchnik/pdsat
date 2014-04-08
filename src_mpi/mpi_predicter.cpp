@@ -257,12 +257,17 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		
 		if ( process_sat_count == 1 ) {
 			total_sat_count += process_sat_count;
-			cout << "total_sat_count " << total_sat_count << endl;
+			//cout << "total_sat_count " << total_sat_count << endl;
 			cnf_status_arr[current_task_index] = 3; // status of CNF is SAT
+			cnf_issat_arr[cur_task_index] = true;
 		}
 		else if ( process_sat_count == 0 ) {
 			if ( cnf_status_arr[current_task_index] == 0 ) // if status of CNF is not STOPPED
 				cnf_status_arr[current_task_index] = 2; // then status of CNF is UNSAT
+		}
+		else if ( process_sat_count > 1 ) {
+			cerr << "process_sat_count > 1" << endl;
+			exit(1);
 		}
 		
 		solved_tasks_count++;
@@ -499,13 +504,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			if ( te > 0 ) { // make satisfiable instanse by known state and keystream
 				dummy.clear();
 				sat_sample_index = current_task_index % cnf_in_set_count;
-				// TODO delete
-				/*ofile.open( "sat_sample_index", ios_base :: out | ios_base :: app );
-				ofile << sat_sample_index << endl;
-				if ( isNewDecompSetReceived )
-					ofile << "---" << endl;
-				ofile.close();*/
-
+				
 				for ( auto &x : var_choose_order ) {
 					cur_var_ind = x-1;
 					dummy.push( (state_vec_vec[sat_sample_index][cur_var_ind]) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
@@ -571,8 +570,8 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			if ( cnf_time_from_node < MIN_SOLVE_TIME ) // TODO. maybe 0 - but why?!
 				cnf_time_from_node = MIN_SOLVE_TIME;
 			if ( ret == l_True ) {
+				process_sat_count++;
 				if ( te == 0 ) {
-					process_sat_count++;
  					cout << "SAT found" << endl;
 					cout << "process_sat_count " << process_sat_count << endl;
 					b_SAT_set_array.resize( S->model.size() );
@@ -1161,9 +1160,10 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "evaluation_type " << evaluation_type << endl;
 		cout << "te for (ro, es, te) " << te << endl;
 		cout << "er for (ro, es, te) " << er << endl;
+		cout << "penalty for (ro, es, te) " << penalty << endl;
 		
 		DeepPredictMain( );
-
+		
 		delete[] var_activity;
 	}
 	else { // if rank != 0
@@ -1238,13 +1238,15 @@ bool MPI_Predicter :: PrepareForPredict()
 	cnf_start_time_arr.resize( all_tasks_count );
 	// array of real time of CNF solving
 	cnf_real_time_arr.resize( all_tasks_count );
+	cnf_issat_arr.resize( all_tasks_count );
 	cnf_prepr_arr.resize( all_tasks_count );
-
+	
 	for( unsigned i = 0; i < all_tasks_count; i++ ) {
 		cnf_status_arr[i]     = 0; // status WAIT
 		cnf_start_time_arr[i] = 0.0;
 		cnf_real_time_arr[i]  = 0.0;
-		cnf_prepr_arr[i] = 0;
+		cnf_prepr_arr[i]      = 0;
+		cnf_issat_arr[i]      = false;
 	}
 
 	// sum times
@@ -1456,7 +1458,6 @@ bool MPI_Predicter :: GetPredict()
 		   cur_med_part_time = 0.0,
 		   time1 = 0,
 		   cur_cnf_time = 0.0;
-	double ro_limit = 0.25;
 	unsigned long long temp_llint = 0;
 	int set_index_bound = 0,
 		cur_cnf_in_set_count = 0;
@@ -1530,7 +1531,7 @@ bool MPI_Predicter :: GetPredict()
 		}
 		else if ( te > 0 ) { // (ro, es, te) mode, here sum for sample is number of solved problems with time < te  
 			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ ) {
-				if ( ( cnf_real_time_arr[j] > 0 ) && ( cnf_real_time_arr[j] < te ) )
+				if ( ( cnf_issat_arr[j] )  && ( cnf_real_time_arr[j] > 0 ) && ( cnf_real_time_arr[j] <= te ) )
 					sum_time_arr[i] += 1;
 			}
 		}
@@ -1541,10 +1542,15 @@ bool MPI_Predicter :: GetPredict()
 			cur_predict_time = med_time_arr[i] / (double)proc_count;
 			cur_predict_time *= pow( 2, (double)cur_var_num );
 		}
-		else if ( te > 0 ) // here med_time_arr in (0,1)
+		else if ( te > 0 ) { // here med_time_arr in (0,1)
 			//cur_predict_time = pow( er, (double)cur_var_num ) / med_time_arr[i];
-			cur_predict_time = pow( er, (double)cur_var_num ) / med_time_arr[i] + 
-			pow( 2.0, (ro_limit - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 ); // penalty1
+			if ( med_time_arr[i] > 0.0 ) {
+				cur_predict_time = pow( er, (double)cur_var_num ) / med_time_arr[i] + 
+				pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 ); // penalty1
+			}
+			else // no solved instanses in sample
+				cur_predict_time = best_predict_time * 20;
+		}
 		
 		predict_time_arr[i] = cur_predict_time;
 		

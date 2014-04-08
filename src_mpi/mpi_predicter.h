@@ -134,6 +134,7 @@ public:
 private:
 	vector<decomp_set> decomp_set_arr;
 	vector<double> cnf_real_time_arr;
+	vector<bool> cnf_issat_arr;
 	vector<int> cnf_prepr_arr;
 	vector<char> cnf_status_arr;
 	vector<double> total_var_activity;

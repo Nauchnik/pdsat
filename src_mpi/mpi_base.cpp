@@ -49,6 +49,7 @@ MPI_Base :: MPI_Base( ) :
 	first_stream_var_index ( 0 ),
 	te ( 0 ),
 	er ( 1 ),
+	penalty ( 0.5 ),
 	known_last_bits ( 0 ),
 	keystream_len ( 200 )
 {
