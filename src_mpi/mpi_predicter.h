@@ -98,6 +98,7 @@ public:
 	double whole_get_predict_time;
 	double whole_add_new_unchecked_area_time;
 	int predict_every_sec;
+	unsigned unupdated_count;
 	double start_sample_variance_limit;
 	vector< vector<bool> > stream_vec_vec;
 	vector< vector<bool> > state_vec_vec;

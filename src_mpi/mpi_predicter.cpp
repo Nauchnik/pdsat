@@ -45,7 +45,8 @@ MPI_Predicter :: MPI_Predicter( ) :
 	max_L2_hamming_distance ( 2 ),
 	start_sample_variance_limit ( 0.000000001 ),
 	evaluation_type ( "time" ),
-	best_cnf_in_set_count ( 0 )
+	best_cnf_in_set_count ( 0 ),
+	unupdated_count ( 0 )
 { 
 	array_message = NULL;
 }
@@ -735,13 +736,20 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 		sstream << "current_unchecked_area checked_points " << endl << str << endl;;
 		// make initial values
 		cur_vars_changing = 1; // start again from Hamming distance == 1
+		unupdated_count = 0;
 	} else { // if there were no better points in checked area
 		sstream << endl << "---Record not updated---" << endl;
 		checked_area c_a;
-		if ( cur_vars_changing < max_var_deep_predict ) {
+		unupdated_count++;
+		if ( unupdated_count % 10 == 0 ) {
+			er = ( er == 2.0 ) ? 1.5 : 2;
+			cout << "er changed to " << er << endl;
+		}
+		sstream << "unupdated_count " << unupdated_count << endl;
+		/*if ( cur_vars_changing < max_var_deep_predict ) {
 			cur_vars_changing++; // try larger Hamming distance
 			return true;
-		}
+		}*/
 		if ( deep_predict == 6 ) { // tabu search mode
 			boost::dynamic_bitset<> bs, xor_bs;
 			unsigned min_hamming_distance;
@@ -770,6 +778,10 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 				cout << "min_hamming_distance > max_L2_hamming_distance " << endl;
 				cout << min_hamming_distance << " > " << max_L2_hamming_distance << endl;
 				return false;
+			}
+			if ( cur_vars_changing != min_hamming_distance ) {
+				cur_vars_changing = min_hamming_distance;
+				sstream << "cur_vars_changing changed to " << cur_vars_changing << endl;
 			}
 			// remember matches
 			for ( L2_it = L2.begin(); L2_it != L2.end(); L2_it++ ) {
@@ -1407,7 +1419,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		sstream << endl << " *** First stage done ***" << best_predict_time << endl;
 		graph_file << " first stage done";
 	}
-	graph_file << endl;
+	graph_file << "er=" << er << endl;
 	
 	graph_file.close();
 	var_activity_file.close();
