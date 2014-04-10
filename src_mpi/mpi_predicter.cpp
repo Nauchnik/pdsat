@@ -46,7 +46,9 @@ MPI_Predicter :: MPI_Predicter( ) :
 	start_sample_variance_limit ( 0.000000001 ),
 	evaluation_type ( "time" ),
 	best_cnf_in_set_count ( 0 ),
-	unupdated_count ( 0 )
+	unupdated_count ( 0 ),
+	best_predict_time_1 ( 0 ),
+	best_predict_time_2 ( 0 )
 { 
 	array_message = NULL;
 }
@@ -742,8 +744,16 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 		checked_area c_a;
 		unupdated_count++;
 		if ( unupdated_count % 10 == 0 ) {
-			er = ( er == 2.0 ) ? 1.5 : 2;
-			cout << "er changed to " << er << endl;
+			if ( er == 1.5 ) {
+				er = 2.0;
+				best_predict_time = best_predict_time_2;
+			}
+			else if ( er == 2.0 ) {
+				er = 1.5;
+				best_predict_time = best_predict_time_1;
+			}
+			sstream << "er changed to " << er << endl;
+			sstream << "new best_predict_time " << best_predict_time << endl;
 		}
 		sstream << "unupdated_count " << unupdated_count << endl;
 		/*if ( cur_vars_changing < max_var_deep_predict ) {
@@ -1419,7 +1429,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		sstream << endl << " *** First stage done ***" << best_predict_time << endl;
 		graph_file << " first stage done";
 	}
-	graph_file << "er=" << er << endl;
+	graph_file << " er=" << er << endl;
 	
 	graph_file.close();
 	var_activity_file.close();
@@ -1483,8 +1493,10 @@ bool MPI_Predicter :: GetPredict()
 	int set_index_bound = 0,
 		cur_cnf_in_set_count = 0;
 	double current_time = Minisat::cpuTime();
-
+	double new_predict_time_1, new_predict_time_2;
+	
 	cnf_to_stop_arr.clear(); // every time get stop-list again
+	stringstream sstream;
 	
 	// fill arrays of summary and median times in set of CNF
 	for ( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
@@ -1553,9 +1565,22 @@ bool MPI_Predicter :: GetPredict()
 		}
 		else if ( te > 0 ) { // here med_time_arr in (0,1)
 			//cur_predict_time = pow( er, (double)cur_var_num ) / med_time_arr[i];
+			new_predict_time_1 = 0;
+			new_predict_time_2 = 0;
 			if ( med_time_arr[i] > 0.0 ) {
 				cur_predict_time = pow( er, (double)cur_var_num ) / med_time_arr[i] + 
 				pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 ); // penalty1
+				
+				if ( er == 1.5 ) {
+					new_predict_time_1 = cur_predict_time;
+					new_predict_time_2 = pow( 2.0, (double)cur_var_num ) / med_time_arr[i] + 
+						pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 ); // penalty1
+				}
+				else if ( er == 2.0 ) {
+					new_predict_time_2 = cur_predict_time;
+					new_predict_time_1 = pow( 1.5, (double)cur_var_num ) / med_time_arr[i] + 
+						pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 ); // penalty1
+				}
 			}
 			else // no solved instanses in sample
 				cur_predict_time = best_predict_time * 20;
@@ -1565,7 +1590,7 @@ bool MPI_Predicter :: GetPredict()
 		
 		// if in set all sat-problems solved and unsat then set can has best predict
 		if ( ( set_status_arr[i] == 4  ) && 
-			 ( ( best_predict_time == 0.0 ) ||
+			 ( ( ( best_predict_time == 0.0 ) && ( predict_time_arr[i] ) ) ||
 			   ( ( best_predict_time > 0.0 ) && ( ( predict_time_arr[i] < best_predict_time ) ) ) || 
 			   ( ( deep_predict == 5 ) && ( IfSimulatedGranted( predict_time_arr[i] ) ) )
 			 )
@@ -1577,6 +1602,17 @@ bool MPI_Predicter :: GetPredict()
 			best_predict_time = predict_time_arr[i];
 			best_sum_time     = sum_time_arr[i];
 			best_cnf_in_set_count = cur_cnf_in_set_count;
+			
+			if ( ( new_predict_time_1 > 0 ) && 
+				 ( ( new_predict_time_1 < best_predict_time_1 ) || ( best_predict_time_1 == 0 ) ) ) {
+				best_predict_time_1 = new_predict_time_1;
+				sstream << "best_predict_time_1 updated " << best_predict_time_1 << endl;
+			}
+			if ( ( new_predict_time_2 > 0 ) && 
+				 ( ( new_predict_time_2 < best_predict_time_2 ) || ( best_predict_time_2 == 0 ) ) ) {
+				best_predict_time_2 = new_predict_time_2;
+				sstream << "best_predict_time_2 updated " << best_predict_time_2 << endl;
+			}
 			
 			if ( deep_predict ) // Write info about new point in deep mode
 				NewRecordPoint( i );
@@ -1633,7 +1669,6 @@ bool MPI_Predicter :: GetPredict()
 	if ( verbosity > 2 )
 		cout << "In GetPredict() after main loop" << endl;
 	
-	stringstream sstream;
 	//cout << "before cycle of AddNewUncheckedArea()" << endl;
 	if ( deep_predict == 6 ) {
 		// add to L2 once for every set

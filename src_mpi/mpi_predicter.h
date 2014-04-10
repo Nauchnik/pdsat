@@ -146,6 +146,8 @@ private:
 	
 	int best_var_num;
 	double best_predict_time;
+	double best_predict_time_1;
+	double best_predict_time_2;
 	double best_sum_time;
 	int best_cnf_in_set_count;
 	int *array_message; // for sending via MPI
