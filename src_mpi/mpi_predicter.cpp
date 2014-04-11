@@ -756,10 +756,6 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 			sstream << "new best_predict_time " << best_predict_time << endl;
 		}
 		sstream << "unupdated_count " << unupdated_count << endl;
-		/*if ( cur_vars_changing < max_var_deep_predict ) {
-			cur_vars_changing++; // try larger Hamming distance
-			return true;
-		}*/
 		if ( deep_predict == 6 ) { // tabu search mode
 			boost::dynamic_bitset<> bs, xor_bs;
 			unsigned min_hamming_distance;
@@ -780,6 +776,12 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 			min_hamming_distance = (unsigned)core_len;
 			for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
 				xor_bs = (*L2_it).center ^ bs;
+				if ( xor_bs.count() == 0 ) {
+					cerr << "xor_bs == 0. current center in L2" << endl;
+					cerr << "xor_bs";
+					cerr << "(*L2_it).checked_points.count() " << (*L2_it).checked_points.count() << endl;
+					exit(1);
+				}
 				if ( xor_bs.count() < min_hamming_distance )
 					min_hamming_distance = xor_bs.count();
 			}
@@ -789,10 +791,10 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 				cout << min_hamming_distance << " > " << max_L2_hamming_distance << endl;
 				return false;
 			}
-			if ( cur_vars_changing != min_hamming_distance ) {
+			/*if ( cur_vars_changing != min_hamming_distance ) {
 				cur_vars_changing = min_hamming_distance;
 				sstream << "cur_vars_changing changed to " << cur_vars_changing << endl;
-			}
+			}*/
 			// remember matches
 			for ( L2_it = L2.begin(); L2_it != L2.end(); L2_it++ ) {
 				xor_bs = (*L2_it).center ^ bs;
@@ -938,7 +940,6 @@ bool MPI_Predicter :: DeepPredictMain( )
 	
 	// read from file if one exists. if not, get random vector
 	GetInitPoint( );
-	bool IsFastExit = false;
 	double current_time = 0;
 	string str;
 	
@@ -1016,9 +1017,6 @@ bool MPI_Predicter :: DeepPredictMain( )
 					cout << "stop-message was send to node # " << i << endl;
 			}
 		}*/
-		
-		if ( IsFastExit )
-			break;
 	} // while
 
 	if ( ( deep_predict <= 2 ) && ( best_predict_time == real_best_predict_time ) ) {
@@ -1583,14 +1581,15 @@ bool MPI_Predicter :: GetPredict()
 				}
 			}
 			else // no solved instanses in sample
-				cur_predict_time = best_predict_time * 20;
+				cur_predict_time = 0;
 		}
 		
 		predict_time_arr[i] = cur_predict_time;
 		
 		// if in set all sat-problems solved and unsat then set can has best predict
 		if ( ( set_status_arr[i] == 4  ) && 
-			 ( ( ( best_predict_time == 0.0 ) && ( predict_time_arr[i] ) ) ||
+			 ( predict_time_arr[i] > 0 ) &&
+			 ( ( best_predict_time == 0.0 ) ||
 			   ( ( best_predict_time > 0.0 ) && ( ( predict_time_arr[i] < best_predict_time ) ) ) || 
 			   ( ( deep_predict == 5 ) && ( IfSimulatedGranted( predict_time_arr[i] ) ) )
 			 )
@@ -1619,8 +1618,8 @@ bool MPI_Predicter :: GetPredict()
 			//if ( IsRestartNeeded ) // don't stop immidiatly, new record can be found in calculated points
 			//	return true;
 		}
-		// stop, predict >= best
 		else if ( ( best_predict_time > 0.0 ) && ( predict_time_arr[i] >= best_predict_time  ) ) {
+			// stop, predict >= best
 			if ( ( deep_predict == 5 ) && 
 			     ( predict_time_arr[i] < best_predict_time * (1 + point_admission_koef) ) ) // new point can be worst for simalation annealing
 			{
