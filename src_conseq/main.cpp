@@ -27,10 +27,10 @@ const int PROBLEMS_IN_WU = 20;
 #include "../src_common/diag10_2.inc"
 };*/
 
-int LS_10_3_inc[] = {
+/*int LS_10_3_inc[] = {
 //#include "../src_common/incomplete_10_71_improved.inc"
 #include "exp_test_10_3_inc75.inc"
-};
+};*/
 
 fstream infile;
 fstream outfile;
@@ -52,12 +52,12 @@ int main( int argc, char* argv[] )
 	int int_val;
 	
 #ifdef _DEBUG
-	argc = 6;
+	argc = 5;
 	argv[1] = "10";
-	argv[2] = "8";
-	argv[3] = "3";
+	argv[2] = "2";
+	argv[3] = "10";
 	argv[4] = "inc72";
-	argv[5] = "values.txt";
+	//argv[5] = "values.txt";
 	//argv[6] = "tasks.txt";
 	cout << "***DEBUG MODE***" << endl;
 #endif
@@ -127,11 +127,12 @@ int main( int argc, char* argv[] )
 		for ( unsigned i = 0; i < ls.cnf_array.size(); i++ ) 
 			ls.cnf_array[i] = diag10_2_cnf_array[i];
 	}*/
+	/*
 	if ( ls.problem_type.find( "inc" ) != string::npos ) {
 		ls.cnf_array.resize( sizeof(LS_10_3_inc)  / sizeof(LS_10_3_inc[0]) );
 		for ( unsigned i = 0; i < ls.cnf_array.size(); i++ ) 
 			ls.cnf_array[i] = LS_10_3_inc[i];
-	}
+	}*/
 
 	if ( known_values_vec.size() > 0 )
 		ls.known_values_vec = known_values_vec;
