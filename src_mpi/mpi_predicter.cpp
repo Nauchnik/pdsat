@@ -743,10 +743,10 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 		sstream << endl << "---Record not updated---" << endl;
 		checked_area c_a;
 		unupdated_count++;
-		if ( unupdated_count % 10 == 0 ) {
+		/*if ( unupdated_count % 10 == 0 ) {
 			if ( er == 1.5 ) {
 				er = 2.0;
-				//best_predict_time = best_predict_time_2;
+				best_predict_time = best_predict_time_2;
 			}
 			else if ( er == 2.0 ) {
 				er = 1.5;
@@ -754,7 +754,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 			}
 			sstream << "er changed to " << er << endl;
 			sstream << "new best_predict_time " << best_predict_time << endl;
-		}
+		}*/
 		sstream << "unupdated_count " << unupdated_count << endl;
 		if ( deep_predict == 6 ) { // tabu search mode
 			boost::dynamic_bitset<> bs, xor_bs;
@@ -1495,7 +1495,6 @@ bool MPI_Predicter :: GetPredict()
 	
 	cnf_to_stop_arr.clear(); // every time get stop-list again
 	stringstream sstream;
-	bool isTeBestUpdated;
 	
 	// fill arrays of summary and median times in set of CNF
 	for ( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
@@ -1560,7 +1559,6 @@ bool MPI_Predicter :: GetPredict()
 		med_time_arr[i] = sum_time_arr[i] / (double)cur_cnf_in_set_count;
 		new_predict_time_1 = 0;
 		new_predict_time_2 = 0;
-		isTeBestUpdated = false;
 		if ( te == 0 ) {
 			cur_predict_time = med_time_arr[i] / (double)proc_count;
 			cur_predict_time *= pow( 2, (double)cur_var_num );
@@ -1572,23 +1570,21 @@ bool MPI_Predicter :: GetPredict()
 				new_predict_time_2 = pow( 2.0, (double)cur_var_num ) / med_time_arr[i] + 
 						pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 );
 				
-				if ( ( new_predict_time_1 > 0 ) && 
-					 ( ( new_predict_time_1 < best_predict_time_1 ) || ( best_predict_time_1 == 0 ) ) ) {
+				if ( ( new_predict_time_1 < best_predict_time_1 ) || ( best_predict_time_1 == 0 ) ) {
+					best_predict_time = best_predict_time_1;
 					best_predict_time_1 = new_predict_time_1;
 					sstream << "best_predict_time_1 updated " << best_predict_time_1 << endl;
-					isTeBestUpdated = true;
 					er = 1.5;
 				}
 				// update best times for every er if needed
-				if ( ( new_predict_time_2 > 0 ) && 
-					 ( ( new_predict_time_2 < best_predict_time_2 ) || ( best_predict_time_2 == 0 ) ) ) {
+				if ( ( new_predict_time_2 < best_predict_time_2 ) || ( best_predict_time_2 == 0 ) ) {
+					best_predict_time = best_predict_time_2;
 					best_predict_time_2 = new_predict_time_2;
 					sstream << "best_predict_time_2 updated " << best_predict_time_2 << endl;
-					isTeBestUpdated = true;
 					er = 2;
 				}
 				
-				if ( er == 1.5 )
+				if ( er == 1.5 ) 
 					cur_predict_time = new_predict_time_1;
 				else if ( er == 2.0 )
 					cur_predict_time = new_predict_time_2;
@@ -1606,7 +1602,6 @@ bool MPI_Predicter :: GetPredict()
 		if ( ( set_status_arr[i] == 4  ) && 
 			 ( predict_time_arr[i] > 0 ) &&
 			 ( ( best_predict_time == 0.0 ) ||
-			   ( isTeBestUpdated ) ||
 			   ( ( best_predict_time > 0.0 ) && ( ( predict_time_arr[i] < best_predict_time ) ) ) || 
 			   ( ( deep_predict == 5 ) && ( IfSimulatedGranted( predict_time_arr[i] ) ) )
 			 )
@@ -2226,29 +2221,49 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 
 void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< vector<bool> > &stream_vec_vec )
 {
-	// make [sample_size] different pairs <register_state, keystream> via generating secret keys
-	vector<bool> stream_vec, state_vec;
-	Bivium biv;
-	vector<bool> key_bool_vec;
-	vector<bool> iv_bool_vec;
+	fstream file( "known_sat_sample", ios_base::out );
 
-	// generate [sample_size] secret keys, save corresponding initial register state and keystream
-	for ( unsigned i=0; i < cnf_in_set_count; i++ ) {
-		for ( unsigned j=0; j < 64; j++ ) {
-			key_bool_vec.push_back( bool_rand( gen ) ? true : false );
-			iv_bool_vec.push_back( bool_rand( gen ) ? true : false );
+	//if ( file.peek() == fstream::traits_type::eof() ) { // if file is empty
+		// make [sample_size] different pairs <register_state, keystream> via generating secret keys
+		vector<bool> stream_vec, state_vec;
+		Bivium biv;
+		vector<bool> key_bool_vec;
+		vector<bool> iv_bool_vec;
+
+		// generate [sample_size] secret keys, save corresponding initial register state and keystream
+		for ( unsigned i=0; i < cnf_in_set_count; i++ ) {
+			for ( unsigned j=0; j < 64; j++ ) {
+				key_bool_vec.push_back( bool_rand( gen ) ? true : false );
+				iv_bool_vec.push_back( bool_rand( gen ) ? true : false );
+			}
+
+			biv.setKey( key_bool_vec );
+			biv.setIV( iv_bool_vec );
+			biv.init();
+			biv.getRegisterState( state_vec );
+			state_vec_vec.push_back( state_vec );
+			biv.getStreamBit( stream_vec, keystream_len );
+			stream_vec_vec.push_back( stream_vec );
+
+			biv.reset();
+			key_bool_vec.clear();
+			iv_bool_vec.clear();
 		}
-
-		biv.setKey( key_bool_vec );
-		biv.setIV( iv_bool_vec );
-		biv.init();
-		biv.getRegisterState( state_vec );
-		state_vec_vec.push_back( state_vec );
-		biv.getStreamBit( stream_vec, keystream_len );
-		stream_vec_vec.push_back( stream_vec );
-
-		biv.reset();
-		key_bool_vec.clear();
-		iv_bool_vec.clear();
-	}
+		file << "state_vec_vec" << endl;
+		for ( auto x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) {
+			for ( auto y = (*x).begin(); y != (*x).end(); y++ )
+				file << *y << " ";
+			file << endl;
+		}
+		file << "stream_vec_vec" << endl;
+		for ( auto x = stream_vec_vec.begin(); x != stream_vec_vec.end(); x++ ) {
+			for ( auto y = (*x).begin(); y != (*x).end(); y++ )
+				file << *y << " ";
+			file << endl;
+		}
+	//}
+	//else {
+		// read from file
+	//}
+	file.close();
 }
