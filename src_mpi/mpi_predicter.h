@@ -23,6 +23,8 @@ struct unchecked_area
 	boost::dynamic_bitset<> checked_points; // i here corresponds to checked point with component # i
 	int radius;
 	double med_var_activity;
+	double predict_time_1; // predict time with te > 0 and ro_limit=1.5
+	double predict_time_2; // predict time with te > 0 and ro_limit=2
 };
 
 struct checked_area

@@ -746,11 +746,11 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 		if ( unupdated_count % 10 == 0 ) {
 			if ( er == 1.5 ) {
 				er = 2.0;
-				best_predict_time = best_predict_time_2;
+				//best_predict_time = best_predict_time_2;
 			}
 			else if ( er == 2.0 ) {
 				er = 1.5;
-				best_predict_time = best_predict_time_1;
+				//best_predict_time = best_predict_time_1;
 			}
 			sstream << "er changed to " << er << endl;
 			sstream << "new best_predict_time " << best_predict_time << endl;
@@ -1495,6 +1495,7 @@ bool MPI_Predicter :: GetPredict()
 	
 	cnf_to_stop_arr.clear(); // every time get stop-list again
 	stringstream sstream;
+	bool isTeBestUpdated;
 	
 	// fill arrays of summary and median times in set of CNF
 	for ( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
@@ -1557,28 +1558,43 @@ bool MPI_Predicter :: GetPredict()
 		
 		// get current predict time
 		med_time_arr[i] = sum_time_arr[i] / (double)cur_cnf_in_set_count;
+		new_predict_time_1 = 0;
+		new_predict_time_2 = 0;
+		isTeBestUpdated = false;
 		if ( te == 0 ) {
 			cur_predict_time = med_time_arr[i] / (double)proc_count;
 			cur_predict_time *= pow( 2, (double)cur_var_num );
 		}
 		else if ( te > 0 ) { // here med_time_arr in (0,1)
-			//cur_predict_time = pow( er, (double)cur_var_num ) / med_time_arr[i];
-			new_predict_time_1 = 0;
-			new_predict_time_2 = 0;
 			if ( med_time_arr[i] > 0.0 ) {
-				cur_predict_time = pow( er, (double)cur_var_num ) / med_time_arr[i] + 
-				pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 ); // penalty1
+				new_predict_time_1 = pow( 1.5, (double)cur_var_num ) / med_time_arr[i] + 
+						pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 );
+				new_predict_time_2 = pow( 2.0, (double)cur_var_num ) / med_time_arr[i] + 
+						pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 );
 				
-				if ( er == 1.5 ) {
-					new_predict_time_1 = cur_predict_time;
-					new_predict_time_2 = pow( 2.0, (double)cur_var_num ) / med_time_arr[i] + 
-						pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 ); // penalty1
+				if ( ( new_predict_time_1 > 0 ) && 
+					 ( ( new_predict_time_1 < best_predict_time_1 ) || ( best_predict_time_1 == 0 ) ) ) {
+					best_predict_time_1 = new_predict_time_1;
+					sstream << "best_predict_time_1 updated " << best_predict_time_1 << endl;
+					isTeBestUpdated = true;
+					er = 1.5;
 				}
-				else if ( er == 2.0 ) {
-					new_predict_time_2 = cur_predict_time;
-					new_predict_time_1 = pow( 1.5, (double)cur_var_num ) / med_time_arr[i] + 
-						pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 ); // penalty1
+				// update best times for every er if needed
+				if ( ( new_predict_time_2 > 0 ) && 
+					 ( ( new_predict_time_2 < best_predict_time_2 ) || ( best_predict_time_2 == 0 ) ) ) {
+					best_predict_time_2 = new_predict_time_2;
+					sstream << "best_predict_time_2 updated " << best_predict_time_2 << endl;
+					isTeBestUpdated = true;
+					er = 2;
 				}
+				
+				if ( er == 1.5 )
+					cur_predict_time = new_predict_time_1;
+				else if ( er == 2.0 )
+					cur_predict_time = new_predict_time_2;
+				else
+					cur_predict_time = pow( er, (double)cur_var_num ) / med_time_arr[i] + 
+						pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 );
 			}
 			else // no solved instanses in sample
 				cur_predict_time = 0;
@@ -1590,6 +1606,7 @@ bool MPI_Predicter :: GetPredict()
 		if ( ( set_status_arr[i] == 4  ) && 
 			 ( predict_time_arr[i] > 0 ) &&
 			 ( ( best_predict_time == 0.0 ) ||
+			   ( isTeBestUpdated ) ||
 			   ( ( best_predict_time > 0.0 ) && ( ( predict_time_arr[i] < best_predict_time ) ) ) || 
 			   ( ( deep_predict == 5 ) && ( IfSimulatedGranted( predict_time_arr[i] ) ) )
 			 )
@@ -1601,17 +1618,6 @@ bool MPI_Predicter :: GetPredict()
 			best_predict_time = predict_time_arr[i];
 			best_sum_time     = sum_time_arr[i];
 			best_cnf_in_set_count = cur_cnf_in_set_count;
-			
-			if ( ( new_predict_time_1 > 0 ) && 
-				 ( ( new_predict_time_1 < best_predict_time_1 ) || ( best_predict_time_1 == 0 ) ) ) {
-				best_predict_time_1 = new_predict_time_1;
-				sstream << "best_predict_time_1 updated " << best_predict_time_1 << endl;
-			}
-			if ( ( new_predict_time_2 > 0 ) && 
-				 ( ( new_predict_time_2 < best_predict_time_2 ) || ( best_predict_time_2 == 0 ) ) ) {
-				best_predict_time_2 = new_predict_time_2;
-				sstream << "best_predict_time_2 updated " << best_predict_time_2 << endl;
-			}
 			
 			if ( deep_predict ) // Write info about new point in deep mode
 				NewRecordPoint( i );
