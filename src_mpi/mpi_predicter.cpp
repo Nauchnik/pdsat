@@ -2222,14 +2222,17 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< vector<bool> > &stream_vec_vec )
 {
 	fstream file( "known_sat_sample", ios_base::out );
-
-	//if ( file.peek() == fstream::traits_type::eof() ) { // if file is empty
+	vector<bool> stream_vec, state_vec;
+	string str;
+	stringstream sstream;
+	
+	if ( file.peek() == fstream::traits_type::eof() ) { // if file is empty
 		// make [sample_size] different pairs <register_state, keystream> via generating secret keys
-		vector<bool> stream_vec, state_vec;
+		cout << "file known_sat_sample is empty. making SAT sample" << endl;
 		Bivium biv;
 		vector<bool> key_bool_vec;
 		vector<bool> iv_bool_vec;
-
+		
 		// generate [sample_size] secret keys, save corresponding initial register state and keystream
 		for ( unsigned i=0; i < cnf_in_set_count; i++ ) {
 			for ( unsigned j=0; j < 64; j++ ) {
@@ -2249,21 +2252,52 @@ void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vect
 			key_bool_vec.clear();
 			iv_bool_vec.clear();
 		}
-		file << "state_vec_vec" << endl;
+		file.clear();
+		sstream << "state" << endl;
 		for ( auto x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) {
 			for ( auto y = (*x).begin(); y != (*x).end(); y++ )
-				file << *y << " ";
-			file << endl;
+				sstream << *y;
+			sstream << endl;
 		}
-		file << "stream_vec_vec" << endl;
+		sstream << "stream" << endl;
 		for ( auto x = stream_vec_vec.begin(); x != stream_vec_vec.end(); x++ ) {
 			for ( auto y = (*x).begin(); y != (*x).end(); y++ )
-				file << *y << " ";
-			file << endl;
+				sstream << *y;
+			sstream << endl;
 		}
-	//}
-	//else {
-		// read from file
-	//}
+		file << sstream.rdbuf();
+	}
+	else {
+		file.close();
+		file.clear();
+		file.open( "known_sat_sample", ios_base::in );
+		cout << "reading state and stream from file" << endl;
+		bool isState = false, isStream = false;
+		while( getline( file, str ) ) {
+			if( str == "state" ) {
+				isState = true;
+			}
+			else if ( str == "stream" ) {
+				isState = false;
+				isStream = true;
+			}
+			else {
+				if ( isState ) {
+					for ( unsigned i=0; i < str.size(); i++ )
+						state_vec.push_back( str[i] == '1' ? true : false );
+					state_vec_vec.push_back( state_vec );
+					state_vec.clear();
+				}
+				else if ( isStream ) {
+					for ( unsigned i=0; i < str.size(); i++ )
+						stream_vec.push_back( str[i] == '1' ? true : false );
+					stream_vec_vec.push_back( stream_vec );
+					stream_vec.clear();
+				}
+			}
+		}
+		cout << "state_vec_vec.size() "  << state_vec_vec.size()  << endl;
+		cout << "stream_vec_vec.size() " << stream_vec_vec.size() << endl;
+	}
 	file.close();
 }
