@@ -2221,12 +2221,14 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 
 void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< vector<bool> > &stream_vec_vec )
 {
-	fstream file( "known_sat_sample", ios_base::out );
+	fstream file( "known_sat_sample", ios_base::in );
 	vector<bool> stream_vec, state_vec;
 	string str;
 	stringstream sstream;
+	getline( file, str );
 	
-	if ( file.peek() == fstream::traits_type::eof() ) { // if file is empty
+	if ( str.size() == 0 ) { // empty file
+	//if ( file.peek() == fstream::traits_type::eof() ) { // if file is empty
 		// make [sample_size] different pairs <register_state, keystream> via generating secret keys
 		cout << "file known_sat_sample is empty. making SAT sample" << endl;
 		Bivium biv;
@@ -2252,7 +2254,6 @@ void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vect
 			key_bool_vec.clear();
 			iv_bool_vec.clear();
 		}
-		file.clear();
 		sstream << "state" << endl;
 		for ( auto x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) {
 			for ( auto y = (*x).begin(); y != (*x).end(); y++ )
@@ -2265,19 +2266,20 @@ void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vect
 				sstream << *y;
 			sstream << endl;
 		}
+		file.close(); file.clear();
+		file.open( "known_sat_sample", ios_base :: out );
 		file << sstream.rdbuf();
 	}
 	else {
-		file.close();
-		file.clear();
-		file.open( "known_sat_sample", ios_base::in );
 		cout << "reading state and stream from file" << endl;
 		bool isState = false, isStream = false;
-		while( getline( file, str ) ) {
+		do {
 			if( str == "state" ) {
+				cout << "state string found" << endl;
 				isState = true;
 			}
 			else if ( str == "stream" ) {
+				cout << "stream string found" << endl;
 				isState = false;
 				isStream = true;
 			}
@@ -2295,7 +2297,7 @@ void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vect
 					stream_vec.clear();
 				}
 			}
-		}
+		} while( getline( file, str ) );
 		cout << "state_vec_vec.size() "  << state_vec_vec.size()  << endl;
 		cout << "stream_vec_vec.size() " << stream_vec_vec.size() << endl;
 	}
