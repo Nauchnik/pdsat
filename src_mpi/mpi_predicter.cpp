@@ -518,6 +518,10 @@ bool MPI_Predicter :: ComputeProcessPredict()
 
 				for ( auto &x : var_choose_order ) {
 					cur_var_ind = x-1;
+					if ( cur_var_ind > state_vec_vec[sat_sample_index].size()-1 ) {
+						cerr << "cur_var_ind > state_vec_vec[sat_sample_index].size()-1" << endl;
+						exit(1);
+					}
 					dummy.push( (state_vec_vec[sat_sample_index][cur_var_ind]) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
 				}
 				if ( known_last_bits ) { // add some last known bits
@@ -2226,11 +2230,12 @@ void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vect
 	string str;
 	stringstream sstream;
 	getline( file, str );
-	
+
 	if ( str.size() == 0 ) { // empty file
 	//if ( file.peek() == fstream::traits_type::eof() ) { // if file is empty
 		// make [sample_size] different pairs <register_state, keystream> via generating secret keys
 		cout << "file known_sat_sample is empty. making SAT sample" << endl;
+		
 		Bivium biv;
 		vector<bool> key_bool_vec;
 		vector<bool> iv_bool_vec;
@@ -2254,6 +2259,36 @@ void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vect
 			key_bool_vec.clear();
 			iv_bool_vec.clear();
 		}
+		// get state of additional variables
+		Problem cnf;
+		Solver *S;
+		lbool ret;
+		minisat22_wrapper m22_wrapper;
+		ifstream in( input_cnf_name );
+		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
+		in.close();
+		S = new Solver();
+		S->addProblem(cnf);
+		vec<Lit> dummy;
+		int cur_var_ind;
+		int state_vec_len = state_vec_vec[0].size();
+		for ( auto x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) {
+			cur_var_ind = 0;
+			for ( auto y = (*x).begin(); y != (*x).end(); y++ ) {
+				dummy.push( (*y) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
+				cur_var_ind++;
+			}
+			ret = S->solveLimited( dummy );
+			if ( ret != l_True ) {
+				cerr << "in makeSatSample() ret != l_True" << endl;
+				exit(1);
+			}
+			//cout << "S->model.size() " << S->model.size() << endl;
+			for( int i=state_vec_len; i < S->model.size() - keystream_len; i++ )
+				(*x).push_back( (S->model[i] == l_True) ? true : false );
+			//cout << "var count " << (*x).size() << endl;
+			dummy.clear();
+		}
 		sstream << "state" << endl;
 		for ( auto x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) {
 			for ( auto y = (*x).begin(); y != (*x).end(); y++ )
@@ -2269,6 +2304,7 @@ void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vect
 		file.close(); file.clear();
 		file.open( "known_sat_sample", ios_base :: out );
 		file << sstream.rdbuf();
+		delete S;
 	}
 	else {
 		cout << "reading state and stream from file" << endl;
@@ -2301,5 +2337,6 @@ void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vect
 		cout << "state_vec_vec.size() "  << state_vec_vec.size()  << endl;
 		cout << "stream_vec_vec.size() " << stream_vec_vec.size() << endl;
 	}
+	cout << endl;
 	file.close();
 }
