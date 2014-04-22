@@ -28,7 +28,7 @@ MPI_Predicter :: MPI_Predicter( ) :
 	global_checked_points_count ( 0 ),
 	global_stopped_points_count ( 0 ),
 	global_skipped_points_count ( 0 ),
-	IsFirstPoint( true ),
+	isFirstPoint( true ),
 	global_count_var_changing ( 0 ), // init vectors
 	predict_file_name( "predict" ),
 	record_count ( 0 ),
@@ -956,7 +956,7 @@ bool MPI_Predicter :: DeepPredictMain( )
 			( ( deep_predict == 3 ) || ( deep_predict == 4 ) || ( deep_predict >= 6 ) )  
 		   )	
 	{
-		if ( IsFirstPoint )
+		if ( isFirstPoint )
 		    current_predict_start_time = MPI_Wtime( );
 		
 		current_time = MPI_Wtime( );
@@ -985,7 +985,7 @@ bool MPI_Predicter :: DeepPredictMain( )
 		
 		sstream << sstream_control.str();
 		
-		if ( ( IsFirstPoint ) && ( global_deep_point_index == total_decomp_set_count ) ) {
+		if ( ( isFirstPoint ) && ( global_deep_point_index == total_decomp_set_count ) ) {
 			sstream << "First point" << endl;
 			// set new unchecked area
 			current_unchecked_area = *L2.begin();
@@ -993,7 +993,7 @@ bool MPI_Predicter :: DeepPredictMain( )
 			sstream << "current_unchecked_area center " << endl << str << endl;
 			to_string( current_unchecked_area.checked_points, str );
 			sstream << "current_unchecked_area checked_points " << endl << str << endl;
-			IsFirstPoint = false;
+			isFirstPoint = false;
 		}
 		
 		// if method >= 2 and new best point found then repeat search in same dimension
@@ -1381,7 +1381,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	
 	/*if ( 
 		( ( deep_predict == 3 ) || ( deep_predict == 5 ) || ( deep_predict == 6 ) )
-		&& ( !IsDecDecomp ) && ( !IsFirstPoint ) && ( !IsFirstStage )
+		&& ( !IsDecDecomp ) && ( !isFirstPoint ) && ( !IsFirstStage )
 	   )
 		IsRestartNeeded = true;*/
 
@@ -1398,7 +1398,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	predict_file_name = "predict";
 	
 	ofstream graph_file, var_activity_file;
-	if ( IsFirstPoint ) {
+	if ( isFirstPoint ) {
 		graph_file.open( "graph_file", ios_base :: out ); // erase info from previous launches 
 		graph_file << "# best_var_num best_predict_time best_sum_time cnf_in_set_count last_predict_record_time current_predict_time";
 		if ( deep_predict == 5 ) // simulated anealing
@@ -1423,7 +1423,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	if ( deep_predict == 5 ) 
 		graph_file << " " << cur_temperature;
 
-	if ( ( IsFirstStage ) && ( !IsFirstPoint ) && ( best_var_num > old_best_var_num ) ) {
+	if ( ( IsFirstStage ) && ( !isFirstPoint ) && ( best_var_num > old_best_var_num ) ) {
 		IsFirstStage = false;
 		cout << "IsFirstStage "      << IsFirstStage      << endl;
 		cout << "best_var_num "      << best_var_num      << endl;
@@ -2071,7 +2071,7 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, strin
 	
 	//to_string( new_ua.checked_points, str );
 	//sstream << str << endl;
-	if ( ( new_ua.checked_points.count() == 0 ) && ( !IsFirstPoint ) )
+	if ( ( new_ua.checked_points.count() == 0 ) && ( !isFirstPoint ) )
 		sstream << "***Error. new_ua.center.count() == 0" << endl;
 	if ( verbosity > 1 )
 		cout << "In AddNewUncheckedArea() end" << endl;
@@ -2088,7 +2088,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 
 	unsigned points_to_check;
 
-	if ( IsFirstPoint )// compute value of function only in first point
+	if ( isFirstPoint )// compute value of function only in first point
 		points_to_check = total_decomp_set_count = 1;
 	else {
 		// core_len variants of vectors with Hamming distanse 
@@ -2106,7 +2106,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	unsigned cur_index;
 	boost::dynamic_bitset<> new_point;
 
-	//if ( ( deep_predict == 6 ) && ( !IsFirstPoint ) )
+	//if ( ( deep_predict == 6 ) && ( !isFirstPoint ) )
 	//	deep_predict_cur_var = current_unchecked_area.center.count();
 	
 	if ( verbosity > 1 ) {
@@ -2120,7 +2120,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	vector<int> new_var_choose_order;
 	//sstream << "current point to check" << endl;
 	for ( unsigned i = 0; i < points_to_check; ++i ) { // several decomp sets
-		if ( IsFirstPoint )
+		if ( isFirstPoint )
 			new_var_choose_order = var_choose_order;
 		else {
 			cur_index = global_deep_point_index + i;

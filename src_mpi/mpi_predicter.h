@@ -71,7 +71,7 @@ public:
 	bool IsRestartNeeded;
 	bool IsDecDecomp;
 	bool IsSimulatedGranted;
-	bool IsFirstPoint;
+	bool isFirstPoint;
 	double cur_temperature;
 	double min_temperature;
 	double temperature_multiply_koef;
