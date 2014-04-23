@@ -47,10 +47,11 @@ MPI_Predicter :: MPI_Predicter( ) :
 	evaluation_type ( "time" ),
 	best_cnf_in_set_count ( 0 ),
 	unupdated_count ( 0 ),
-	best_predict_time_1 ( 0 ),
-	best_predict_time_2 ( 0 )
+	prev_area_best_predict_time ( 0 )
 { 
 	array_message = NULL;
+	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
+		best_predict_time_arr[i] = 0.0;
 }
 
 MPI_Predicter :: ~MPI_Predicter( )
@@ -60,6 +61,11 @@ MPI_Predicter :: ~MPI_Predicter( )
 bool ua_compareByActivity(const unchecked_area &a, const unchecked_area &b)
 {
 	return a.med_var_activity > b.med_var_activity;
+}
+
+bool ua_compareByErPredict(const unchecked_area &a, const unchecked_area &b)
+{
+	return a.cur_er_predict_time > b.cur_er_predict_time;
 }
 
 bool ds_compareByActivity(const decomp_set &a, const decomp_set &b)
@@ -747,18 +753,6 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 		sstream << endl << "---Record not updated---" << endl;
 		checked_area c_a;
 		unupdated_count++;
-		/*if ( unupdated_count % 10 == 0 ) {
-			if ( er == 1.5 ) {
-				er = 2.0;
-				best_predict_time = best_predict_time_2;
-			}
-			else if ( er == 2.0 ) {
-				er = 1.5;
-				//best_predict_time = best_predict_time_1;
-			}
-			sstream << "er changed to " << er << endl;
-			sstream << "new best_predict_time " << best_predict_time << endl;
-		}*/
 		sstream << "unupdated_count " << unupdated_count << endl;
 		if ( deep_predict == 6 ) { // tabu search mode
 			boost::dynamic_bitset<> bs, xor_bs;
@@ -813,76 +807,91 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 				cout << "L2_matches.size() " << L2_matches.size() << endl;
 			sstream << "L2_matches.size() " << L2_matches.size() << endl;
 			
-			// find needed criteria and mathced points in neighborhood
-			switch ( ts_strategy ) {
-				case 0:
-					for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
-						IsAdding = true;	
-						for ( unsigned i=0; i < power_values.size(); i++ )
-							if ( (*L2_it).center.count() == power_values[i] ) {
-								IsAdding = false;
-				    			break;    
-							}
-						if ( IsAdding )
-						power_values.push_back( (*L2_it).center.count() );
-					}
-					rand_L2_start_search_index = uint_rand( gen ) % L2_matches.size();
-					rand_power_value           = uint_rand( gen ) % power_values.size();
-					L2_index = 0;
-					IsAdding = false;
-					// choose randomly area from randoml class of area center power
-					// start search from random part of L2 list, because random_shuffle() don't work for list
-					for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
-						if ( ( L2_index >= rand_L2_start_search_index ) &&
-							 ( (*L2_it).center.count() == power_values[rand_power_value] )
-							 )
-						{
-							IsAdding = true;
-							current_unchecked_area = *L2_it;
-							break;
+			if (( te > 0.0 ) && ( er > 1.5 )) {
+				er -= 0.1;
+				sstream << "er decreased " << er << endl;
+				unsigned er_index;
+				for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
+					if ( ( 1.5 + i*0.1 ) == er ) 
+						er_index = i;
+				for ( auto &x : L2_matches )
+					x.cur_er_predict_time = x.predict_times[er_index]; // for comparison
+				
+				L2_matches.sort( ua_compareByErPredict );
+				current_unchecked_area = (*L2_matches.begin());
+			}
+			else {
+				switch ( ts_strategy ) { // find needed criteria and mathced points in neighborhood
+					case 0:
+						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
+							IsAdding = true;	
+							for ( unsigned i=0; i < power_values.size(); i++ )
+								if ( (*L2_it).center.count() == power_values[i] ) {
+									IsAdding = false;
+				    				break;    
+								}
+							if ( IsAdding )
+							power_values.push_back( (*L2_it).center.count() );
 						}
-						L2_index++;
-					}
-					// try to find to another side if we havn't found point
-					if ( !IsAdding ) {
+						rand_L2_start_search_index = uint_rand( gen ) % L2_matches.size();
+						rand_power_value           = uint_rand( gen ) % power_values.size();
 						L2_index = 0;
-						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it ) {
-							if ( ( L2_index < rand_L2_start_search_index ) &&
-								 ( (*L2_it).center.count() == power_values[rand_power_value] ) ) 
+						IsAdding = false;
+						// choose randomly area from randoml class of area center power
+						// start search from random part of L2 list, because random_shuffle() don't work for list
+						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
+							if ( ( L2_index >= rand_L2_start_search_index ) &&
+								 ( (*L2_it).center.count() == power_values[rand_power_value] )
+								 )
 							{
+								IsAdding = true;
 								current_unchecked_area = *L2_it;
 								break;
 							}
 							L2_index++;
 						}
-					}
-					sstream << "power_values ";
-					for ( unsigned i=0; i<power_values.size(); i++)
-						sstream << power_values[i] << " ";
-					sstream << endl;
-					sstream << "rand_power_value "           << rand_power_value           << endl;
-					sstream << "rand_L2_start_search_index " << rand_L2_start_search_index << endl;
-					sstream << "L2_index "					 << L2_index                   << endl;
-					power_values.clear();
-					break;
-				case 1: // sort areas from L2 by  median of var activities of centers
-					// update activity of points from L2
-					for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it ) {
-						(*L2_it).med_var_activity = 0;
-						for ( unsigned i=0; i < (*L2_it).center.size(); ++i )
-							if ( (*L2_it).center[i] )
-								(*L2_it).med_var_activity += total_var_activity[i];
-						(*L2_it).med_var_activity /= (*L2_it).center.count();
-					}
-					L2_matches.sort( ua_compareByActivity );
-					if ( verbosity > 0 ) { 
-						cout << "L2 after sorting. total_var_activity : center.count()";
-						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it )
-							cout << (*L2_it).med_var_activity << " : " << (*L2_it).center.count() << endl;
-					}
-					current_unchecked_area = (*L2_matches.begin());
-					break;
+						// try to find to another side if we havn't found point
+						if ( !IsAdding ) {
+							L2_index = 0;
+							for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it ) {
+								if ( ( L2_index < rand_L2_start_search_index ) &&
+									 ( (*L2_it).center.count() == power_values[rand_power_value] ) ) 
+								{
+									current_unchecked_area = *L2_it;
+									break;
+								}
+								L2_index++;
+							}
+						}
+						sstream << "power_values ";
+						for ( unsigned i=0; i<power_values.size(); i++)
+							sstream << power_values[i] << " ";
+						sstream << endl;
+						sstream << "rand_power_value "           << rand_power_value           << endl;
+						sstream << "rand_L2_start_search_index " << rand_L2_start_search_index << endl;
+						sstream << "L2_index "					 << L2_index                   << endl;
+						power_values.clear();
+						break;
+					case 1: // sort areas from L2 by  median of var activities of centers
+						// update activity of points from L2
+						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it ) {
+							(*L2_it).med_var_activity = 0;
+							for ( unsigned i=0; i < (*L2_it).center.size(); ++i )
+								if ( (*L2_it).center[i] )
+									(*L2_it).med_var_activity += total_var_activity[i];
+							(*L2_it).med_var_activity /= (*L2_it).center.count();
+						}
+						L2_matches.sort( ua_compareByActivity );
+						if ( verbosity > 0 ) { 
+							cout << "L2 after sorting. total_var_activity : center.count()";
+							for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it )
+								cout << (*L2_it).med_var_activity << " : " << (*L2_it).center.count() << endl;
+						}
+						current_unchecked_area = (*L2_matches.begin());
+						break;
+				}
 			}
+			
 			L2_matches.clear();
 			
 			if ( verbosity > 0 )
@@ -1476,9 +1485,8 @@ bool MPI_Predicter :: GetPredict()
 {
 // set_status_arr == 0, if there are some unsolved sat-problem in set 
 // set_status_arr == 1, if at least one sat-problem in set was STOPPED
-// set_status_arr == 2, if all CNF in set are UNSAT and record
-// set_status_arr == 3, if at least one CNF in set is SAT
-// set_status_arr == 4, if all CNF in set are UNSAT, not record, but control process couldn't catch to stop it
+// set_status_arr == 2, if all CNF in set are solved and it's BKV
+// set_status_arr == 4, if all CNF in set are solved, not BKV, but control process couldn't catch to stop it
 	if ( verbosity > 2 )
 		cout << "GetPredict()" << endl;
 	
@@ -1495,10 +1503,13 @@ bool MPI_Predicter :: GetPredict()
 	int set_index_bound = 0,
 		cur_cnf_in_set_count = 0;
 	double current_time = Minisat::cpuTime();
-	double new_predict_time_1, new_predict_time_2;
 	
 	cnf_to_stop_arr.clear(); // every time get stop-list again
 	stringstream sstream;
+	vector<double> cur_predict_times;
+	cur_predict_times.resize( PREDICT_TIMES_COUNT );
+	bool isTeBkvUpdated;
+	unsigned er_index;
 	
 	// fill arrays of summary and median times in set of CNF
 	for ( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
@@ -1561,40 +1572,34 @@ bool MPI_Predicter :: GetPredict()
 		
 		// get current predict time
 		med_time_arr[i] = sum_time_arr[i] / (double)cur_cnf_in_set_count;
-		new_predict_time_1 = 0;
-		new_predict_time_2 = 0;
-		if ( te == 0 ) {
+		isTeBkvUpdated = false;
+
+		if ( te == 0.0 ) {
 			cur_predict_time = med_time_arr[i] / (double)proc_count;
 			cur_predict_time *= pow( 2, (double)cur_var_num );
 		}
-		else if ( te > 0 ) { // here med_time_arr in (0,1)
+		else if ( te > 0.0 ) { // here med_time_arr in (0,1)
 			if ( med_time_arr[i] > 0.0 ) {
-				new_predict_time_1 = pow( 1.5, (double)cur_var_num ) / med_time_arr[i] + 
-						pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 );
-				new_predict_time_2 = pow( 2.0, (double)cur_var_num ) / med_time_arr[i] + 
-						pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 );
-				
-				if ( ( new_predict_time_1 < best_predict_time_1 ) || ( best_predict_time_1 == 0 ) ) {
-					best_predict_time = best_predict_time_1;
-					best_predict_time_1 = new_predict_time_1;
-					sstream << "best_predict_time_1 updated " << best_predict_time_1 << endl;
-					er = 1.5;
+				for( unsigned j = 0; j < cur_predict_times.size(); j++ ) {
+					cur_predict_times[j] = pow( 1.5 + j*0.1, (double)cur_var_num ) / med_time_arr[i] + 
+						pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( prev_area_best_predict_time / 10.0 );
+					if ( ( best_predict_time_arr[j] == 0.0 ) || ( cur_predict_times[j] < best_predict_time_arr[j] ) ) {
+						best_predict_time_arr[j] = cur_predict_times[j];
+						sstream << "best_predict_time_arr[" << j << "] "<< "updated " << best_predict_time_arr[j] << endl;
+						if ( ( 1.5 + j*0.1 ) >= er ) {
+							isTeBkvUpdated = true;
+							sstream << "isTeBkvUpdated " << isTeBkvUpdated << endl;
+							if ( ( 1.5 + j*0.1 ) > er ) {
+								er = 1.5 + j*0.1;
+								sstream << "er increased " << er << endl;
+							}
+						}
+					}
 				}
-				// update best times for every er if needed
-				if ( ( new_predict_time_2 < best_predict_time_2 ) || ( best_predict_time_2 == 0 ) ) {
-					best_predict_time = best_predict_time_2;
-					best_predict_time_2 = new_predict_time_2;
-					sstream << "best_predict_time_2 updated " << best_predict_time_2 << endl;
-					er = 2;
-				}
-				
-				if ( er == 1.5 ) 
-					cur_predict_time = new_predict_time_1;
-				else if ( er == 2.0 )
-					cur_predict_time = new_predict_time_2;
-				else
-					cur_predict_time = pow( er, (double)cur_var_num ) / med_time_arr[i] + 
-						pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( best_predict_time / 10.0 );
+				for( unsigned j=0; j < PREDICT_TIMES_COUNT; j++ )
+					if ( ( 1.5 + j*0.1 ) == er ) 
+						er_index = j;
+				cur_predict_time = cur_predict_times[er_index];
 			}
 			else // no solved instanses in sample
 				cur_predict_time = 0;
@@ -1606,7 +1611,8 @@ bool MPI_Predicter :: GetPredict()
 		if ( ( set_status_arr[i] == 4  ) && 
 			 ( predict_time_arr[i] > 0 ) &&
 			 ( ( best_predict_time == 0.0 ) ||
-			   ( ( best_predict_time > 0.0 ) && ( ( predict_time_arr[i] < best_predict_time ) ) ) || 
+			   ( isTeBkvUpdated ) ||
+			   ( ( te == 0.0 ) && ( best_predict_time > 0.0 ) && ( ( predict_time_arr[i] < best_predict_time ) ) ) || 
 			   ( ( deep_predict == 5 ) && ( IfSimulatedGranted( predict_time_arr[i] ) ) )
 			 )
 		   )
@@ -1623,8 +1629,7 @@ bool MPI_Predicter :: GetPredict()
 			//if ( IsRestartNeeded ) // don't stop immidiatly, new record can be found in calculated points
 			//	return true;
 		}
-		else if ( ( best_predict_time > 0.0 ) && ( predict_time_arr[i] >= best_predict_time  ) ) {
-			// stop, predict >= best
+		else if ( ( best_predict_time > 0.0 ) && ( predict_time_arr[i] >= best_predict_time  ) ) { // stop, predict >= best
 			if ( ( deep_predict == 5 ) && 
 			     ( predict_time_arr[i] < best_predict_time * (1 + point_admission_koef) ) ) // new point can be worst for simalation annealing
 			{
@@ -1684,7 +1689,7 @@ bool MPI_Predicter :: GetPredict()
 				else 
 					global_checked_points_count++;
 				boost::dynamic_bitset<> bs = IntVecToBitsetPredict( decomp_set_arr[i].var_choose_order );
-				AddNewUncheckedArea( bs, sstream );
+				AddNewUncheckedArea( bs, cur_predict_times, sstream );
 			}
 		}
 		fstream deep_predict_file( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
@@ -1970,7 +1975,7 @@ bool MPI_Predicter :: IsPointInUnCheckedArea( boost::dynamic_bitset<> &point )
 	return false;
 }
 
-void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, stringstream &sstream )
+void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, vector<double> &cur_predict_times, stringstream &sstream )
 {
 // Add new point as center to list of unchecked areas (L2)
 // Add 1 to checked_points vector of new point and all areas from L2 in
@@ -1993,7 +1998,8 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, strin
 	new_ua.center = point;
 	new_ua.radius = 1;
 	new_ua.checked_points.resize( point.size() );
-
+	new_ua.predict_times = cur_predict_times;
+	
 	for ( L1_it = L1.begin(); L1_it != L1.end(); L1_it++ ) {
 		// necessary condition - points with close count of 1s
 		if ( abs( (int)(*L1_it).center.count() - (int)new_ua.center.count() ) <= (*L1_it).radius ) { 
@@ -2103,6 +2109,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 		points_to_check = total_decomp_set_count - global_deep_point_index; // how many points to check
 	}
 	
+	prev_area_best_predict_time = best_predict_time;
 	unsigned cur_index;
 	boost::dynamic_bitset<> new_point;
 

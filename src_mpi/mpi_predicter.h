@@ -16,6 +16,7 @@ const int    NUM_KEY_BITS                  = 64;
 const int    MAX_VAR_FOR_RANDOM            = 60;
 const double MIN_STOP_TIME				   = 0.01;
 const int    MAX_DISTANCE_TO_RECORD        = 10;
+const int    PREDICT_TIMES_COUNT            = 6;
 
 struct unchecked_area
 {
@@ -23,8 +24,8 @@ struct unchecked_area
 	boost::dynamic_bitset<> checked_points; // i here corresponds to checked point with component # i
 	int radius;
 	double med_var_activity;
-	double predict_time_1; // predict time with te > 0 and ro_limit=1.5
-	double predict_time_2; // predict time with te > 0 and ro_limit=2
+	vector<double> predict_times;
+	double cur_er_predict_time; // for current er - for comparison in sorting
 };
 
 struct checked_area
@@ -102,6 +103,7 @@ public:
 	int predict_every_sec;
 	unsigned unupdated_count;
 	double start_sample_variance_limit;
+	double prev_area_best_predict_time;
 	vector< vector<bool> > stream_vec_vec;
 	vector< vector<bool> > state_vec_vec;
 	
@@ -117,7 +119,7 @@ public:
 	void NewRecordPoint( int set_index );
 	bool IsPointInCheckedArea( boost::dynamic_bitset<> &point );
 	bool IsPointInUnCheckedArea( boost::dynamic_bitset<> &point );
-	void AddNewUncheckedArea( boost::dynamic_bitset<> &point, stringstream &sstream );
+	void AddNewUncheckedArea( boost::dynamic_bitset<> &point, vector<double> &cur_predict_times, stringstream &sstream );
 	
 	void AllocatePredictArrays();
 	void MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< vector<bool> > &stream_vec_vec );
@@ -148,8 +150,7 @@ private:
 	
 	int best_var_num;
 	double best_predict_time;
-	double best_predict_time_1;
-	double best_predict_time_2;
+	double best_predict_time_arr[PREDICT_TIMES_COUNT];
 	double best_sum_time;
 	int best_cnf_in_set_count;
 	int *array_message; // for sending via MPI

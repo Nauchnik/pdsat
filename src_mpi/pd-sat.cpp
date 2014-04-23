@@ -634,7 +634,7 @@ void TestDeepPredict( )
 	//mpi_p.AddNewUncheckedArea( bs, sstream );
 	//mpi_p.current_unchecked_area.center = bs;
 	mpi_p.cur_vars_changing = 1;
-	mpi_p.IsFirstPoint = false;
+	mpi_p.isFirstPoint = false;
 	//mpi_p.schema_type = "bivium_Ending2"
 	mpi_p.deep_predict_cur_var = mpi_p.predict_to;
 	mpi_p.GetDeepPredictTasks( );
