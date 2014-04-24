@@ -436,7 +436,8 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	int val;
 	unsigned large_message_count = 0, small_message_count = 0;
 	int sat_sample_index;
-	int cur_stream_index, cur_var_ind;
+	int cur_stream_index;
+	unsigned cur_var_ind;
 	
 	for (;;) {
 		do {// get index of current task missing stop-messages
@@ -743,8 +744,10 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 		if ( !IsCorrectAddingArea )
 			sstream << "***Error. !IsCorrectAddingArea" << endl;
 		to_string( current_unchecked_area.center, str );
+		str = string( str.rbegin(), str.rend() );
 		sstream << "current_unchecked_area center " << endl << str << endl;
 		to_string( current_unchecked_area.checked_points, str );
+		str = string( str.rbegin(), str.rend() );
 		sstream << "current_unchecked_area checked_points " << endl << str << endl;;
 		// make initial values
 		cur_vars_changing = 1; // start again from Hamming distance == 1
@@ -899,6 +902,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 
 			var_choose_order = BitsetToIntVecPredict( current_unchecked_area.center );
 			to_string( current_unchecked_area.center, str );
+			str = string( str.rbegin(), str.rend() );
 			sstream << "current_unchecked_area center " << endl << str << endl;
 			sstream << "current_unchecked_area center len " << endl;
 			sstream << current_unchecked_area.center.count() << endl;
@@ -999,8 +1003,10 @@ bool MPI_Predicter :: DeepPredictMain( )
 			// set new unchecked area
 			current_unchecked_area = *L2.begin();
 			to_string( current_unchecked_area.center, str );
+			str = string( str.rbegin(), str.rend() );
 			sstream << "current_unchecked_area center " << endl << str << endl;
 			to_string( current_unchecked_area.checked_points, str );
+			str = string( str.rbegin(), str.rend() );
 			sstream << "current_unchecked_area checked_points " << endl << str << endl;
 			isFirstPoint = false;
 		}
@@ -1291,6 +1297,8 @@ bool MPI_Predicter :: PrepareForPredict()
 		cnf_issat_arr[i]      = false;
 	}
 
+	cout << "all_tasks_count " << all_tasks_count << endl;
+	
 	// sum times
 	sum_time_arr.resize( decomp_set_arr.size() );
 	// array of median times of CNF in set
@@ -1709,11 +1717,11 @@ bool MPI_Predicter :: GetPredict()
 bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_sec )
 {
 // Write info about predict to file
-	ofstream predict_file;	
+	ofstream predict_file;
 	predict_file.open( predict_file_name.c_str( ), ios :: out ); // create and open for writing
 	if ( !( predict_file.is_open( ) ) )
 	{ cout << "Error in opening of predict_file " << predict_file_name << endl; return false; }
-
+	
 	stringstream sstream;
 	sstream << "Predict from "             << predict_from << endl
 		    << "Predict to "               << predict_to << endl
@@ -1731,10 +1739,13 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 	}
 	
 	predict_file << sstream.rdbuf( );
-
+	unsigned cur_sample_size;
+	
 	double med_cnf_time, min_cnf_time, max_cnf_time;
 	double sample_variance; // sample variance for estimation of derivation
 	unsigned max_time_cnf_value_mask = 0;
+	bool isAllSolved;
+	unsigned solved_count;
 	for ( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
 		med_cnf_time = 0; 
 		min_cnf_time = 0; 
@@ -1743,7 +1754,8 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 		sstream.str( "" );
 		sstream.clear();
 		sstream << endl << " ";
-
+		solved_count = 0;
+		
 		if ( deep_predict )
 			sstream << decomp_set_arr[i].var_choose_order.size();
 		else // if !deep_predict
@@ -1759,13 +1771,18 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 		sstream.precision( 2 );
 		sstream << left << scientific << predict_time_arr[i];
 		
-		med_cnf_time = 0;
+		med_cnf_time = 0.0;
 		// prepare start min and max values
 		bool IsFirstNonNullFinded = false;
 		unsigned count0 = 0, count1 = 0, count2 = 0, count3 = 0, count4 = 0, count5 = 0, count6 = 0, count7 = 0, count8 = 0;
+		isAllSolved = true;
 		for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; ++j ) {
-			if ( cnf_status_arr[j] <= 1 ) // skip unsolved and stopped
+			if ( cnf_status_arr[j] <= 1 ) { // skip unsolved and stopped problems
+				isAllSolved = false;
 				continue;
+			}
+			else
+				solved_count++;
 			if ( !IsFirstNonNullFinded ) {
 				min_cnf_time = max_cnf_time = cnf_real_time_arr[j];
 				IsFirstNonNullFinded = true;
@@ -1773,9 +1790,8 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 			med_cnf_time += cnf_real_time_arr[j];
 			if ( cnf_real_time_arr[j] < min_cnf_time )
 				min_cnf_time = cnf_real_time_arr[j];
-			if ( cnf_real_time_arr[j] > max_cnf_time ) {
+			if ( cnf_real_time_arr[j] > max_cnf_time )
 				max_cnf_time = cnf_real_time_arr[j];
-			}
 			if ( cnf_prepr_arr[j] )                  count0++;
 			else if ( cnf_real_time_arr[j] < 0.001 ) count1++;
 			else if ( cnf_real_time_arr[j] < 0.01 )  count2++;
@@ -1787,17 +1803,33 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 			else count8++;
 		}
 		
-		// compute sample_variancse
-		if ( solved_cnf_count_arr[i] ) {
-			med_cnf_time /= solved_cnf_count_arr[i];
-			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ ) {
-				if ( cnf_status_arr[j] <= 1 )
-					continue;
-				sample_variance += pow(cnf_real_time_arr[j] - med_cnf_time, 2);
-			}
-			sample_variance /= ( solved_cnf_count_arr[i] - 1 );
-		}
 
+		if ( solved_cnf_count_arr[i] != solved_count )
+			solved_cnf_count_arr[i] = solved_count; // update solved count
+		cur_sample_size = set_index_arr[i + 1] - set_index_arr[i];
+		if ( isAllSolved ) {
+			if ( cur_sample_size != solved_cnf_count_arr[i] ) {
+				cerr << "cur_sample_size != solved_cnf_count_arr[i]" << endl;
+				cerr << cur_sample_size << " != " << solved_cnf_count_arr[i] << endl;
+				cerr << "cnf_status_arr" << endl;
+				for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; ++j )
+					cerr << cnf_status_arr[j] << endl;
+				exit(1);
+			}
+			med_cnf_time /= solved_cnf_count_arr[i];
+		}
+		else
+			med_cnf_time = -1.0;
+		
+		// compute sample_variancse
+		if ( ( med_cnf_time > 0.0 ) && ( solved_cnf_count_arr[i] > 0 ) ) {
+			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ )
+				sample_variance += pow(cnf_real_time_arr[j] - med_cnf_time, 2);
+			sample_variance /= ( solved_cnf_count_arr[i] - 1);
+		}
+		else 
+			sample_variance = -1.0;
+		
 		if ( sample_variance > start_sample_variance_limit ) {
 			/*cout << "new sample_varianse" << endl;
 			cout << "sample_variance " << sample_variance << endl;
@@ -2291,7 +2323,7 @@ void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vect
 				exit(1);
 			}
 			//cout << "S->model.size() " << S->model.size() << endl;
-			for( int i=state_vec_len; i < S->model.size() - keystream_len; i++ )
+			for( int i=state_vec_len; i < S->model.size() - (int)keystream_len; i++ )
 				(*x).push_back( (S->model[i] == l_True) ? true : false );
 			//cout << "var count " << (*x).size() << endl;
 			dummy.clear();
