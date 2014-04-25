@@ -26,6 +26,7 @@ struct unchecked_area
 	double med_var_activity;
 	vector<double> predict_times;
 	double cur_er_predict_time; // for current er - for comparison in sorting
+	double sum_time; // sum of predict time 
 };
 
 struct checked_area
@@ -119,7 +120,7 @@ public:
 	void NewRecordPoint( int set_index );
 	bool IsPointInCheckedArea( boost::dynamic_bitset<> &point );
 	bool IsPointInUnCheckedArea( boost::dynamic_bitset<> &point );
-	void AddNewUncheckedArea( boost::dynamic_bitset<> &point, vector<double> &cur_predict_times, stringstream &sstream );
+	void AddNewUncheckedArea( boost::dynamic_bitset<> &point, vector<double> &cur_predict_times, double sum_time, stringstream &sstream );
 	
 	void AllocatePredictArrays();
 	void MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< vector<bool> > &stream_vec_vec );
@@ -171,7 +172,7 @@ private:
 	vector<unsigned> set_len_arr; // array of indexes of sets
 	vector<int> cnf_to_stop_arr;  
 	vector<unsigned > set_index_arr;
-	vector<char> set_status_arr;
+	vector<int> set_status_arr;
 	vector<int> node_list;
 	vector<int> stopped_cnf_count_arr;				
 	vector<int> skipped_cnf_count_arr; 

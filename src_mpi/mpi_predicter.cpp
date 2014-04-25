@@ -691,6 +691,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 	unsigned L1_erased_count = 0;
 	unsigned L2_erased_count = 0;
 	list<unchecked_area> :: iterator L2_it;
+	double last_predict_record_time;
 	
 	if ( IsRecordUpdated ) {
 		sstream << endl << "---Record Updated---" << endl;
@@ -766,7 +767,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 			vector<point_struct> point_struct_vec;
 			vector<int> power_values;
 			unsigned L2_index;
-			bs = IntVecToBitsetPredict( real_var_choose_order );
+			bs = IntVecToBitsetPredict( real_var_choose_order ); // current center of searching
 			unsigned max_checked = 0;
 			// find new unchecked area
 			sstream << "finding new unchecked_area" << endl;
@@ -822,6 +823,21 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 				
 				L2_matches.sort( ua_compareByErPredict );
 				current_unchecked_area = (*L2_matches.begin());
+				real_var_choose_order = BitsetToIntVecPredict( current_unchecked_area.center );
+				sstream << "forced changing of real_var_choose_order to current_unchecked_area.center" << endl;
+				for ( auto &x : real_var_choose_order )
+					sstream << x << " ";
+				sstream << endl;
+				sstream << "real_var_choose_order.size() " << real_var_choose_order.size() << endl;
+				sstream << endl;
+				ofstream graph_file( "graph_file", ios_base :: app );
+				last_predict_record_time = MPI_Wtime() - current_predict_start_time;
+				current_predict_time += last_predict_record_time;
+				current_predict_start_time = MPI_Wtime(); // update time
+				graph_file << "  f " << real_var_choose_order.size() << " " << current_unchecked_area.predict_times[er_index] << " "
+					       << current_unchecked_area.sum_time << " " << best_cnf_in_set_count << " " 
+						   << last_predict_record_time << " " << current_predict_time << " er=" << er << endl;
+				graph_file.close();
 			}
 			else {
 				switch ( ts_strategy ) { // find needed criteria and mathced points in neighborhood
@@ -1349,7 +1365,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	var_choose_order = decomp_set_arr[set_index].var_choose_order;
 	real_var_choose_order = var_choose_order;
 	sort( var_choose_order.begin(), var_choose_order.end() );
-
+	
 	double last_predict_record_time = MPI_Wtime() - current_predict_start_time;
 	current_predict_time += last_predict_record_time;
 	current_predict_start_time = MPI_Wtime(); // update time
@@ -1410,7 +1426,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	sstream << "predict_" << record_count;
 	predict_file_name = sstream.str();
 	
-	//if ( ( !IsFirstStage ) || ( record_count == 1 ) ) // don't write in first stage - it's expansive
+	//if ( ( !IsFirstStage ) || ( record_count == 1 ) ) // don't write in first stage - it's expensive
 	WritePredictToFile( 0, 0 );
 	predict_file_name = "predict";
 	
@@ -1521,7 +1537,7 @@ bool MPI_Predicter :: GetPredict()
 	
 	// fill arrays of summary and median times in set of CNF
 	for ( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
-		if ( set_status_arr[i] > 0 ) 
+		if ( set_status_arr[i] > 0 )
 			continue; // skip UNSAT, SAT and STOPPED
 		cur_cnf_to_stop_count = 0; // every time create array again
 		cur_cnf_to_skip_count = 0;
@@ -1697,7 +1713,7 @@ bool MPI_Predicter :: GetPredict()
 				else 
 					global_checked_points_count++;
 				boost::dynamic_bitset<> bs = IntVecToBitsetPredict( decomp_set_arr[i].var_choose_order );
-				AddNewUncheckedArea( bs, cur_predict_times, sstream );
+				AddNewUncheckedArea( bs, cur_predict_times, sum_time_arr[i], sstream );
 			}
 		}
 		fstream deep_predict_file( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
@@ -1760,7 +1776,7 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 			sstream << decomp_set_arr[i].var_choose_order.size();
 		else // if !deep_predict
 			sstream << predict_to - i;
-
+		
 		sstream << " "  << (unsigned)set_status_arr[i];
 		sstream << " sum ";
 		sstream.width( 12 );
@@ -1803,21 +1819,17 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 			else count8++;
 		}
 		
-
-		if ( solved_cnf_count_arr[i] != solved_count )
-			solved_cnf_count_arr[i] = solved_count; // update solved count
-		cur_sample_size = set_index_arr[i + 1] - set_index_arr[i];
-		if ( isAllSolved ) {
-			if ( cur_sample_size != solved_cnf_count_arr[i] ) {
-				cerr << "cur_sample_size != solved_cnf_count_arr[i]" << endl;
-				cerr << cur_sample_size << " != " << solved_cnf_count_arr[i] << endl;
-				cerr << "cnf_status_arr" << endl;
-				for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; ++j )
-					cerr << cnf_status_arr[j] << endl;
-				exit(1);
-			}
+		/*if ( ( set_status_arr[i] > 0 ) && ( solved_cnf_count_arr[i] != solved_count ) ) {
+			cerr << "solved_cnf_count_arr[i] != solved_count" << endl;
+			cerr << solved_cnf_count_arr[i] << " != " << solved_count << endl;
+			cerr << "set_status_arr[i] " << set_status_arr[i] << endl;
+			cerr << "cnf_status_arr" << endl;
+			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; ++j )
+				cerr << cnf_status_arr[j] << endl;
+			exit(1);
+		}*/
+		if ( isAllSolved )
 			med_cnf_time /= solved_cnf_count_arr[i];
-		}
 		else
 			med_cnf_time = -1.0;
 		
@@ -2007,7 +2019,8 @@ bool MPI_Predicter :: IsPointInUnCheckedArea( boost::dynamic_bitset<> &point )
 	return false;
 }
 
-void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, vector<double> &cur_predict_times, stringstream &sstream )
+void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, vector<double> &cur_predict_times, 
+										   double sum_time, stringstream &sstream )
 {
 // Add new point as center to list of unchecked areas (L2)
 // Add 1 to checked_points vector of new point and all areas from L2 in
@@ -2031,6 +2044,7 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, vecto
 	new_ua.radius = 1;
 	new_ua.checked_points.resize( point.size() );
 	new_ua.predict_times = cur_predict_times;
+	new_ua.sum_time = sum_time;
 	
 	for ( L1_it = L1.begin(); L1_it != L1.end(); L1_it++ ) {
 		// necessary condition - points with close count of 1s
