@@ -692,6 +692,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 	unsigned L2_erased_count = 0;
 	list<unchecked_area> :: iterator L2_it;
 	double last_predict_record_time;
+	bool isSkipCauseZeroSum;
 	
 	if ( IsRecordUpdated ) {
 		sstream << endl << "---Record Updated---" << endl;
@@ -810,8 +811,9 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 			if ( verbosity > 0 )
 				cout << "L2_matches.size() " << L2_matches.size() << endl;
 			sstream << "L2_matches.size() " << L2_matches.size() << endl;
+			isSkipCauseZeroSum = true;
 			
-			if (( te > 0.0 ) && ( er > 1.5 )) {
+			if (( te > 0.0 ) && ( er > 1.5 )) { // penalty3
 				er -= 0.1;
 				sstream << "er decreased " << er << endl;
 				unsigned er_index;
@@ -822,24 +824,37 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 					x.cur_er_predict_time = x.predict_times[er_index]; // for comparison
 				
 				L2_matches.sort( ua_compareByErPredict );
-				current_unchecked_area = (*L2_matches.begin());
-				real_var_choose_order = BitsetToIntVecPredict( current_unchecked_area.center );
-				sstream << "forced changing of real_var_choose_order to current_unchecked_area.center" << endl;
-				for ( auto &x : real_var_choose_order )
-					sstream << x << " ";
-				sstream << endl;
-				sstream << "real_var_choose_order.size() " << real_var_choose_order.size() << endl;
-				sstream << endl;
-				ofstream graph_file( "graph_file", ios_base :: app );
-				last_predict_record_time = MPI_Wtime() - current_predict_start_time;
-				current_predict_time += last_predict_record_time;
-				current_predict_start_time = MPI_Wtime(); // update time
-				graph_file << "  f " << real_var_choose_order.size() << " " << current_unchecked_area.predict_times[er_index] << " "
-					       << current_unchecked_area.sum_time << " " << best_cnf_in_set_count << " " 
-						   << last_predict_record_time << " " << current_predict_time << " er=" << er << endl;
-				graph_file.close();
+				for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ )
+					if ( (*L2_it).sum_time == 0 ) // don't choose with 0 sum_time
+						continue;
+					else
+					{
+						current_unchecked_area = (*L2_it);
+						isSkipCauseZeroSum = false;
+						break;
+					}
+				
+				if ( !isSkipCauseZeroSum ) {
+					sstream << "isSkipCauseZeroSum " << isSkipCauseZeroSum << endl;
+					real_var_choose_order = BitsetToIntVecPredict( current_unchecked_area.center );
+					sstream << "forced changing of real_var_choose_order to current_unchecked_area.center" << endl;
+					for ( auto &x : real_var_choose_order )
+						sstream << x << " ";
+					sstream << endl;
+					sstream << "real_var_choose_order.size() " << real_var_choose_order.size() << endl;
+					sstream << endl;
+					ofstream graph_file( "graph_file", ios_base :: app );
+					last_predict_record_time = MPI_Wtime() - current_predict_start_time;
+					current_predict_time += last_predict_record_time;
+					current_predict_start_time = MPI_Wtime(); // update time
+					graph_file << "  f " << real_var_choose_order.size() << " " << current_unchecked_area.predict_times[er_index] << " "
+							   << current_unchecked_area.sum_time << " " << best_cnf_in_set_count << " " 
+							   << last_predict_record_time << " " << current_predict_time << " er=" << er << endl;
+					graph_file.close();
+				}
 			}
-			else {
+			if ( isSkipCauseZeroSum ) {
+				sstream << "isSkipCauseZeroSum " << isSkipCauseZeroSum << endl;
 				switch ( ts_strategy ) { // find needed criteria and mathced points in neighborhood
 					case 0:
 						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
@@ -1606,7 +1621,7 @@ bool MPI_Predicter :: GetPredict()
 			if ( med_time_arr[i] > 0.0 ) {
 				for( unsigned j = 0; j < cur_predict_times.size(); j++ ) {
 					cur_predict_times[j] = pow( 1.5 + j*0.1, (double)cur_var_num ) / med_time_arr[i] + 
-						pow( 2.0, (penalty - med_time_arr[i]) * 100.0 )*( prev_area_best_predict_time / 10.0 );
+						pow( 2.0, (penalty - med_time_arr[i]) * 1000.0 )*prev_area_best_predict_time;
 					if ( ( best_predict_time_arr[j] == 0.0 ) || ( cur_predict_times[j] < best_predict_time_arr[j] ) ) {
 						best_predict_time_arr[j] = cur_predict_times[j];
 						sstream << "best_predict_time_arr[" << j << "] "<< "updated " << best_predict_time_arr[j] << endl;
