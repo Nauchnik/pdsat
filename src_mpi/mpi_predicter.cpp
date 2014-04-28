@@ -47,7 +47,8 @@ MPI_Predicter :: MPI_Predicter( ) :
 	evaluation_type ( "time" ),
 	best_cnf_in_set_count ( 0 ),
 	unupdated_count ( 0 ),
-	prev_area_best_predict_time ( 0 )
+	prev_area_best_predict_time ( 0 ),
+	er_strategy ( 0 )
 { 
 	array_message = NULL;
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
@@ -692,7 +693,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 	unsigned L2_erased_count = 0;
 	list<unchecked_area> :: iterator L2_it;
 	double last_predict_record_time;
-	bool isSkipCauseZeroSum;
+	bool isChoosingByActivity;
 	
 	if ( IsRecordUpdated ) {
 		sstream << endl << "---Record Updated---" << endl;
@@ -811,9 +812,9 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 			if ( verbosity > 0 )
 				cout << "L2_matches.size() " << L2_matches.size() << endl;
 			sstream << "L2_matches.size() " << L2_matches.size() << endl;
-			isSkipCauseZeroSum = true;
+			isChoosingByActivity = true;
 			
-			if (( te > 0.0 ) && ( er > 1.5 )) { // penalty3
+			if (( er_strategy == 1 ) && ( er > 1.5 )) {
 				er -= 0.1;
 				sstream << "er decreased " << er << endl;
 				unsigned er_index;
@@ -830,12 +831,12 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 					else
 					{
 						current_unchecked_area = (*L2_it);
-						isSkipCauseZeroSum = false;
+						isChoosingByActivity = false;
 						break;
 					}
 				
-				if ( !isSkipCauseZeroSum ) {
-					sstream << "isSkipCauseZeroSum " << isSkipCauseZeroSum << endl;
+				if ( !isChoosingByActivity ) {
+					sstream << "isSkipCauseZeroSum " << isChoosingByActivity << endl;
 					real_var_choose_order = BitsetToIntVecPredict( current_unchecked_area.center );
 					sstream << "forced changing of real_var_choose_order to current_unchecked_area.center" << endl;
 					for ( auto &x : real_var_choose_order )
@@ -853,8 +854,8 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 					graph_file.close();
 				}
 			}
-			if ( isSkipCauseZeroSum ) {
-				sstream << "isSkipCauseZeroSum " << isSkipCauseZeroSum << endl;
+			if ( isChoosingByActivity ) {
+				sstream << "isChoosingByActivity " << isChoosingByActivity << endl;
 				switch ( ts_strategy ) { // find needed criteria and mathced points in neighborhood
 					case 0:
 						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
@@ -1240,6 +1241,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "te for (ro, es, te) " << te << endl;
 		cout << "er for (ro, es, te) " << er << endl;
 		cout << "penalty for (ro, es, te) " << penalty << endl;
+		cout << "er_strategy " << er_strategy << endl;
 		
 		DeepPredictMain( );
 		
@@ -1612,33 +1614,41 @@ bool MPI_Predicter :: GetPredict()
 		// get current predict time
 		med_time_arr[i] = sum_time_arr[i] / (double)cur_cnf_in_set_count;
 		isTeBkvUpdated = false;
-
+		
 		if ( te == 0.0 ) {
 			cur_predict_time = med_time_arr[i] / (double)proc_count;
 			cur_predict_time *= pow( 2, (double)cur_var_num );
 		}
 		else if ( te > 0.0 ) { // here med_time_arr in (0,1)
 			if ( med_time_arr[i] > 0.0 ) {
-				for( unsigned j = 0; j < cur_predict_times.size(); j++ ) {
-					cur_predict_times[j] = pow( 1.5 + j*0.1, (double)cur_var_num ) / med_time_arr[i] + 
-						pow( 2.0, (penalty - med_time_arr[i]) * 1000.0 )*prev_area_best_predict_time;
-					if ( ( best_predict_time_arr[j] == 0.0 ) || ( cur_predict_times[j] < best_predict_time_arr[j] ) ) {
-						best_predict_time_arr[j] = cur_predict_times[j];
-						sstream << "best_predict_time_arr[" << j << "] "<< "updated " << best_predict_time_arr[j] << endl;
-						if ( ( 1.5 + j*0.1 ) >= er ) {
-							isTeBkvUpdated = true;
-							sstream << "isTeBkvUpdated " << isTeBkvUpdated << endl;
-							if ( ( 1.5 + j*0.1 ) > er ) {
-								er = 1.5 + j*0.1;
-								sstream << "er increased " << er << endl;
+				if ( er_strategy == 0 ) { // fixed er
+					cur_predict_time = pow( er, (double)cur_var_num ) / med_time_arr[i] + 
+							pow( 2.0, (penalty - med_time_arr[i]) * 1000.0 )*( prev_area_best_predict_time / 10.0 );
+					if ( cur_predict_time < best_predict_time )
+						isTeBkvUpdated = true;
+				}
+				else if ( er_strategy == 1 ) {
+					for( unsigned j = 0; j < cur_predict_times.size(); j++ ) {
+						cur_predict_times[j] = pow( 1.5 + j*0.1, (double)cur_var_num ) / med_time_arr[i] + 
+							pow( 2.0, (penalty - med_time_arr[i]) * 1000.0 )*prev_area_best_predict_time;
+						if ( ( best_predict_time_arr[j] == 0.0 ) || ( cur_predict_times[j] < best_predict_time_arr[j] ) ) {
+							best_predict_time_arr[j] = cur_predict_times[j];
+							sstream << "best_predict_time_arr[" << j << "] "<< "updated " << best_predict_time_arr[j] << endl;
+							if ( ( 1.5 + j*0.1 ) >= er ) {
+								isTeBkvUpdated = true;
+								sstream << "isTeBkvUpdated " << isTeBkvUpdated << endl;
+								if ( ( 1.5 + j*0.1 ) > er ) {
+									er = 1.5 + j*0.1;
+									sstream << "er increased " << er << endl;
+								}
 							}
 						}
 					}
+					for( unsigned j=0; j < PREDICT_TIMES_COUNT; j++ )
+						if ( ( 1.5 + j*0.1 ) == er ) 
+							er_index = j;
+					cur_predict_time = cur_predict_times[er_index];
 				}
-				for( unsigned j=0; j < PREDICT_TIMES_COUNT; j++ )
-					if ( ( 1.5 + j*0.1 ) == er ) 
-						er_index = j;
-				cur_predict_time = cur_predict_times[er_index];
 			}
 			else // no solved instanses in sample
 				cur_predict_time = 0;

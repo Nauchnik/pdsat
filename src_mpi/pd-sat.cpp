@@ -52,6 +52,7 @@ struct Flags
 	double te; // for (ro es te) predict strategy
 	double er;
 	double penalty;
+	int er_strategy;
 };
 
 // prototypes
@@ -149,6 +150,8 @@ int main( int argc, char** argv )
 			mpi_p.max_solving_time = myflags.max_solving_time;
 		if ( myflags.evaluation_type != "" )
 			mpi_p.evaluation_type = myflags.evaluation_type;
+		if ( myflags.er_strategy != -1 )
+			mpi_p.ts_strategy = myflags.er_strategy;
 		mpi_p.IsFirstStage = myflags.IsFirstStage;
 		if ( myflags.te > 0 )
 			mpi_p.te = myflags.te;
@@ -287,6 +290,7 @@ void WriteUsage( )
 	"\n   -te - for (ro, es, te) strategy in predict";
 	"\n   -er - power of median for (ro, es, te) strategy in predict";
 	"\n   -penalty - penalty for function in satisfiably predict mode";
+	"\n   -er_strategy - strategy for SAT predict";
 }
 
 //---------------------------------------------------------
@@ -349,6 +353,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.te = 0;
 	myflags.er = 0;
 	myflags.penalty = 0;
+	myflags.er_strategy = -1;
 	
 	k = 0;
 	
@@ -393,7 +398,9 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 		else if ( hasPrefix_String( argv_string, "-max_L2_hamming_distance=", value ) )
 			myflags.max_L2_hamming_distance = atoi( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-skip_tasks=", value ) )
-			myflags.skip_tasks = atoi( value.c_str( ) );
+			myflags.skip_tasks = atoi( value.c_str() );
+		else if ( hasPrefix_String( argv_string, "-er_strategy=", value ) )
+			myflags.er_strategy = atoi( value.c_str() );
 		else if ( hasPrefix_String( argv_string, "-max_nof_restarts=", value ) )
 			myflags.max_nof_restarts = atoi( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-max_solving_time=", value ) )

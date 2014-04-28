@@ -161,7 +161,7 @@ int main( int argc, char* argv[] )
 	cout << "Make_Permutations_n_k() done" << endl;
 	ls.SolveLatinProblems( );
 	
-	ofstream outfile;	
+	ofstream outfile;
 	outfile.open( "outfile", ios_base :: out );
 	outfile << ls.all_answers.rdbuf();
 	outfile.close();

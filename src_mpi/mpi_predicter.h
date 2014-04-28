@@ -67,6 +67,7 @@ public:
 	int deep_diff_decomp_set_count;
 	int max_var_deep_predict;
 	int deep_predict;
+	int er_strategy;
 	// how many new best points were finded with such count of new vars
 	vector<int> global_count_var_changing; // how many points were found with particular Hamming distance
 	int deep_predict_cur_var;
