@@ -48,7 +48,8 @@ MPI_Predicter :: MPI_Predicter( ) :
 	best_cnf_in_set_count ( 0 ),
 	unupdated_count ( 0 ),
 	prev_area_best_predict_time ( 0 ),
-	er_strategy ( 0 )
+	er_strategy ( 0 ),
+	exp_denom ( 1.0 )
 { 
 	array_message = NULL;
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
@@ -1242,8 +1243,9 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "er for (ro, es, te) " << er << endl;
 		cout << "penalty for (ro, es, te) " << penalty << endl;
 		cout << "er_strategy " << er_strategy << endl;
+		cout << "exp_denom " << exp_denom << endl;
 		
-		DeepPredictMain( );
+		DeepPredictMain();
 		
 		delete[] var_activity;
 	}
@@ -1607,7 +1609,7 @@ bool MPI_Predicter :: GetPredict()
 		}
 		else if ( te > 0 ) { // (ro, es, te) mode, here sum for sample is number of solved problems with time < te  
 			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ )
-				if ( ( cnf_issat_arr[j] )  && ( cnf_real_time_arr[j] > 0 ) && ( cnf_real_time_arr[j] <= te ) )
+				if ( ( cnf_issat_arr[j] ) && ( cnf_real_time_arr[j] > 0 ) && ( cnf_real_time_arr[j] <= te ) )
 					sum_time_arr[i] += 1;
 		}
 		
@@ -1622,15 +1624,15 @@ bool MPI_Predicter :: GetPredict()
 		else if ( te > 0.0 ) { // here med_time_arr in (0,1)
 			if ( med_time_arr[i] > 0.0 ) {
 				if ( er_strategy == 0 ) { // fixed er
-					cur_predict_time = pow( er, (double)cur_var_num ) / med_time_arr[i] + 
+					cur_predict_time = pow( er, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom ) + 
 							pow( 2.0, (penalty - med_time_arr[i]) * 1000.0 )*( prev_area_best_predict_time / 10.0 );
 					if ( cur_predict_time < best_predict_time )
 						isTeBkvUpdated = true;
 				}
 				else if ( er_strategy == 1 ) {
 					for( unsigned j = 0; j < cur_predict_times.size(); j++ ) {
-						cur_predict_times[j] = pow( 1.5 + j*0.1, (double)cur_var_num ) / med_time_arr[i] + 
-							pow( 2.0, (penalty - med_time_arr[i]) * 1000.0 )*prev_area_best_predict_time;
+						cur_predict_times[j] = pow( 1.5 + j*0.1, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom ) + 
+							pow( 2.0, (penalty - med_time_arr[i]) * 1000.0 )*prev_area_best_predict_time / 10.0;
 						if ( ( best_predict_time_arr[j] == 0.0 ) || ( cur_predict_times[j] < best_predict_time_arr[j] ) ) {
 							best_predict_time_arr[j] = cur_predict_times[j];
 							sstream << "best_predict_time_arr[" << j << "] "<< "updated " << best_predict_time_arr[j] << endl;
@@ -1853,7 +1855,7 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 				cerr << cnf_status_arr[j] << endl;
 			exit(1);
 		}*/
-		if ( isAllSolved )
+		if ( (isAllSolved) && (( solved_cnf_count_arr[i] > 0 )) )
 			med_cnf_time /= solved_cnf_count_arr[i];
 		else
 			med_cnf_time = -1.0;
@@ -1864,7 +1866,7 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 				sample_variance += pow(cnf_real_time_arr[j] - med_cnf_time, 2);
 			sample_variance /= ( solved_cnf_count_arr[i] - 1);
 		}
-		else 
+		else
 			sample_variance = -1.0;
 		
 		if ( sample_variance > start_sample_variance_limit ) {
@@ -1897,7 +1899,7 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 		
 		sstream << " prepr: "       << count0;
 		sstream << " (0, 0.001): "  << count1;
-		sstream << " (0, 0.01): "   << count2;
+		sstream << " (0.001, 0.01): " << count2;
 		sstream << " (0.01, 0.1): " << count3;
 		sstream << " (0.1, 1): "    << count4;
 		sstream << " (1, 10): "     << count5;

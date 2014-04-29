@@ -82,6 +82,7 @@ public:
 	double point_admission_koef; // how exactly worse can new point be. all others will be interrupted
 	double delta;
 	double exp_value;
+	double exp_denom;
 	int cur_vars_changing;
 	int global_deep_point_index;
 	int global_checked_points_count;

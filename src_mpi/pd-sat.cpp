@@ -53,6 +53,7 @@ struct Flags
 	double er;
 	double penalty;
 	int er_strategy;
+	double exp_denom;
 };
 
 // prototypes
@@ -152,6 +153,8 @@ int main( int argc, char** argv )
 			mpi_p.evaluation_type = myflags.evaluation_type;
 		if ( myflags.er_strategy != -1 )
 			mpi_p.ts_strategy = myflags.er_strategy;
+		if ( myflags.exp_denom != 0.0 )
+			mpi_p.exp_denom = myflags.exp_denom;
 		mpi_p.IsFirstStage = myflags.IsFirstStage;
 		if ( myflags.te > 0 )
 			mpi_p.te = myflags.te;
@@ -291,6 +294,7 @@ void WriteUsage( )
 	"\n   -er - power of median for (ro, es, te) strategy in predict";
 	"\n   -penalty - penalty for function in satisfiably predict mode";
 	"\n   -er_strategy - strategy for SAT predict";
+	"\n   -exp_denom - exponent for denominant in predict function computing";
 }
 
 //---------------------------------------------------------
@@ -354,6 +358,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.er = 0;
 	myflags.penalty = 0;
 	myflags.er_strategy = -1;
+	myflags.exp_denom = 0.0;
 	
 	k = 0;
 	
@@ -411,6 +416,8 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.te = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-er=", value ) )
 			myflags.er = atof( value.c_str( ) );
+		else if ( hasPrefix_String( argv_string, "-exp_denom=", value ) )
+			myflags.exp_denom = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-penalty=", value ) )
 			myflags.penalty = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-deep_predict=", value ) )  {
