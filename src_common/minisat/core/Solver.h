@@ -58,6 +58,7 @@ public:
 	double last_time;
 	int rank;
 	void clearDB();
+	void clearParams();
 	void getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len );
 	int pdsat_verbosity;
 	//void saveState();

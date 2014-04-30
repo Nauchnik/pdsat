@@ -145,6 +145,14 @@ void Solver::clearDB()
     checkGarbage();
 }
 
+void Solver::clearParams()
+{
+	starts = 0;
+    conflicts = 0;
+    decisions = 0;
+    propagations = 0;
+}
+
 void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len )
 {
 	for( unsigned i=0; i < activity_vec_len; ++i )
@@ -792,7 +800,6 @@ lbool Solver::search(int nof_conflicts)
             conflicts++; conflictC++;
             if (decisionLevel() == 0) return l_False;
 			
-			//if ( conflictC % 10 == 0 )
 			if ( ( max_solving_time > 0 ) && ( cpuTime() - start_solving_time > max_solving_time ) ) {
 				cancelUntil(0);
 				return l_Undef;
