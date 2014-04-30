@@ -433,7 +433,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	var_activity = new double[activity_vec_len];
 	bool isFirstDecompSetReceived = false, isNewDecompSetReceived = false;
 	int process_sat_count;
-	uint64_t prev_starts, prev_conflicts, prev_decisions;
+	uint64_t prev_starts, prev_conflicts;
 	int IsSolvedOnPreprocessing;
 	int val;
 	unsigned large_message_count = 0, small_message_count = 0;
@@ -567,7 +567,6 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			
 			prev_starts    = S->starts;
 			prev_conflicts = S->conflicts;
-			prev_decisions = S->decisions;
 			IsSolvedOnPreprocessing = 0;
 			cnf_time_from_node = MPI_Wtime( );
 			
@@ -582,9 +581,9 @@ bool MPI_Predicter :: ComputeProcessPredict()
 				cnf_time_from_node = (double)S->propagations;
 			S->clearDB();
 			
-			if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) && ( S->decisions == prev_decisions ) )
+			if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) )
 				IsSolvedOnPreprocessing = 1;  // solved by BCP
-
+			
 			if ( ( te > 0 ) && ( ret == l_False ) ) { // in ro es te mode all instances are satisfiable
 				cerr << "( te > 0 ) && ( ret == l_False ) " << endl;
 				exit(1);

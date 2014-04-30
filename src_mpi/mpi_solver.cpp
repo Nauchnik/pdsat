@@ -278,12 +278,11 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 				return false;
 			}
 		
-		uint64_t prev_starts, prev_conflicts, prev_decisions;
+		uint64_t prev_starts, prev_conflicts;
 		for ( int i=0; i < dummy_vec.size(); ++i ) {
 			// save current state to check differences
 			prev_starts    = S->starts;
 			prev_conflicts = S->conflicts;
-			prev_decisions = S->decisions;
 			
 			S->last_time = Minisat :: cpuTime();
 
@@ -297,10 +296,10 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 			//ret = S->solveLimited( dummy_vec[i], true, false ); // for SimpSolver
 
 			total_time += cnf_time_from_node;
-
+			
 			if ( ret == l_Undef )
 				cur_problem_state = Interrupted; // interrupted cause of restarts or time limit
-			else if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) && ( S->decisions == prev_decisions ) )
+			else if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) )
 				cur_problem_state = SolvedOnPreprocessing;  // solved by BCP
 			else
 				cur_problem_state = Solved; // just solved
