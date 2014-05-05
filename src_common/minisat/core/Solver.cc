@@ -34,7 +34,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "minisat/mtl/Sort.h"
 #include "minisat/utils/System.h"
 #include "minisat/core/Solver.h"
-
+#include <algorithm>
 using namespace Minisat;
 
 //=================================================================================================
@@ -145,12 +145,43 @@ void Solver::clearDB()
     checkGarbage();
 }
 
-void Solver::clearParams()
+bool compare_lits (Lit a, Lit b){
+	return var(a)<var(b);
+}
+
+void Solver::clearState()
 {
+	clearDB();
 	starts = 0;
     conflicts = 0;
     decisions = 0;
     propagations = 0;
+	for (int i=0; i<nVars(); i++){
+		activity[i]=i;
+	}
+	rebuildOrderHeap();
+	for (int i=0; i<nVars(); i++){
+		activity[i]=0;
+	}
+	var_inc=1;
+	for (int i = 0; i < learnts.size(); i++){
+        ca[learnts[i]].activity() =0;
+	}
+    cla_inc = 1;
+	for (int i=0; i<clauses.size(); i++){
+		Clause& c = ca[clauses[i]];
+		if (c.size()>1)
+			detachClause(clauses[i], true);
+		std::sort(&c[0],&c[c.size()-1], compare_lits);
+	}
+
+	for (int i=0; i<clauses.size(); i++){
+		if (ca[clauses[i]].size()>1)
+			attachClause(clauses[i]);
+	}
+
+	for ( int i=0; i < nVars(); i++ )
+		polarity[i] = true;
 }
 
 void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len )
@@ -162,37 +193,6 @@ void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&va
 			for( unsigned j=0; j < activity_vec_len; ++j ) // Rescale:
 				var_activity[j] *= 1e-10;
 }
-
-// save state of Solver
-/*void Solver::saveState()
-{
-	activity.copyTo( activity2 );   
-    assigns.copyTo( assigns2 );      
-    polarity.copyTo( polarity2 );        
-    user_pol.copyTo( user_pol2 );         
-    decision.copyTo( decision2 );        
-    vardata.copyTo( vardata2 );
-	//watches.copyTo( watches2 );
-	//order_heap2 = VarOrderLt(activity); ? error
-}
-
-// load state of Solver with DB clearing
-void Solver::loadState()
-{
-	clearDB();
-	assumptions.clear();
-	solves = starts = decisions = rnd_decisions = propagations = conflicts = max_literals = tot_literals = 0;
-	cla_inc = var_inc = 1;
-	
-	activity2.copyTo( activity );
-    assigns2.copyTo( assigns );      
-    polarity2.copyTo( polarity );        
-    user_pol2.copyTo( user_pol );         
-    decision2.copyTo( decision );        
-    vardata2.copyTo( vardata );
-	
-	//rebuildOrderHeap();
-}*/
 
 // Creates a new SAT variable in the solver. If 'decision' is cleared, variable will not be
 // used as a decision variable (NOTE! This has effects on the meaning of a SATISFIABLE result).
