@@ -355,7 +355,6 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	for ( unsigned i=0; i < core_len; ++i )
 		full_var_choose_order[i] = full_local_decomp_set[i];
 	delete[] full_local_decomp_set;
-	double load_time;
 	vector<int> all_vars_set;
 	all_vars_set.resize( var_count ); // all vars including additional anf keystream
 	for ( unsigned i=0; i < all_vars_set.size(); i++ )
@@ -369,18 +368,13 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		ifstream in( input_cnf_name );
 		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
 		in.close();
-		// make solver
-		load_time = MPI_Wtime();
-		S = new Solver();
+		/*S = new Solver();
 		S->addProblem(cnf);
-		load_time = MPI_Wtime() - load_time;
-		if ( rank == 1 )
-			cout << "load_time " << load_time << endl;
 		S->pdsat_verbosity  = verbosity;
 		S->IsPredict        = IsPredict;
 		S->max_solving_time = max_solving_time;
 		S->rank             = rank;
-		S->core_len         = core_len;
+		S->core_len         = core_len;*/
 	}
 	
 	if ( te > 0 ) { // ro es te mode
@@ -576,6 +570,15 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			if ( ( verbosity > 2 ) && ( rank == corecount-1 ) )
 				cout << "Before getting prev stats from Solver" << endl;
 			
+			// make Solver for every problem to make them independent from each other
+			S = new Solver();
+			S->addProblem(cnf);
+			S->pdsat_verbosity  = verbosity;
+			S->IsPredict        = IsPredict;
+			S->max_solving_time = max_solving_time;
+			S->rank             = rank;
+			S->core_len         = core_len;
+			
 			prev_starts    = S->starts;
 			prev_conflicts = S->conflicts;
 			IsSolvedOnPreprocessing = 0;
@@ -590,7 +593,6 @@ bool MPI_Predicter :: ComputeProcessPredict()
 				cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
 			else if ( evaluation_type == "propagation" )
 				cnf_time_from_node = (double)S->propagations;
-			S->clearDB();
 			
 			if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) )
 				IsSolvedOnPreprocessing = 1;  // solved by BCP
@@ -601,6 +603,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			}
 			
 			S->getActivity( full_var_choose_order, var_activity, activity_vec_len ); // get activity of Solver
+
 			if ( ( verbosity > 2 ) && ( rank == corecount-1 ) )
 				cout << "After S->getActivity" << endl;
 			if ( cnf_time_from_node < MIN_SOLVE_TIME ) // TODO. maybe 0 - but why?!
@@ -626,6 +629,8 @@ bool MPI_Predicter :: ComputeProcessPredict()
 					ofile.close();
 				}
 			}
+			delete S;
+			//S->clearDB();
         }
 		else { 
 			cout << "solver_type has unknown format"; return false;
@@ -644,8 +649,8 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	delete[] var_activity;
 	delete[] all_var_activity;
  	delete[] array_message;
-	delete S;
-	MPI_Finalize( );
+	//delete S;
+	MPI_Finalize();
 	return true;
 }
 
@@ -1643,18 +1648,14 @@ bool MPI_Predicter :: GetPredict()
 		else if ( te > 0.0 ) { // here med_time_arr in (0,1)
 			if ( med_time_arr[i] > 0.0 ) {
 				if ( er_strategy == 0 ) { // fixed er
-					/*cur_predict_time = pow( er, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom ) + 
-							pow( 2.0, (penalty - med_time_arr[i]) * 1000.0 )*( prev_area_best_predict_time / 10.0 );*/
-					cur_predict_time = pow( er, (double)cur_var_num ) * pow( (1 - med_time_arr[i]), exp_denom ) + 
-							pow( 2.0, (penalty - med_time_arr[i]) * 1000.0 )*( prev_area_best_predict_time / 10.0 );
+					cur_predict_time = pow( er, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom ) + 
+						pow( 2.0, ( penalty - med_time_arr[i]) * 1000.0 )*( prev_area_best_predict_time / 10.0 );
 					if ( cur_predict_time < best_predict_time )
 						isTeBkvUpdated = true;
 				}
 				else if ( er_strategy == 1 ) {
 					for( unsigned j = 0; j < cur_predict_times.size(); j++ ) {
-						/*cur_predict_times[j] = pow( 1.5 + j*0.1, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom ) + 
-							pow( 2.0, (penalty - med_time_arr[i]) * 1000.0 )*prev_area_best_predict_time / 10.0;*/
-						cur_predict_times[j] = pow( 1.5 + j*0.1, (double)cur_var_num ) * pow( (1 - med_time_arr[i]), exp_denom ) + 
+						cur_predict_times[j] = pow( 1.5 + j*0.1, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom ) + 
 							pow( 2.0, (penalty - med_time_arr[i]) * 1000.0 )*prev_area_best_predict_time / 10.0;
 						if ( ( best_predict_time_arr[j] == 0.0 ) || ( cur_predict_times[j] < best_predict_time_arr[j] ) ) {
 							best_predict_time_arr[j] = cur_predict_times[j];
