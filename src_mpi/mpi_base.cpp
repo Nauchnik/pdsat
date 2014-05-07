@@ -624,9 +624,8 @@ bool MPI_Base :: ReadIntCNF()
 				continue;
 			}
 			
-			if ( str2 == "keystream_len" ) {
-				istringstream( str3 ) >> keystream_len;
-				cout << "keystream_len " << keystream_len << endl;
+			if ( ( str2 == "output" ) && ( str3 == "variables" ) ) {
+				istringstream( str4 ) >> keystream_len;
 				continue;
 			}
 			
@@ -645,6 +644,7 @@ bool MPI_Base :: ReadIntCNF()
 				    continue;
 				}
 			}
+
 			if ( str2 == "var_set" ) {
 				sstream << line_str;
 				cout << "line_str " << line_str << endl;

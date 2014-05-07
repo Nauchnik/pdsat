@@ -368,13 +368,13 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		ifstream in( input_cnf_name );
 		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
 		in.close();
-		/*S = new Solver();
+		S = new Solver();
 		S->addProblem(cnf);
 		S->pdsat_verbosity  = verbosity;
 		S->IsPredict        = IsPredict;
 		S->max_solving_time = max_solving_time;
 		S->rank             = rank;
-		S->core_len         = core_len;*/
+		S->core_len         = core_len;
 	}
 	
 	if ( te > 0 ) { // ro es te mode
@@ -571,13 +571,13 @@ bool MPI_Predicter :: ComputeProcessPredict()
 				cout << "Before getting prev stats from Solver" << endl;
 			
 			// make Solver for every problem to make them independent from each other
-			S = new Solver();
+			/*S = new Solver();
 			S->addProblem(cnf);
 			S->pdsat_verbosity  = verbosity;
 			S->IsPredict        = IsPredict;
 			S->max_solving_time = max_solving_time;
 			S->rank             = rank;
-			S->core_len         = core_len;
+			S->core_len         = core_len;*/
 			
 			prev_starts    = S->starts;
 			prev_conflicts = S->conflicts;
@@ -629,8 +629,8 @@ bool MPI_Predicter :: ComputeProcessPredict()
 					ofile.close();
 				}
 			}
-			delete S;
-			//S->clearDB();
+			//delete S;
+			S->clearDB();
         }
 		else { 
 			cout << "solver_type has unknown format"; return false;
@@ -649,7 +649,8 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	delete[] var_activity;
 	delete[] all_var_activity;
  	delete[] array_message;
-	//delete S;
+	if ( S )
+		delete S;
 	MPI_Finalize();
 	return true;
 }
@@ -1268,6 +1269,8 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "penalty for (ro, es, te) " << penalty << endl;
 		cout << "er_strategy " << er_strategy << endl;
 		cout << "exp_denom " << exp_denom << endl;
+		cout << "keystream_len " << keystream_len << endl;
+		cout << endl;
 		
 		DeepPredictMain();
 		
@@ -2330,7 +2333,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< vector<bool> > &stream_vec_vec )
 {
 	fstream file( "known_sat_sample", ios_base::in );
-	vector<bool> stream_vec, state_vec;
+	vector<bool> state_vec, stream_vec;
 	string str;
 	stringstream sstream;
 	getline( file, str );
@@ -2340,9 +2343,10 @@ void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vect
 		// make [sample_size] different pairs <register_state, keystream> via generating secret keys
 		cout << "file known_sat_sample is empty. making SAT sample" << endl;
 		
-		Bivium biv;
+		/*Bivium biv;
 		vector<bool> key_bool_vec;
 		vector<bool> iv_bool_vec;
+		
 		
 		// generate [sample_size] secret keys, save corresponding initial register state and keystream
 		for ( unsigned i=0; i < cnf_in_set_count; i++ ) {
@@ -2363,6 +2367,15 @@ void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vect
 			key_bool_vec.clear();
 			iv_bool_vec.clear();
 		}
+		*/
+		// generate randomly state of core variables
+		state_vec.resize( core_len );
+		for ( unsigned i=0; i < cnf_in_set_count; i++ ) {
+			for ( unsigned j=0; j < core_len; j++ )
+				state_vec[j] = bool_rand(gen);
+			state_vec_vec.push_back( state_vec );
+		}
+		
 		// get state of additional variables
 		Problem cnf;
 		Solver *S;
@@ -2387,10 +2400,12 @@ void MPI_Predicter :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vect
 				cerr << "in makeSatSample() ret != l_True" << endl;
 				exit(1);
 			}
-			//cout << "S->model.size() " << S->model.size() << endl;
-			for( int i=state_vec_len; i < S->model.size() - (int)keystream_len; i++ )
+			for( int i=state_vec_len; i < S->model.size() - keystream_len; i++ )
 				(*x).push_back( (S->model[i] == l_True) ? true : false );
-			//cout << "var count " << (*x).size() << endl;
+			for( int i=S->model.size() - keystream_len; i < S->model.size(); i++ )
+				stream_vec.push_back( (S->model[i] == l_True) ? true : false );
+			stream_vec_vec.push_back( stream_vec );
+			stream_vec.clear();
 			dummy.clear();
 		}
 		sstream << "state" << endl;
