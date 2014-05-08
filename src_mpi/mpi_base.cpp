@@ -583,10 +583,10 @@ bool MPI_Base :: ReadIntCNF()
 
 	// check file with main CNF
 	ifstream main_cnf( input_cnf_name, ios::in );
-    if ( !main_cnf ) {
+    if ( !main_cnf.is_open() ) {
 		cerr << "Error in opening of file with input CNF with name" 
 			 << input_cnf_name << endl;
-		return false;
+		exit(1);
 	}
 	
 	first_obj_var = 0;

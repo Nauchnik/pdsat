@@ -359,6 +359,8 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	all_vars_set.resize( var_count ); // all vars including additional anf keystream
 	for ( unsigned i=0; i < all_vars_set.size(); i++ )
 		all_vars_set[i] = i+1;
+	int prev_sat_sample_index = -1;
+	int prev_set_size;
 	
 	// read file with CNF once
 	Problem cnf;
@@ -445,6 +447,8 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	int sat_sample_index;
 	int cur_stream_index;
 	unsigned cur_var_ind;
+	string polarity_file_name;
+	stringstream sstream;
 	
 	for (;;) {
 		do {// get index of current task missing stop-messages
@@ -529,7 +533,22 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			if ( te > 0 ) { // make satisfiable instanse by known state and keystream
 				dummy.clear();
 				sat_sample_index = current_task_index % cnf_in_set_count;
-
+				/*if ( sat_sample_index == prev_sat_sample_index ) {
+					S->clearPolarity(); // if same keystrem, clear phase saving
+					sstream << rank;
+					polarity_file_name = "polarity_file_name_rank" + sstream.str();
+					sstream.clear(); sstream.str("");
+					ofstream ofile( polarity_file_name, ios_base :: out | ios_base :: app );
+					ofile << "sat_sample_index == prev_sat_sample_index" << endl;
+					ofile << sat_sample_index << " == " << prev_sat_sample_index << endl;
+					ofile << "prev_set_size " << prev_set_size << endl;
+					ofile << "cur_set_size " << var_choose_order.size() << endl;
+					ofile << endl;
+					ofile.close();
+				}
+				prev_sat_sample_index = sat_sample_index;
+				prev_set_size = var_choose_order.size();*/
+				
 				for ( auto &x : var_choose_order ) {
 					cur_var_ind = x-1;
 					if ( cur_var_ind > state_vec_vec[sat_sample_index].size()-1 ) {
@@ -631,6 +650,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			}
 			//delete S;
 			S->clearDB();
+			S->clearPolarity();
         }
 		else { 
 			cout << "solver_type has unknown format"; return false;
@@ -649,8 +669,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	delete[] var_activity;
 	delete[] all_var_activity;
  	delete[] array_message;
-	if ( S )
-		delete S;
+	if ( S ) delete S;
 	MPI_Finalize();
 	return true;
 }

@@ -145,6 +145,13 @@ void Solver::clearDB()
     checkGarbage();
 }
 
+void Solver::clearPolarity() 
+{
+	for ( int i=0; i < nVars(); i++ )
+		polarity[i] = true;
+	checkGarbage();
+}
+
 bool compare_lits (Lit a, Lit b){
 	return var(a)<var(b);
 }
