@@ -1865,6 +1865,7 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 		bool IsFirstNonNullFinded = false;
 		unsigned count0 = 0, count1 = 0, count2 = 0, count3 = 0, count4 = 0, count5 = 0, count6 = 0, count7 = 0, count8 = 0;
 		isAllSolved = true;
+		min_cnf_time = max_cnf_time = -1.0;
 		for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; ++j ) {
 			if ( cnf_status_arr[j] <= 1 ) { // skip unsolved and stopped problems
 				isAllSolved = false;
@@ -1872,7 +1873,7 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 			}
 			else
 				solved_count++;
-			if ( !IsFirstNonNullFinded ) {
+			if ( ( !IsFirstNonNullFinded ) && ( cnf_real_time_arr[j] > 0.0 ) ) {
 				min_cnf_time = max_cnf_time = cnf_real_time_arr[j];
 				IsFirstNonNullFinded = true;
 			}
