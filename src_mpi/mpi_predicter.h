@@ -75,6 +75,7 @@ public:
 	bool IsDecDecomp;
 	bool IsSimulatedGranted;
 	bool isFirstPoint;
+
 	double cur_temperature;
 	double min_temperature;
 	double temperature_multiply_koef;
@@ -125,7 +126,6 @@ public:
 	void AddNewUncheckedArea( boost::dynamic_bitset<> &point, vector<double> &cur_predict_times, double sum_time, stringstream &sstream );
 	
 	void AllocatePredictArrays();
-	void MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< vector<bool> > &stream_vec_vec );
 	
 	bool PrepareForPredict();
 	bool GetRandomValuesArray( unsigned shortcnf_count, vector< vector<unsigned> > &values_arr );
@@ -135,7 +135,6 @@ public:
 	vector<int> BitsetToIntVecPredict( boost::dynamic_bitset<> &bs );
 	boost::dynamic_bitset<> IntVecToBitsetPredict( vector<int> &variables_vec );
 	
-	unsigned cnf_in_set_count;
 	bool IsFirstStage;
 	unsigned max_L2_hamming_distance;
 

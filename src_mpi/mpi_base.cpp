@@ -33,6 +33,7 @@ MPI_Base :: MPI_Base( ) :
 	PB_mode				 ( 1 ),
 	best_lower_bound	 ( -1 ),
 	upper_bound          ( -1 ),
+	cnf_in_set_count     ( 100 ),
 	verbosity			 ( 0 ),
 	check_every_conflict ( 2000 ),
 	known_point_file_name ( "known_point" ),
@@ -51,7 +52,8 @@ MPI_Base :: MPI_Base( ) :
 	er ( 1 ),
 	penalty ( 0.5 ),
 	known_last_bits ( 0 ),
-	keystream_len ( 200 )
+	keystream_len ( 200 ),
+	isMakeSatSampleAnyWay ( false )
 {
 	full_mask  = new unsigned[FULL_MASK_LEN];
 	part_mask  = new unsigned[FULL_MASK_LEN];
@@ -955,4 +957,110 @@ void MPI_Base :: MakeUniqueRandArr( vector<unsigned> &rand_arr, unsigned rand_ar
 		} while ( IsOldValue );
 		rand_arr[i] = rand_numb; // new values
 	}
+}
+
+
+void MPI_Base :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< vector<bool> > &stream_vec_vec )
+{
+	fstream file( "known_sat_sample", ios_base::in );
+	vector<bool> state_vec, stream_vec;
+	string str;
+	stringstream sstream;
+	getline( file, str );
+	
+	if ( ( isMakeSatSampleAnyWay ) || ( str.size() == 0 ) ) { // empty file
+	//if ( file.peek() == fstream::traits_type::eof() ) { // if file is empty
+		// make [sample_size] different pairs <register_state, keystream> via generating secret keys
+		cout << "file known_sat_sample is empty. making SAT sample" << endl;
+		
+		// generate randomly state of core variables
+		state_vec.resize( core_len );
+		for ( unsigned i=0; i < cnf_in_set_count; i++ ) {
+			for ( unsigned j=0; j < core_len; j++ )
+				state_vec[j] = bool_rand(gen);
+			state_vec_vec.push_back( state_vec );
+		}
+		
+		// get state of additional variables
+		Problem cnf;
+		Solver *S;
+		lbool ret;
+		minisat22_wrapper m22_wrapper;
+		ifstream in( input_cnf_name );
+		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
+		in.close();
+		S = new Solver();
+		S->addProblem(cnf);
+		vec<Lit> dummy;
+		int cur_var_ind;
+		int state_vec_len = state_vec_vec[0].size();
+		for ( auto x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) {
+			cur_var_ind = 0;
+			for ( auto y = (*x).begin(); y != (*x).end(); y++ ) {
+				dummy.push( (*y) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
+				cur_var_ind++;
+			}
+			ret = S->solveLimited( dummy );
+			if ( ret != l_True ) {
+				cerr << "in makeSatSample() ret != l_True" << endl;
+				exit(1);
+			}
+			for( int i=state_vec_len; i < S->model.size() - (int)keystream_len; i++ )
+				(*x).push_back( (S->model[i] == l_True) ? true : false );
+			for( int i=S->model.size() - keystream_len; i < S->model.size(); i++ )
+				stream_vec.push_back( (S->model[i] == l_True) ? true : false );
+			stream_vec_vec.push_back( stream_vec );
+			stream_vec.clear();
+			dummy.clear();
+		}
+		sstream << "state" << endl;
+		for ( auto x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) {
+			for ( auto y = (*x).begin(); y != (*x).end(); y++ )
+				sstream << *y;
+			sstream << endl;
+		}
+		sstream << "stream" << endl;
+		for ( auto x = stream_vec_vec.begin(); x != stream_vec_vec.end(); x++ ) {
+			for ( auto y = (*x).begin(); y != (*x).end(); y++ )
+				sstream << *y;
+			sstream << endl;
+		}
+		file.close(); file.clear();
+		file.open( "known_sat_sample", ios_base :: out );
+		file << sstream.rdbuf();
+		delete S;
+	}
+	else {
+		cout << "reading state and stream from file" << endl;
+		bool isState = false, isStream = false;
+		do {
+			if( str == "state" ) {
+				cout << "state string found" << endl;
+				isState = true;
+			}
+			else if ( str == "stream" ) {
+				cout << "stream string found" << endl;
+				isState = false;
+				isStream = true;
+			}
+			else {
+				if ( isState ) {
+					for ( unsigned i=0; i < str.size(); i++ )
+						state_vec.push_back( str[i] == '1' ? true : false );
+					state_vec_vec.push_back( state_vec );
+					state_vec.clear();
+				}
+				else if ( isStream ) {
+					for ( unsigned i=0; i < str.size(); i++ )
+						stream_vec.push_back( str[i] == '1' ? true : false );
+					stream_vec_vec.push_back( stream_vec );
+					stream_vec.clear();
+				}
+			}
+		} while( getline( file, str ) );
+		cout << "state_vec_vec.size() "  << state_vec_vec.size()  << endl;
+		cout << "stream_vec_vec.size() " << stream_vec_vec.size() << endl;
+	}
+	cout << endl;
+	file.close();
 }

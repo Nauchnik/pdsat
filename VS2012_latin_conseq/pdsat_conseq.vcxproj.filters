@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\src_common\addit_func.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_common\latin_squares.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_common\minisat22_wrapper.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_common\minisat\utils\Options.cc">
+      <Filter>minisat</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_common\minisat\core\Solver.cc">
+      <Filter>minisat</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_common\minisat\utils\System.cc">
+      <Filter>minisat</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_conseq\main.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src_common\addit_func.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat\core\Dimacs.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\latin_squares.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat22_wrapper.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat\utils\Options.h">
+      <Filter>minisat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat\utils\ParseUtils.h">
+      <Filter>minisat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat\core\Solver.h">
+      <Filter>minisat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat\core\SolverTypes.h">
+      <Filter>minisat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat\utils\System.h">
+      <Filter>minisat</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src_conseq\Makefile" />
+    <None Include="..\src_conseq\Readme.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Sources">
+      <UniqueIdentifier>{ef0e3f31-ae4f-45ef-999d-bb2704ae8e01}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Headers">
+      <UniqueIdentifier>{e02b24d6-dd48-4978-9107-b5a888588c93}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="minisat">
+      <UniqueIdentifier>{c2721848-823a-4792-b0db-1a08269ba1a4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

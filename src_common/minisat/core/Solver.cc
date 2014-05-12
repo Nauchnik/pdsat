@@ -163,7 +163,10 @@ void Solver::clearState()
     conflicts = 0;
     decisions = 0;
     propagations = 0;
-	for (int i=0; i<nVars(); i++){
+	
+	for ( int i=0; i < nVars(); i++ )
+		polarity[i] = true;
+	/*for (int i=0; i<nVars(); i++){
 		activity[i]=i;
 	}
 	rebuildOrderHeap();
@@ -185,10 +188,7 @@ void Solver::clearState()
 	for (int i=0; i<clauses.size(); i++){
 		if (ca[clauses[i]].size()>1)
 			attachClause(clauses[i]);
-	}
-
-	for ( int i=0; i < nVars(); i++ )
-		polarity[i] = true;
+	}*/
 }
 
 void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len )

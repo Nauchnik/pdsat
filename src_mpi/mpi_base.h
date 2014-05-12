@@ -64,6 +64,7 @@ public:
 	bool IsConseq;
 	int check_every_conflict;
 	bool IsPredict;
+	bool isMakeSatSampleAnyWay;
 	
 	unsigned *full_mask;
 	unsigned *part_mask;
@@ -96,6 +97,7 @@ public:
 	unsigned first_stream_var_index;
 	unsigned known_last_bits;
 	unsigned keystream_len;
+	unsigned cnf_in_set_count;
 	
 	vector<int> rslos_lengths;
 
@@ -121,6 +123,8 @@ public:
 	bool MakeStandardMasks( unsigned &part_var_power );
 	bool GetMainMasksFromVarChoose( vector<int> &var_choose_order );
 	bool GetValuesFromVarChoose( unsigned &part_var_power );
+
+	void MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< vector<bool> > &stream_vec_vec );
 	
 	bool AnalyzeSATset( );
 	bool CheckSATset( vector<int> &lit_SAT_set_array );
