@@ -37,7 +37,6 @@ MPI_Solver :: ~MPI_Solver( )
 	delete[] solving_times;
 }
 
-
 //---------------------------------------------------------
 bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 {
