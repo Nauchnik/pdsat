@@ -53,7 +53,8 @@ MPI_Base :: MPI_Base( ) :
 	penalty ( 0.5 ),
 	known_last_bits ( 0 ),
 	keystream_len ( 200 ),
-	isMakeSatSampleAnyWay ( false )
+	isMakeSatSampleAnyWay ( false ),
+	input_var_num ( 0 )
 {
 	full_mask  = new unsigned[FULL_MASK_LEN];
 	part_mask  = new unsigned[FULL_MASK_LEN];
@@ -564,8 +565,7 @@ bool MPI_Base :: ReadIntCNF()
 				 k                    = 0, 
 				 val				  = 0,
 				 sign				  = 0;
-	unsigned input_var_num,
-			 first_obj_var;
+	unsigned first_obj_var;
 	int lit_val;
 	string line_str, 
 		   word_str;
@@ -634,7 +634,8 @@ bool MPI_Base :: ReadIntCNF()
 			if ( ( !Is_InpVar ) && ( str2 == "input" ) && ( str3 == "variables" ) ) {
 				istringstream( str4 ) >> input_var_num;
 				if ( input_var_num > 0 ) {
-				    core_len = input_var_num;
+				    if ( !core_len )
+						core_len = input_var_num; // if core_len didn't set manually, read from file
 				    if ( (core_len > MAX_CORE_LEN) || (core_len <= 0) ) {
 						core_len = MAX_CORE_LEN;
 						cout << "Warning. core_len > MAX_CORE_LEN or <= 0. Changed to MAX_CORE_LEN" << endl;
@@ -798,8 +799,17 @@ bool MPI_Base :: ReadIntCNF()
 	}
 
 	if ( known_last_bits ) {
+		if ( core_len != input_var_num ) {
+			cerr << "known_last_bits " << known_last_bits << " with core_len != input_var_num" << endl;
+			exit(1);
+		}
 		core_len -= known_last_bits;
 		cout << "new core_len (less to known_last_bits) " << core_len << endl;
+	}
+	
+	if ( !input_var_num ) {
+		cerr << "input_var_num == 0" << input_var_num << endl;
+		exit(1);
 	}
 	
 	cout << "ReadIntCNF() done" << endl;
@@ -974,9 +984,9 @@ void MPI_Base :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< v
 		cout << "file known_sat_sample is empty. making SAT sample" << endl;
 		
 		// generate randomly state of core variables
-		state_vec.resize( core_len );
+		state_vec.resize( input_var_num );
 		for ( unsigned i=0; i < cnf_in_set_count; i++ ) {
-			for ( unsigned j=0; j < core_len; j++ )
+			for ( unsigned j=0; j < input_var_num; j++ )
 				state_vec[j] = bool_rand(gen);
 			state_vec_vec.push_back( state_vec );
 		}

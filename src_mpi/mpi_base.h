@@ -98,6 +98,7 @@ public:
 	unsigned known_last_bits;
 	unsigned keystream_len;
 	unsigned cnf_in_set_count;
+	unsigned input_var_num;
 	
 	vector<int> rslos_lengths;
 

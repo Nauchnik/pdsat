@@ -648,8 +648,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 				}
 			}
 			//delete S;
-			S->clearDB();
-			S->clearPolarity();
+			S->clearDbParamsPolarity();
         }
 		else { 
 			cout << "solver_type has unknown format"; return false;
@@ -1274,7 +1273,8 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "cnf_in_set_count " << cnf_in_set_count << endl; 
 		cout << "proc_count "    << proc_count          << endl;
 		cout << "core_len "      << core_len            << endl;
-		cout << "start_activity "    << start_activity << endl;
+		cout << "input_var_num " << input_var_num       << endl;
+ 		cout << "start_activity "    << start_activity << endl;
 		cout << "max_var_deep_predict " << max_var_deep_predict << endl;
 		cout << "start_temperature_koef " << start_temperature_koef << endl;
 		cout << "point_admission_koef " << point_admission_koef << endl;
@@ -1670,7 +1670,7 @@ bool MPI_Predicter :: GetPredict()
 			if ( med_time_arr[i] > 0.0 ) {
 				if ( er_strategy == 0 ) { // fixed er
 					cur_predict_time = pow( er, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom ) + 
-						pow( 2.0, ( penalty - med_time_arr[i]) * 1000.0 )*( prev_area_best_predict_time / 10.0 );
+						pow( 2.0, ( penalty - med_time_arr[i] ) * cur_cnf_in_set_count )*( prev_area_best_predict_time / 10.0 );
 					if ( cur_predict_time < best_predict_time )
 						isTeBkvUpdated = true;
 				}
