@@ -156,17 +156,24 @@ bool compare_lits (Lit a, Lit b){
 	return var(a)<var(b);
 }
 
-void Solver::clearState()
+void Solver::clearDbParamsPolarity()
 {
-	clearDB();
+	clearDB(); // remove of conflict
+	clearPolarity();
+	
 	starts = 0;
     conflicts = 0;
     decisions = 0;
     propagations = 0;
+	rnd_decisions = 0;
+	max_literals = 0; 
+	tot_literals = 0;
+	dec_vars = 0;
+	ok = true;
 	
-	for ( int i=0; i < nVars(); i++ )
+	/*for ( int i=0; i < nVars(); i++ )
 		polarity[i] = true;
-	/*for (int i=0; i<nVars(); i++){
+	for (int i=0; i<nVars(); i++){
 		activity[i]=i;
 	}
 	rebuildOrderHeap();
@@ -1031,7 +1038,7 @@ lbool Solver::solve_()
         for (int i = 0; i < nVars(); i++) model[i] = value(i);
     }else if (status == l_False && conflict.size() == 0)
         ok = false;
-
+	
     cancelUntil(0);
     return status;
 }
@@ -1140,7 +1147,6 @@ void Solver::toDimacs(FILE* f, const vec<Lit>& assumps)
         printf("Wrote DIMACS with %d variables and %d clauses.\n", max, cnt);
 }
 
-
 void Solver::printStats() const
 {
 	// double cpu_time = cpuTime(); // unmodified version
@@ -1151,7 +1157,7 @@ void Solver::printStats() const
     printf("decisions             : %-12lld   (%4.2f %% random) (%.0f /sec)\n", decisions, (float)rnd_decisions*100 / (float)decisions, decisions   /cpu_time);
     printf("propagations          : %-12lld   (%.0f /sec)\n", propagations, propagations/cpu_time);
     printf("conflict literals     : %-12lld   (%4.2f %% deleted)\n", tot_literals, (max_literals - tot_literals)*100 / (double)max_literals);
-    if (mem_used != 0) printf("Memory used           : %.2f MB\n", mem_used);
+    if (mem_used != 0) printf("used           : %.2f MB\n", mem_used);
 	printf("CPU time              : %g s\n", cpu_time);
 }
 
