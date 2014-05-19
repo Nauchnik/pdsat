@@ -359,7 +359,6 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	for ( unsigned i=0; i < all_vars_set.size(); i++ )
 		all_vars_set[i] = i+1;
 	int prev_sat_sample_index = -1;
-	int prev_set_size;
 	
 	// read file with CNF once
 	Problem cnf;
@@ -648,7 +647,9 @@ bool MPI_Predicter :: ComputeProcessPredict()
 				}
 			}
 			//delete S;
-			S->clearDbParamsPolarity();
+			S->clearDB();
+			S->clearPolarity();
+			S->clearParams();
         }
 		else { 
 			cout << "solver_type has unknown format"; return false;
@@ -1671,7 +1672,9 @@ bool MPI_Predicter :: GetPredict()
 				if ( er_strategy == 0 ) { // fixed er
 					cur_predict_time = pow( er, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom ) + 
 						pow( 2.0, ( penalty - med_time_arr[i] ) * cur_cnf_in_set_count )*( prev_area_best_predict_time / 10.0 );
-					if ( cur_predict_time < best_predict_time )
+					if ( ( ( prev_best_sum != sum_time_arr[i] ) || // don't go to point with same decomp power and sum
+						   ( prev_best_decomp_set_power != decomp_set_arr[i].var_choose_order.size() ) ) && 
+						 ( cur_predict_time < best_predict_time ) )
 						isTeBkvUpdated = true;
 				}
 				else if ( er_strategy == 1 ) {
@@ -1719,6 +1722,9 @@ bool MPI_Predicter :: GetPredict()
 			best_predict_time = predict_time_arr[i];
 			best_sum_time     = sum_time_arr[i];
 			best_cnf_in_set_count = cur_cnf_in_set_count;
+			
+			prev_best_sum = sum_time_arr[i];
+			prev_best_decomp_set_power = decomp_set_arr[i].var_choose_order.size();
 			
 			if ( deep_predict ) // Write info about new point in deep mode
 				NewRecordPoint( i );
@@ -1827,7 +1833,6 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 	}
 	
 	predict_file << sstream.rdbuf( );
-	unsigned cur_sample_size;
 	
 	double med_cnf_time, min_cnf_time, max_cnf_time;
 	double sample_variance; // sample variance for estimation of derivation

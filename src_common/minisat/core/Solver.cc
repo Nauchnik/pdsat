@@ -142,6 +142,8 @@ void Solver::clearDB()
         removeClause(learnts[i]);
 
     learnts.clear();
+	conflicts = 0;
+
     checkGarbage();
 }
 
@@ -156,13 +158,9 @@ bool compare_lits (Lit a, Lit b){
 	return var(a)<var(b);
 }
 
-void Solver::clearDbParamsPolarity()
+void Solver::clearParams()
 {
-	clearDB(); // remove of conflict
-	clearPolarity();
-	
 	starts = 0;
-    conflicts = 0;
     decisions = 0;
     propagations = 0;
 	rnd_decisions = 0;
