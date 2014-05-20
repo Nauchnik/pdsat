@@ -18,14 +18,22 @@ bool regD[regDlen];
 
 class a5_2 {
 public:
+	a5_2();
 	bool shift_rslosA();
 	bool shift_rslosB();
 	bool shift_rslosC();
 	bool shift_rslosD();
-	bool majority(bool A, bool B, bool C);
+	bool majority( bool A, bool B, bool C );
 	bool getNextBit();
-	void setKey(const std::vector<bool> &key);
+	void setKey( const std::vector<bool> &key );
+	void getState( vector<bool> &state );
+	unsigned sum_reg_len;
 };
+
+a5_2 :: a5_2 ()
+{
+	sum_reg_len = regAlen + regBlen + regClen + regDlen;
+}
 
 bool a5_2 :: shift_rslosA(){
 	bool x = regA[18];
@@ -101,4 +109,17 @@ void a5_2 :: setKey( const std::vector<bool> &key )
 		regC[i] = key[i];
 	for(; i < regDlen && i < key.size(); i++)
 		regD[i] = key[i];
+}
+
+void a5_2 :: getState( vector<bool> &state )
+{
+	state.clear();
+	for(unsigned i = 0; i < regAlen; i++)
+		state.push_back( regA[i] );
+	for(unsigned i = 0; i < regBlen; i++)
+		state.push_back( regB[i] );
+	for(unsigned i = 0; i < regClen; i++)
+		state.push_back( regC[i] );
+	for(unsigned i = 0; i < regDlen; i++)
+		state.push_back( regD[i] );
 }

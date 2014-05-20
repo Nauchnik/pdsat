@@ -164,7 +164,7 @@ void Solver::clearParams()
     decisions = 0;
     propagations = 0;
 	rnd_decisions = 0;
-	max_literals = 0; 
+	max_literals = 0;
 	tot_literals = 0;
 	dec_vars = 0;
 	ok = true;
