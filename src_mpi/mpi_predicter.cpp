@@ -1672,9 +1672,9 @@ bool MPI_Predicter :: GetPredict()
 				if ( er_strategy == 0 ) { // fixed er
 					cur_predict_time = pow( er, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom ) + 
 						pow( 2.0, ( penalty - med_time_arr[i] ) * cur_cnf_in_set_count )*( prev_area_best_predict_time / 10.0 );
-					if ( ( ( prev_best_sum != sum_time_arr[i] ) || // don't go to point with same decomp power and sum
-						   ( prev_best_decomp_set_power != decomp_set_arr[i].var_choose_order.size() ) ) && 
-						 ( cur_predict_time < best_predict_time ) )
+					//if ( ( ( prev_best_sum != sum_time_arr[i] ) || // don't go to point with same decomp power and sum
+					//	   ( prev_best_decomp_set_power != decomp_set_arr[i].var_choose_order.size() ) ) && 
+					if ( cur_predict_time < best_predict_time )
 						isTeBkvUpdated = true;
 				}
 				else if ( er_strategy == 1 ) {
@@ -1723,8 +1723,8 @@ bool MPI_Predicter :: GetPredict()
 			best_sum_time     = sum_time_arr[i];
 			best_cnf_in_set_count = cur_cnf_in_set_count;
 			
-			prev_best_sum = sum_time_arr[i];
-			prev_best_decomp_set_power = decomp_set_arr[i].var_choose_order.size();
+			//prev_best_sum = sum_time_arr[i];
+			//prev_best_decomp_set_power = decomp_set_arr[i].var_choose_order.size();
 			
 			if ( deep_predict ) // Write info about new point in deep mode
 				NewRecordPoint( i );

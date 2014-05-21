@@ -136,6 +136,10 @@ Solver::~Solver()
 // Minor methods:
 
 // new
+bool compare_lits(Lit a, Lit b){
+	return var(a)<var(b);
+}
+
 void Solver::clearDB()
 {
     for (int i = 0; i < learnts.size(); ++i)
@@ -143,6 +147,8 @@ void Solver::clearDB()
 
     learnts.clear();
 	conflicts = 0;
+	max_literals = 0;
+	tot_literals = 0;
 
     checkGarbage();
 }
@@ -154,20 +160,15 @@ void Solver::clearPolarity()
 	checkGarbage();
 }
 
-bool compare_lits (Lit a, Lit b){
-	return var(a)<var(b);
-}
-
 void Solver::clearParams()
 {
 	starts = 0;
     decisions = 0;
-    propagations = 0;
 	rnd_decisions = 0;
-	max_literals = 0;
-	tot_literals = 0;
-	dec_vars = 0;
+    propagations = 0;
 	ok = true;
+	
+	//dec_vars = 0;
 	
 	/*for ( int i=0; i < nVars(); i++ )
 		polarity[i] = true;
