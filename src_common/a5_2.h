@@ -1,4 +1,3 @@
-//#define len 128;
 #include <vector>
 
 using namespace std;
@@ -38,9 +37,8 @@ a5_2 :: a5_2 ()
 bool a5_2 :: shift_rslosA(){
 	bool x = regA[18];
 	bool y = regA[18]^regA[17]^regA[16]^regA[13];
-	for(int j = 18; j > 0; j=j-1){
+	for(int j = 18; j > 0; j=j-1)
 		regA[j] = regA[j-1];
-	}
 	regA[0] = y;
 	return x;
 }
@@ -48,9 +46,8 @@ bool a5_2 :: shift_rslosA(){
 bool a5_2 :: shift_rslosB(){
 	bool x = regB[21];
 	bool y = regB[21]^regB[20];
-	for(int j = 21; j > 0; j=j-1){
+	for(int j = 21; j > 0; j=j-1)
 		regB[j] = regB[j-1];
-	}
 	regB[0] = y;
 	return x;
 }
@@ -58,9 +55,8 @@ bool a5_2 :: shift_rslosB(){
 bool a5_2 :: shift_rslosC(){
 	bool x = regC[22];
 	bool y = regC[22]^regC[21]^regC[20]^regC[7];
-	for(int j = 22; j > 0; j=j-1){
+	for(int j = 22; j > 0; j=j-1)
 		regC[j] = regC[j-1];
-	}
 	regC[0] = y;
 	return x;
 }
@@ -68,9 +64,8 @@ bool a5_2 :: shift_rslosC(){
 bool a5_2 :: shift_rslosD(){
 	bool x = regD[16];
 	bool y = regD[16]^regD[11];
-	for(int j = 22; j > 0; j=j-1){
+	for(int j = 22; j > 0; j=j-1)
 		regD[j] = regD[j-1];
-	}
 	regD[0] = y;
 	return x;
 }
@@ -101,14 +96,14 @@ void a5_2 :: setKey( const std::vector<bool> &key )
 		exit(1);
 	}
 	unsigned i = 0;
-	for(; i < regAlen && i < key.size(); i++)
-		regA[i] = key[i];
-	for(; i < regBlen && i < key.size(); i++)
-		regB[i] = key[i];
-	for(; i < regClen && i < key.size(); i++)
-		regC[i] = key[i];
-	for(; i < regDlen && i < key.size(); i++)
-		regD[i] = key[i];
+	for(unsigned j=0; j < regAlen; j++)
+		regA[j] = key[i++];
+	for(unsigned j=0; j < regBlen; j++)
+		regB[j] = key[i++];
+	for(unsigned j=0; j < regClen; j++)
+		regC[j] = key[i++];
+	for(unsigned j=0; j < regDlen; j++)
+		regD[j] = key[i++];
 }
 
 void a5_2 :: getState( vector<bool> &state )
