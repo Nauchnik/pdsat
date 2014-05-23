@@ -58,11 +58,12 @@ public:
 	bool IsPredict;
 	double last_time;
 	int rank;
+	int pdsat_verbosity;
 	void clearDB();
 	void clearPolarity();
 	void clearParams();
 	void getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len );
-	int pdsat_verbosity;
+	void saveState( const std::string file_blob_name );
 	//void saveState();
 	//void loadState();
 	
