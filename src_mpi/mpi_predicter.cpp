@@ -1,4 +1,5 @@
 #include "mpi_predicter.h"
+#include "minisat/core/SolverStateAccessor.h"
 
 MPI_Predicter :: MPI_Predicter( ) :
 	predict_from           ( 0 ),   

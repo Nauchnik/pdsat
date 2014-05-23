@@ -39,6 +39,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #elif _MSC_VER
 
+//! В msvc2008 необходимо явно включить нужные макроопределения
+#define __STDC_LIMIT_MACROS
 #   include <stdint.h>
 
 #else

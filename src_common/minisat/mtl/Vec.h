@@ -28,8 +28,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "minisat/mtl/IntTypes.h"
 #include "minisat/mtl/XAlloc.h"
 
-#undef max
-
 namespace Minisat {
 
 //=================================================================================================
@@ -38,10 +36,14 @@ namespace Minisat {
 // NOTE! Don't use this vector on datatypes that cannot be re-located in memory (with realloc)
 
 template<class T, class _Size = int>
-class vec {
+class vec 
+{
 public:
+
     typedef _Size Size;
+
 private:
+
     T*   data;
     Size sz;
     Size cap;
@@ -61,6 +63,7 @@ public:
 
     // Pointer to first element:
     operator T*       (void)           { return data; }
+	operator const T* (void) const     { return data; }
 
     // Size operations:
     Size     size     (void) const   { return sz; }
@@ -71,9 +74,7 @@ public:
     void     growTo   (Size size);
     void     growTo   (Size size, const T& pad);
     void     clear    (bool dealloc = false);
-	//
-	void     resize   (Size size); // new
-	
+
     // Stack interface:
     void     push  (void)              { if (sz == cap) capacity(sz+1); new (&data[sz]) T(); sz++; }
     //void     push  (const T& elem)     { if (sz == cap) capacity(sz+1); data[sz++] = elem; }
@@ -97,6 +98,7 @@ public:
     void moveTo(vec<T>& dest) { dest.clear(true); dest.data = data; dest.sz = sz; dest.cap = cap; data = NULL; sz = 0; cap = 0; }
 };
 
+
 template<class T, class _Size>
 void vec<T,_Size>::capacity(Size min_cap) {
     if (cap >= min_cap) return;
@@ -107,6 +109,7 @@ void vec<T,_Size>::capacity(Size min_cap) {
         throw OutOfMemoryException();
  }
 
+
 template<class T, class _Size>
 void vec<T,_Size>::growTo(Size size, const T& pad) {
     if (sz >= size) return;
@@ -114,12 +117,14 @@ void vec<T,_Size>::growTo(Size size, const T& pad) {
     for (Size i = sz; i < size; i++) data[i] = pad;
     sz = size; }
 
+
 template<class T, class _Size>
 void vec<T,_Size>::growTo(Size size) {
     if (sz >= size) return;
     capacity(size);
     for (Size i = sz; i < size; i++) new (&data[i]) T();
     sz = size; }
+
 
 template<class T, class _Size>
 void vec<T,_Size>::clear(bool dealloc) {
@@ -129,16 +134,6 @@ void vec<T,_Size>::clear(bool dealloc) {
         if (dealloc) free(data), data = NULL, cap = 0; } }
 
 //=================================================================================================
-// new
-template<class T, class _Size>
-void vec<T,_Size>::resize(Size size) {
-    if (sz == size) return;
-	if( size - sz > 0 )
-		growTo( size );
-	else
-		shrink( sz - size );
-    }
-
 }
 
 #endif

@@ -32,6 +32,7 @@ namespace Minisat {
 template<class T>
 class RegionAllocator
 {
+	friend class SolverStateAccessor;
     T*        memory;
     uint32_t  sz;
     uint32_t  cap;
@@ -41,11 +42,18 @@ class RegionAllocator
 
  public:
     // TODO: make this a class for better type-checking?
+	// Ref - ссылка на область пам€ти (индекс €чейки) в выделенном регионе
     typedef uint32_t Ref;
     enum { Ref_Undef = UINT32_MAX };
     enum { Unit_Size = sizeof(T) };
 
-    explicit RegionAllocator(uint32_t start_cap = 1024*1024) : memory(NULL), sz(0), cap(0), wasted_(0){ capacity(start_cap); }
+    explicit RegionAllocator(uint32_t start_cap = 1024*1024) 
+		: memory(NULL), sz(0), cap(0), wasted_(0)
+	{ 
+		// начальное выделение пам€ти - 1 ћб
+		capacity(start_cap); 
+	}
+
     ~RegionAllocator()
     {
         if (memory != NULL)
@@ -55,6 +63,7 @@ class RegionAllocator
 
     uint32_t size      () const      { return sz; }
     uint32_t wasted    () const      { return wasted_; }
+	uint32_t capacity  () const      { return cap; }
 
     Ref      alloc     (int size); 
     void     free      (int size)    { wasted_ += size; }
@@ -68,7 +77,8 @@ class RegionAllocator
     Ref      ael       (const T* t)  { assert((void*)t >= (void*)&memory[0] && (void*)t < (void*)&memory[sz-1]);
         return  (Ref)(t - &memory[0]); }
 
-    void     moveTo(RegionAllocator& to) {
+    void     moveTo(RegionAllocator& to) 
+	{
         if (to.memory != NULL) ::free(to.memory);
         to.memory = memory;
         to.sz = sz;
@@ -85,10 +95,13 @@ class RegionAllocator
 template<class T>
 void RegionAllocator<T>::capacity(uint32_t min_cap)
 {
+	//! текуща€ емкость уже больше, чем предлагаема€
     if (cap >= min_cap) return;
 
+	//! выдел€ем дополнительную пам€ть
     uint32_t prev_cap = cap;
-    while (cap < min_cap){
+    while (cap < min_cap)
+	{
         // NOTE: Multiply by a factor (13/8) without causing overflow, then add 2 and make the
         // result even by clearing the least significant bit. The resulting sequence of capacities
         // is carefully chosen to hit a maximum capacity that is close to the '2^32-1' limit when

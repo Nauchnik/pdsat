@@ -23,15 +23,23 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 namespace Minisat {
 
-    template<class T> struct MkIndexDefault {
-        typename vec<T>::Size operator()(T t) const { return (typename vec<T>::Size)t; }
+    template<class T> 
+	struct MkIndexDefault 
+	{
+        typename vec<T>::Size operator()(T t) const 
+		{
+			return (typename vec<T>::Size)t;
+		}
     };
     
     template<class K, class V, class MkIndex = MkIndexDefault<K> >
-    class IntMap {
+    class IntMap 
+	{
         vec<V>   map;
         MkIndex  index;
+
     public:
+
         explicit IntMap(MkIndex _index = MkIndex()) : index(_index){}
         
         bool     has       (K k) const { return index(k) < map.size(); }
@@ -46,12 +54,15 @@ namespace Minisat {
 
         void     reserve(K key, V pad)       { map.growTo(index(key)+1, pad); }
         void     reserve(K key)              { map.growTo(index(key)+1); }
+		void     reserve(std::size_t size)   { map.growTo(size); }
         void     insert (K key, V val, V pad){ reserve(key, pad); operator[](key) = val; }
         void     insert (K key, V val)       { reserve(key); operator[](key) = val; }
 
         void     clear  (bool dispose = false) { map.clear(dispose); }
         void     moveTo (IntMap& to)           { map.moveTo(to.map); to.index = index; }
         void     copyTo (IntMap& to) const     { map.copyTo(to.map); to.index = index; }
+
+		std::size_t size() const {return static_cast<std::size_t>(map.size());}
     };
 
 

@@ -225,8 +225,9 @@ public:
 const CRef CRef_Undef = RegionAllocator<uint32_t>::Ref_Undef;
 class ClauseAllocator
 {
+	friend class SolverStateAccessor;
     RegionAllocator<uint32_t> ra;
-
+	
     static uint32_t clauseWord32Size(int size, bool has_extra){
         return (sizeof(Clause) + (sizeof(Lit) * (size + (int)has_extra))) / sizeof(uint32_t); }
 
@@ -262,6 +263,8 @@ class ClauseAllocator
 
     uint32_t size      () const      { return ra.size(); }
     uint32_t wasted    () const      { return ra.wasted(); }
+	uint32_t capacity  () const      { return ra.capacity(); }
+
 
     // Deref, Load Effective Address (LEA), Inverse of LEA (AEL):
     Clause&       operator[](CRef r)         { return (Clause&)ra[r]; }
@@ -291,6 +294,7 @@ class ClauseAllocator
 // Simple iterator classes (for iterating over clauses and top-level assignments):
 
 class ClauseIterator {
+friend class SolverStateAccessor;
     const ClauseAllocator& ca;
     const CRef*            crefs;
 public:
@@ -324,6 +328,7 @@ public:
 template<class K, class Vec, class Deleted, class MkIndex = MkIndexDefault<K> >
 class OccLists
 {
+	friend class SolverStateAccessor;
     IntMap<K, Vec,  MkIndex> occs;
     IntMap<K, char, MkIndex> dirty;
     vec<K>                   dirties;

@@ -15,6 +15,7 @@
     <ClCompile Include="..\src_common\Bivium.cpp" />
     <ClCompile Include="..\src_common\minisat22_wrapper.cpp" />
     <ClCompile Include="..\src_common\minisat\core\Solver.cc" />
+    <ClCompile Include="..\src_common\minisat\core\SolverStateAccessor.cpp" />
     <ClCompile Include="..\src_common\minisat\utils\Options.cc" />
     <ClCompile Include="..\src_common\minisat\utils\System.cc" />
     <ClCompile Include="..\src_mpi\mpi_base.cpp" />
@@ -29,6 +30,7 @@
     <ClInclude Include="..\src_common\minisat22_wrapper.h" />
     <ClInclude Include="..\src_common\minisat\core\Dimacs.h" />
     <ClInclude Include="..\src_common\minisat\core\Solver.h" />
+    <ClInclude Include="..\src_common\minisat\core\SolverStateAccessor.h" />
     <ClInclude Include="..\src_common\minisat\core\SolverTypes.h" />
     <ClInclude Include="..\src_common\minisat\mtl\Vec.h" />
     <ClInclude Include="..\src_common\minisat\utils\Options.h" />

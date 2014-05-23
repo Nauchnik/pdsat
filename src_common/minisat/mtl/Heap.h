@@ -31,7 +31,10 @@ namespace Minisat {
 
 
 template<class K, class Comp, class MkIndex = MkIndexDefault<K> >
-class Heap {
+class Heap
+{
+	friend class SolverStateAccessor;
+
     vec<K>                heap;     // Heap of Keys
     IntMap<K,int,MkIndex> indices;  // Each Key's position (index) in the Heap
     Comp                  lt;       // The heap is a minimum-heap with respect to this comparator

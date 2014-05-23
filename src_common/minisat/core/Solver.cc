@@ -33,7 +33,9 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "minisat/mtl/Alg.h"
 #include "minisat/mtl/Sort.h"
 #include "minisat/utils/System.h"
+#include "minisat/utils/MinisatLogger.h" // added
 #include "minisat/core/Solver.h"
+#include "minisat/core/SolverStateAccessor.h" // added
 #include <algorithm>
 using namespace Minisat;
 
@@ -195,6 +197,12 @@ void Solver::clearParams()
 		if (ca[clauses[i]].size()>1)
 			attachClause(clauses[i]);
 	}*/
+}
+
+void Solver::saveState( const std::string file_blob_name )
+{
+	SolverStateAccessor writer(*this);
+	writer.WriteStateBlob(file_blob_name);
 }
 
 void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len )
@@ -863,10 +871,12 @@ lbool Solver::search(int nof_conflicts)
             // Simplify the set of problem clauses:
             if (decisionLevel() == 0 && !simplify())
                 return l_False;
-
-            if (learnts.size()-nAssigns() >= max_learnts)
+			
+			if (learnts.size()-nAssigns() >= max_learnts)
+			{
                 // Reduce the set of learnt clauses:
                 reduceDB();
+			}
 
             Lit next = lit_Undef;
             while (decisionLevel() < assumptions.size()){
@@ -1024,6 +1034,7 @@ lbool Solver::solve_()
 		
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
         status = search(rest_base * restart_first);
+		
         if (!withinBudget()) break;
         curr_restarts++;
     }

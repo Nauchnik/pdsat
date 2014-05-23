@@ -41,6 +41,7 @@ typedef std::vector< Disjunct* > Problem;
 // Solver -- the main class:
 
 class Solver {
+	friend class SolverStateAccessor;
 public:
 
     // Constructor/Destructor:
@@ -94,7 +95,6 @@ public:
 	// win mode
 	bool    addProblem(const Problem& p);
     bool    addProblem_modified(const Problem& p, int num_of_variables);
-
 
     // Iterate over clauses and top-level assignments:
     ClauseIterator clausesBegin() const;
@@ -190,6 +190,7 @@ protected:
     struct Watcher {
         CRef cref;
         Lit  blocker;
+		Watcher(): cref(0), blocker(mkLit(0)) {} // added
         Watcher(CRef cr, Lit p) : cref(cr), blocker(p) {}
         bool operator==(const Watcher& w) const { return cref == w.cref; }
         bool operator!=(const Watcher& w) const { return cref != w.cref; }
@@ -214,6 +215,8 @@ protected:
         ShrinkStackElem(uint32_t _i, Lit _l) : i(_i), l(_l){}
     };
 	
+	friend std::ostream& operator<<(std::ostream& out, const VarData& data);
+	friend std::ostream& operator<<(std::ostream& out, const Watcher& watcher);
 
     // Solver state:
     //
@@ -400,7 +403,6 @@ inline bool     Solver::addProblem      (const Problem& p)
 	}
 	return true;
 }
-
 
 inline bool Solver::addProblem_modified(const Problem& p, int num_of_variables)
 {
