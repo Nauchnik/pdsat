@@ -198,13 +198,13 @@ void Solver::clearParams()
 			attachClause(clauses[i]);
 	}*/
 }
-
+/*
 void Solver::saveState( const std::string file_blob_name )
 {
 	SolverStateAccessor writer(*this);
 	writer.WriteStateBlob(file_blob_name);
 }
-
+*/
 void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len )
 {
 	for( unsigned i=0; i < activity_vec_len; ++i )
