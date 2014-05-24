@@ -68,8 +68,10 @@ void ReadBlob(std::istream& in, std::size_t size, IntMap<K, V, MkIndex>& data)
 void SolverStateAccessor::ReadStateBlob(const std::string& filename)
 {
 	std::ifstream in(filename.c_str(), std::ios::in | std::ios::binary);
-	if(!in.is_open())
-		throw std::runtime_error("ReadStateBlob: can't open file " + filename);
+	if(!in.is_open()) {
+		//throw std::runtime_error("ReadStateBlob: can't open file " + filename);
+		std::cerr << "ReadStateBlob: can't open file " << filename << std::endl;
+	}
 
 	SolverStateDesc desc;
 	in.read(reinterpret_cast<char*>(&desc), sizeof(desc));
@@ -124,8 +126,10 @@ void SolverStateAccessor::ReadStateBlob(const std::string& filename)
 void SolverStateAccessor::WriteStateBlob(const std::string& filename) const
 {
 	std::ofstream out(filename.c_str(), std::ios::out | std::ios::binary);
-	if(!out.is_open())
-		throw std::runtime_error("WriteStateBlob: can't open file " + filename);
+	if(!out.is_open()) {
+		//throw std::runtime_error("WriteStateBlob: can't open file " + filename);
+		std::cerr << "WriteStateBlob: can't open file " << filename << std::endl;
+	}
 
 	SolverStateDesc desc;
 	GetSolverStateDesc(desc);
@@ -293,8 +297,10 @@ void SolverStateAccessor::SetSolverStateDesc(const SolverStateDesc& desc)
 void SolverStateAccessor::WriteStateText(const std::string& filename) const
 {
 	std::ofstream out(filename.c_str(), std::ios::out);
-	if(!out.is_open())
-		throw std::runtime_error("WriteStateText: can't open file " + filename);
+	if(!out.is_open()) {
+		//throw std::runtime_error("WriteStateText: can't open file " + filename);
+		std::cerr << "WriteStateText: can't open file " << filename << std::endl;
+	}
 
 	SolverStateDesc desc;
 	GetSolverStateDesc(desc);

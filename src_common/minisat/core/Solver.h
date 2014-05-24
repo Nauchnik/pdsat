@@ -64,8 +64,6 @@ public:
 	void clearParams();
 	void getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len );
 	void saveState( const std::string file_blob_name );
-	//void saveState();
-	//void loadState();
 	
     // Problem specification:
     Var     newVar    (lbool upol = l_Undef, bool dvar = true); // Add a new variable with parameters specifying variable mode.

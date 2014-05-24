@@ -49,7 +49,8 @@ MPI_Predicter :: MPI_Predicter( ) :
 	unupdated_count ( 0 ),
 	prev_area_best_predict_time ( 0 ),
 	er_strategy ( 0 ),
-	exp_denom ( 1.0 )
+	exp_denom ( 1.0 ),
+	max_var_count_state_writing ( 40 )
 { 
 	array_message = NULL;
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
@@ -120,7 +121,7 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 		if ( verbosity > 1 )
 			cout << "Sending cur_task_index " << cur_task_index << endl;
 	}
-
+	
 	if ( verbosity > 1 )
 		cout << "SendPredictTask() done" << endl;
 	
@@ -360,6 +361,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	for ( unsigned i=0; i < all_vars_set.size(); i++ )
 		all_vars_set[i] = i+1;
 	int prev_sat_sample_index = -1;
+	unsigned cur_point_number = 0;
 	
 	// read file with CNF once
 	Problem cnf;
@@ -448,6 +450,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	unsigned cur_var_ind;
 	string polarity_file_name;
 	stringstream sstream;
+	string cur_state_file_name;
 	
 	for (;;) {
 		do {// get index of current task missing stop-messages
@@ -495,6 +498,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 				delete[] array_message;
 			array_message = new int[message_size];
 			MPI_Recv( array_message, message_size, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+			cur_point_number++;
 			isNewDecompSetReceived = true;
 			if ( ( verbosity > 2 ) && ( rank == 1 ) ) {
 				cout << "Received array_message" << endl;
@@ -512,10 +516,10 @@ bool MPI_Predicter :: ComputeProcessPredict()
 					cout << var_choose_order[i] << " ";
 				cout << endl;
 			}
-			if ( solver_type == 4 ) {
-				/*if ( isFirstDecompSetReceived ) // if not first time, delete old data
-					delete S;*/
-			}
+			/*if ( solver_type == 4 ) {
+				if ( isFirstDecompSetReceived ) // if not first time, delete old data
+					delete S;
+			}*/
 			isFirstDecompSetReceived = true;
 		}
 		
@@ -645,6 +649,13 @@ bool MPI_Predicter :: ComputeProcessPredict()
 					for ( unsigned i=0; i < all_vars_set.size(); i++)
 						ofile << all_var_activity[i] << " ";
 					ofile.close();
+				}
+				if ( var_choose_order.size() <= max_var_count_state_writing ) {
+					sstream << "blob_point_" << cur_point_number << "_rank_" << rank;
+					cur_state_file_name = sstream.str();
+					sstream.clear(); sstream.str("");
+					S->clearDB();
+					S->saveState( cur_state_file_name );
 				}
 			}
 			//delete S;
@@ -1672,7 +1683,7 @@ bool MPI_Predicter :: GetPredict()
 			if ( med_time_arr[i] > 0.0 ) {
 				if ( er_strategy == 0 ) { // fixed er
 					cur_predict_time = pow( er, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom ) + 
-						pow( 2.0, ( penalty - med_time_arr[i] ) * cur_cnf_in_set_count )*( prev_area_best_predict_time / 10.0 );
+						pow( 2.0, ( penalty - med_time_arr[i] ) * cur_cnf_in_set_count )*( prev_area_best_predict_time );
 					//if ( ( ( prev_best_sum != sum_time_arr[i] ) || // don't go to point with same decomp power and sum
 					//	   ( prev_best_decomp_set_power != decomp_set_arr[i].var_choose_order.size() ) ) && 
 					if ( cur_predict_time < best_predict_time )
@@ -1681,7 +1692,7 @@ bool MPI_Predicter :: GetPredict()
 				else if ( er_strategy == 1 ) {
 					for( unsigned j = 0; j < cur_predict_times.size(); j++ ) {
 						cur_predict_times[j] = pow( 1.5 + j*0.1, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom ) + 
-							pow( 2.0, (penalty - med_time_arr[i]) * 1000.0 )*prev_area_best_predict_time / 10.0;
+							pow( 2.0, (penalty - med_time_arr[i]) * cur_cnf_in_set_count )*prev_area_best_predict_time / 10.0;
 						if ( ( best_predict_time_arr[j] == 0.0 ) || ( cur_predict_times[j] < best_predict_time_arr[j] ) ) {
 							best_predict_time_arr[j] = cur_predict_times[j];
 							sstream << "best_predict_time_arr[" << j << "] "<< "updated " << best_predict_time_arr[j] << endl;

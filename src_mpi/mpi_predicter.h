@@ -108,8 +108,10 @@ public:
 	unsigned unupdated_count;
 	double start_sample_variance_limit;
 	double prev_area_best_predict_time;
-	unsigned prev_best_decomp_set_power;
-	unsigned prev_best_sum;
+	//unsigned prev_best_decomp_set_power;
+	//unsigned prev_best_sum;
+	unsigned max_var_count_state_writing;
+
 	vector< vector<bool> > stream_vec_vec;
 	vector< vector<bool> > state_vec_vec;
 	

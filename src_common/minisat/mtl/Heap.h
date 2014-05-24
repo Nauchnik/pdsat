@@ -38,13 +38,12 @@ class Heap
     vec<K>                heap;     // Heap of Keys
     IntMap<K,int,MkIndex> indices;  // Each Key's position (index) in the Heap
     Comp                  lt;       // The heap is a minimum-heap with respect to this comparator
-
+	
     // Index "traversal" functions
     static inline int left  (int i) { return i*2+1; }
     static inline int right (int i) { return (i+1)*2; }
     static inline int parent(int i) { return (i-1) >> 1; }
-
-
+	
     void percolateUp(int i)
     {
         K   x  = heap[i];
