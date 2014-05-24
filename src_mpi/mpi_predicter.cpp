@@ -50,8 +50,8 @@ MPI_Predicter :: MPI_Predicter( ) :
 	prev_area_best_predict_time ( 0 ),
 	er_strategy ( 0 ),
 	exp_denom ( 1.0 ),
-	max_var_count_state_writing ( 40 )
-{ 
+	max_var_count_state_writing ( 34 )
+{
 	array_message = NULL;
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
 		best_predict_time_arr[i] = 0.0;
@@ -350,6 +350,13 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	MPI_Recv( &core_len,         1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &activity_vec_len, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &known_last_bits,  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &input_var_num,    1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	if ( input_var_num == 0 ) {
+		cerr << "input_var_num == 0" << endl;
+		exit(1);
+	}
+	if ( rank == 1 )
+		cout << "input_var_num " << input_var_num << endl;
 	int *full_local_decomp_set = new int[core_len];
 	MPI_Recv( full_local_decomp_set, core_len, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	full_var_choose_order.resize( core_len );
@@ -362,6 +369,10 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		all_vars_set[i] = i+1;
 	int prev_sat_sample_index = -1;
 	unsigned cur_point_number = 0;
+	stringstream sstream; 
+	sstream << "collisions_rank" << rank;
+	string collisions_file_name = sstream.str();
+	sstream.str(""); sstream.clear();
 	
 	// read file with CNF once
 	Problem cnf;
@@ -449,7 +460,6 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	int cur_stream_index;
 	unsigned cur_var_ind;
 	string polarity_file_name;
-	stringstream sstream;
 	string cur_state_file_name;
 	
 	for (;;) {
@@ -651,11 +661,20 @@ bool MPI_Predicter :: ComputeProcessPredict()
 					ofile.close();
 				}
 				if ( var_choose_order.size() <= max_var_count_state_writing ) {
-					sstream << "blob_point_" << cur_point_number << "_rank_" << rank;
+					sstream << "blob_point_" << cur_point_number << "_set_len_" << var_choose_order.size() << "_rank_" << rank;
 					cur_state_file_name = sstream.str();
 					sstream.clear(); sstream.str("");
 					S->clearDB();
 					S->saveState( cur_state_file_name );
+				}
+				unsigned hamming_distanse = 0;
+				for ( unsigned t = 0; t < input_var_num; t++ )
+					if ( ( ( S->model[t] == l_True ) ? true : false ) != state_vec_vec[sat_sample_index][t] )
+						hamming_distanse++;
+				if ( hamming_distanse > 0 ) {
+					ofstream ofile( collisions_file_name.c_str(), ios_base :: out | ios_base :: app );
+					ofile << "set_len " << var_choose_order.size() << " h_d " << hamming_distanse << endl;
+					ofile.close();
 				}
 			}
 			//delete S;
@@ -1224,7 +1243,8 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			MPI_Send( &var_count,        1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &core_len,         1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &activity_vec_len, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &known_last_bits,  1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &known_last_bits,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &input_var_num,    1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( full_local_decomp_set, core_len, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 		}
 		delete[] full_local_decomp_set;
