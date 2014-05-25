@@ -661,11 +661,18 @@ bool MPI_Predicter :: ComputeProcessPredict()
 					ofile.close();
 				}
 				if ( var_choose_order.size() <= max_var_count_state_writing ) {
-					sstream << "blob_point_" << cur_point_number << "_set_len_" << var_choose_order.size() << "_rank_" << rank;
+					sstream << "blob_point_" << cur_point_number << "_rank_" << rank << "_set_len_" << var_choose_order.size() ;
 					cur_state_file_name = sstream.str();
 					sstream.clear(); sstream.str("");
-					S->clearDB();
+					//S->clearDB();
 					S->saveState( cur_state_file_name );
+					sstream << "blob_point_" << cur_point_number << "_rank_" << rank << "_set_len_" << var_choose_order.size() << "_set";
+					cur_state_file_name = sstream.str();
+					sstream.clear(); sstream.str("");
+					ofstream ofile( cur_state_file_name.c_str() );
+					for ( unsigned i=0; i < var_choose_order.size(); i++ )
+						ofile << var_choose_order[i] << " ";
+					ofile.close();
 				}
 				unsigned hamming_distanse = 0;
 				for ( unsigned t = 0; t < input_var_num; t++ )
