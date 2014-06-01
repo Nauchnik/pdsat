@@ -33,6 +33,7 @@ template <class T>
 void WriteBlob(std::ostream& out, const vec<T>& data)
 {
 	const std::size_t size = data.size() * sizeof(T);
+	if(!size) return;
 	const char* ptr = reinterpret_cast<const char*>((const T*)data);
 	out.write(ptr, size);
 }
@@ -41,6 +42,7 @@ template<class K, class V, class MkIndex>
 void WriteBlob(std::ostream& out, const IntMap<K, V, MkIndex>& data)
 {
 	const std::size_t size = data.size() * sizeof(V);
+	if(!size) return;
 	const char* ptr = reinterpret_cast<const char*>(data.begin());
 	out.write(ptr, size);
 }
@@ -48,6 +50,7 @@ void WriteBlob(std::ostream& out, const IntMap<K, V, MkIndex>& data)
 template <class T>
 void ReadBlob(std::istream& in, std::size_t size, vec<T>& data)
 {
+	if(!size) return;
 	data.growTo(size);
 	const std::size_t read_size = size * sizeof(T);
 	char* ptr = reinterpret_cast<char*>((T*)data);
@@ -57,6 +60,7 @@ void ReadBlob(std::istream& in, std::size_t size, vec<T>& data)
 template<class K, class V, class MkIndex>
 void ReadBlob(std::istream& in, std::size_t size, IntMap<K, V, MkIndex>& data)
 {
+	if(!size) return;
 	data.reserve(size);
 	const std::size_t read_size = size * sizeof(V);
 	char* ptr = reinterpret_cast<char*>(data.begin());
@@ -71,6 +75,7 @@ void SolverStateAccessor::ReadStateBlob(const std::string& filename)
 	if(!in.is_open()) {
 		//throw std::runtime_error("ReadStateBlob: can't open file " + filename);
 		std::cerr << "ReadStateBlob: can't open file " << filename << std::endl;
+		exit(1);
 	}
 
 	SolverStateDesc desc;
@@ -128,9 +133,10 @@ void SolverStateAccessor::WriteStateBlob(const std::string& filename) const
 	std::ofstream out(filename.c_str(), std::ios::out | std::ios::binary);
 	if(!out.is_open()) {
 		//throw std::runtime_error("WriteStateBlob: can't open file " + filename);
-		std::cerr << "WriteStateBlob: can't open file " << filename << std::endl;
+		std::cerr << "ReadStateBlob: can't open file " << filename << std::endl;
+		exit(1);
 	}
-
+	
 	SolverStateDesc desc;
 	GetSolverStateDesc(desc);
 	out.write(reinterpret_cast<char*>(&desc), sizeof(desc));
@@ -299,7 +305,8 @@ void SolverStateAccessor::WriteStateText(const std::string& filename) const
 	std::ofstream out(filename.c_str(), std::ios::out);
 	if(!out.is_open()) {
 		//throw std::runtime_error("WriteStateText: can't open file " + filename);
-		std::cerr << "WriteStateText: can't open file " << filename << std::endl;
+		std::cerr << "ReadStateBlob: can't open file " << filename << std::endl;
+		exit(1);
 	}
 
 	SolverStateDesc desc;

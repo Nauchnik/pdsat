@@ -50,7 +50,7 @@ MPI_Predicter :: MPI_Predicter( ) :
 	prev_area_best_predict_time ( 0 ),
 	er_strategy ( 0 ),
 	exp_denom ( 1.0 ),
-	max_var_count_state_writing ( 34 )
+	max_var_count_state_writing ( 35 )
 {
 	array_message = NULL;
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
@@ -661,12 +661,12 @@ bool MPI_Predicter :: ComputeProcessPredict()
 					ofile.close();
 				}
 				if ( var_choose_order.size() <= max_var_count_state_writing ) {
-					sstream << "blob_point_" << cur_point_number << "_rank_" << rank << "_set_len_" << var_choose_order.size() ;
+					sstream << "blob_point_set_len_" << var_choose_order.size() << "_rank_" << rank << "_num_" << cur_point_number;
 					cur_state_file_name = sstream.str();
 					sstream.clear(); sstream.str("");
-					//S->clearDB();
+					S->clearDB();
 					S->saveState( cur_state_file_name );
-					sstream << "blob_point_" << cur_point_number << "_rank_" << rank << "_set_len_" << var_choose_order.size() << "_set";
+					sstream << "blob_point_set_len_" << var_choose_order.size() << "_rank_" << rank << "_num_" << cur_point_number << "_set";
 					cur_state_file_name = sstream.str();
 					sstream.clear(); sstream.str("");
 					ofstream ofile( cur_state_file_name.c_str() );
