@@ -6,7 +6,6 @@
 
 namespace Minisat
 {
-
 // Дескриптор для дапма состояния решателя
 struct SolverStateDesc
 {
