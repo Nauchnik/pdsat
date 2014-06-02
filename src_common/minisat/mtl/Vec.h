@@ -80,7 +80,8 @@ public:
     void     push  (void)              { if (sz == cap) capacity(sz+1); new (&data[sz]) T(); sz++; }
     //void     push  (const T& elem)     { if (sz == cap) capacity(sz+1); data[sz++] = elem; }
     void     push  (const T& elem)     { if (sz == cap) capacity(sz+1); new (&data[sz++]) T(elem); }
-    void     push_ (const T& elem)     { assert(sz < cap); data[sz++] = elem; }
+    void     push_ (const T& elem) { assert(sz < cap); data[sz++] = elem; }
+	bool     checkTrailSize() { if ( sz >= cap ) return false; else return true; } // added
     void     pop   (void)              { assert(sz > 0); sz--, data[sz].~T(); }
     // NOTE: it seems possible that overflow can happen in the 'sz+1' expression of 'push()', but
     // in fact it can not since it requires that 'cap' is equal to INT_MAX. This in turn can not
@@ -135,7 +136,7 @@ void vec<T,_Size>::clear(bool dealloc) {
         if (dealloc) free(data), data = NULL, cap = 0; } }
 
  	//=================================================================================================
-// new
+// added
 template<class T, class _Size>
 void vec<T,_Size>::resize(Size size) {
 	if (sz == size) return;

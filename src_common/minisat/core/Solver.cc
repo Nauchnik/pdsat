@@ -98,9 +98,7 @@ Solver::Solver() :
   , dec_vars(0), num_clauses(0), num_learnts(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
 
   , watches            (WatcherDeleted(ca))
-  //, watches2           (WatcherDeleted(ca)) // added
   , order_heap         (VarOrderLt(activity))
-  //, order_heap2        (VarOrderLt(activity)) // added
   , ok                 (true)
   , cla_inc            (1)
   , var_inc            (1)
@@ -137,7 +135,7 @@ Solver::~Solver()
 //=================================================================================================
 // Minor methods:
 
-// new
+// added
 bool compare_lits(Lit a, Lit b){
 	return var(a)<var(b);
 }
@@ -590,6 +588,8 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assert(value(p) == l_Undef);
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
+	if ( !trail.checkTrailSize() )
+		printf("bad trail");
     trail.push_(p);
 }
 
