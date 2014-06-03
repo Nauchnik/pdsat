@@ -75,7 +75,7 @@ public:
 	string base_known_assumptions_file_name;
 	string known_assumptions_file_name;
 	
-	bool IsPB; //  pseudo Boolean mode. if 0 then common CNF mode
+	bool IsPB; //  pseudo Bool mode. if 0 then common CNF mode
 	int PB_mode; // Pseudo Boolean mode. 1 - inequality mode, 2 - equality mode
 	int best_lower_bound;
 	int upper_bound;

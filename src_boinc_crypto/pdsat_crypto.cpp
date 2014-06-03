@@ -113,6 +113,8 @@ bool do_work( string &input_path, string &current_result_str )
 	vector<int> known_var_values_vec;
 	ifstream ifile( input_path.c_str() );
 	getline( ifile, problem_type );
+	fprintf( stderr, problem_type.c_str() );
+
 	while ( getline( ifile, str ) ) {
 		if ( str == "before_assignments")
 			break;
@@ -141,7 +143,6 @@ bool do_work( string &input_path, string &current_result_str )
 	}
 	ifile.close();
 	
-	fprintf( stderr, problem_type.c_str() );
 	fprintf( stderr, " mpi_b.var_choose_order.size() %d", mpi_b.var_choose_order.size() );
 	fprintf( stderr, " var_values_vec.size() %d", known_var_values_vec.size() );
 	
@@ -297,6 +298,7 @@ bool do_work( string &input_path, string &current_result_str )
 	bool isSAT = false;
 	
 	fprintf( stderr, " before loop of solving " );
+	double total_solving_time = Minisat :: cpuTime();
 	
 	for ( int i = last_iteration_done; i < dummy_vec.size(); ++i ) {
 		S->last_time = Minisat :: cpuTime();
@@ -335,13 +337,18 @@ bool do_work( string &input_path, string &current_result_str )
 		}
 	}
 	delete S;
+
+	total_solving_time = Minisat :: cpuTime() - total_solving_time;
 	
 	int total_solved = current_launch_problems_solved + last_iteration_done;
 	sstream << total_solved;
 	current_result_str += "solved " + sstream.str() + " ";
 	sstream.clear(); sstream.str("");
+	sstream << total_solving_time;
+	current_result_str += "total_time " + sstream.str() + " ";
+	sstream.clear(); sstream.str("");
 	sstream << max_solving_time;
-	current_result_str += "max " + sstream.str() + " ";
+	current_result_str += "max_time " + sstream.str() + " ";
 	sstream.clear(); sstream.str("");
 	if ( !isSAT )
 		current_result_str += "UNSAT";
