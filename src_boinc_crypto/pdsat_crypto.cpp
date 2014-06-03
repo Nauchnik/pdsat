@@ -41,6 +41,10 @@ int bivium_template_array[] = {
 #include "bivium_template.inc"
 };
 
+int a5_1_114_template_array[] = {
+#include "a5_1_114_template.inc"
+};
+
 bool do_work( string &input_path, string &current_result_str );
 int do_checkpoint( unsigned current_solved, unsigned total_tasks, double max_solving_time, string &final_result_str );
 
@@ -106,7 +110,7 @@ bool do_work( string &input_path, string &current_result_str )
 	// read var_choose_order and assignments from file in text mode
 	string problem_type, str, word1;
 	int val;
-	vector<int> var_values_vec;
+	vector<int> known_var_values_vec;
 	ifstream ifile( input_path.c_str() );
 	getline( ifile, problem_type );
 	while ( getline( ifile, str ) ) {
@@ -121,7 +125,7 @@ bool do_work( string &input_path, string &current_result_str )
 				cerr << "range2 < range1" << endl;
 				return false;
 			}
-			fprintf( stderr, "range1 %llu range2 %llu ", range1, range2 );
+			fprintf( stderr, " range1 %llu range2 %llu ", range1, range2 );
 			break;
 		}
 		sstream << str;
@@ -132,16 +136,16 @@ bool do_work( string &input_path, string &current_result_str )
 			sort( mpi_b.var_choose_order.begin(), mpi_b.var_choose_order.end() );
 		}
 		else if ( isNumberOrMinus( word1[0] ) )
-			var_values_vec.push_back( strtoint( word1 ) );
+			known_var_values_vec.push_back( strtoint( word1 ) );
 		sstream.clear(); sstream.str("");
 	}
 	ifile.close();
 	
 	fprintf( stderr, problem_type.c_str() );
 	fprintf( stderr, " mpi_b.var_choose_order.size() %d", mpi_b.var_choose_order.size() );
-	fprintf( stderr, " var_values_vec.size() %d", var_values_vec.size() );
+	fprintf( stderr, " var_values_vec.size() %d", known_var_values_vec.size() );
 	
-	if ( var_values_vec.size() == 0 ) {
+	if ( known_var_values_vec.size() == 0 ) {
 		cerr << "var_values_vec.size == 0" << endl;
 		return false;
 	}
@@ -149,12 +153,19 @@ bool do_work( string &input_path, string &current_result_str )
 	// read initial CNF from structure and add it to Solver
 	vector<int> cnf_array;
 	if ( problem_type.find( "bivium" ) != string::npos ) {
-		cnf_array.resize( sizeof(bivium_template_array)  / sizeof(bivium_template_array[0]) );
+		cnf_array.resize( sizeof(bivium_template_array) / sizeof(bivium_template_array[0]) );
 		for ( unsigned i = 0; i < cnf_array.size(); ++i ) 
 			cnf_array[i] = bivium_template_array[i];
+		fprintf( stderr, " bivium_template " );
+	}
+	else if ( problem_type.find( "a5_1" ) != string::npos ) {
+		cnf_array.resize( sizeof(a5_1_114_template_array) / sizeof(a5_1_114_template_array[0]) );
+		for ( unsigned i = 0; i < cnf_array.size(); ++i ) 
+			cnf_array[i] = a5_1_114_template_array[i];
+		fprintf( stderr, " a5_1_114_template " );
 	}
 	else {
-		fprintf( stderr, " problem_type.find( bivium ) == string::npos" );
+		fprintf( stderr, " problem_type != bivium, problem_type != a5_1" );
 		exit(1);
 	}
 	minisat22_wrapper m22_wrapper;
@@ -175,9 +186,9 @@ bool do_work( string &input_path, string &current_result_str )
 		fprintf( stderr, "start of range mode " );
 		boost::dynamic_bitset<> d_b;
 		d_b.resize( mpi_b.var_choose_order.size() );
-		unsigned k=0;
-		dummy_vec.resize( range2-range1 );
-		for( unsigned long long i=range1; i < range2; ++i ) {
+		unsigned dummy_vec_index=0;
+		dummy_vec.resize( range2-range1 + 1 );
+		for( unsigned long long i=range1; i <= range2; ++i ) {
 			UllongToBitset( i, d_b );
 			if ( d_b.size() > mpi_b.var_choose_order.size() ) {
 				fprintf( stderr, "d_b.size() > mpi_b.var_choose_order.size()" );
@@ -186,11 +197,11 @@ bool do_work( string &input_path, string &current_result_str )
 			for ( unsigned j=0; j < d_b.size(); ++j ) {
 				cur_var_ind = mpi_b.var_choose_order[j] - 1;
 				if ( d_b[j] == 1 )
-					dummy_vec[k].push( mkLit( cur_var_ind ) );
+					dummy_vec[dummy_vec_index].push( mkLit( cur_var_ind ) );
 				else 
-					dummy_vec[k].push( ~mkLit( cur_var_ind ) );
+					dummy_vec[dummy_vec_index].push( ~mkLit( cur_var_ind ) );
 			}
-			k++;
+			dummy_vec_index++;
 		}
 		fprintf( stderr, "dummy_vec.size() %d ", dummy_vec.size() );
 	}
@@ -250,10 +261,10 @@ bool do_work( string &input_path, string &current_result_str )
 		fprintf( stderr, " vector of assumptions was made " );
 	}
 	
-	// add to assumptions vectors known data (initially in oneliteral clauses)
-	for ( unsigned i=0; i < var_values_vec.size(); ++i ) {
-		cur_var_ind = abs( var_values_vec[i] ) - 1;
-		if ( var_values_vec[i] > 0 )
+	// add known data to assumptions (initially in oneliteral clauses)
+	for ( unsigned i=0; i < known_var_values_vec.size(); ++i ) {
+		cur_var_ind = abs( known_var_values_vec[i] ) - 1;
+		if ( known_var_values_vec[i] > 0 )
 			for ( int j=0; j < dummy_vec.size(); ++j )
 				dummy_vec[j].push( mkLit( cur_var_ind ) );
 		else
