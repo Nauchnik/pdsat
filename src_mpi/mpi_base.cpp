@@ -183,7 +183,6 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, unsigned long long
 	unsigned header_value;
 	sstream << cc;
 	sstream >> header_value;
-	//cout << "header_value " << header_value << endl;
 	delete[] cc;
 	//ifile >> header_value; // read header in text mode
 	if ( header_value != var_choose_order.size() ) {

@@ -22,6 +22,7 @@
 #include <fstream>
 #include "minisat22_wrapper.h"
 #include "mpi_base.h"
+#include "dminisat/dminisat.h"
 
 using namespace std;
 
@@ -154,12 +155,14 @@ bool do_work( string &input_path, string &current_result_str )
 	// read initial CNF from structure and add it to Solver
 	vector<int> cnf_array;
 	if ( problem_type.find( "bivium" ) != string::npos ) {
+		mpi_b.input_var_num = 177;
 		cnf_array.resize( sizeof(bivium_template_array) / sizeof(bivium_template_array[0]) );
 		for ( unsigned i = 0; i < cnf_array.size(); ++i ) 
 			cnf_array[i] = bivium_template_array[i];
 		fprintf( stderr, " bivium_template " );
 	}
 	else if ( problem_type.find( "a5_1" ) != string::npos ) {
+		mpi_b.input_var_num = 64;
 		cnf_array.resize( sizeof(a5_1_114_template_array) / sizeof(a5_1_114_template_array[0]) );
 		for ( unsigned i = 0; i < cnf_array.size(); ++i ) 
 			cnf_array[i] = a5_1_114_template_array[i];
@@ -173,9 +176,14 @@ bool do_work( string &input_path, string &current_result_str )
 	Problem cnf;
 	m22_wrapper.parse_DIMACS_from_inc( cnf_array, cnf );
 	Solver *S = new Solver();
-	S->addProblem( cnf ); 
+	S->addProblem( cnf );
 	S->max_nof_restarts = MAX_NOF_RESTARTS;
 	S->verbosity = 0;
+	// minisat core mod
+	S->core_len = mpi_b.input_var_num;
+	fprintf( stderr, " S->core_len %d ", S->core_len );
+	S->start_activity = 1;
+	// 
 	fprintf( stderr, " S->max_nof_restarts %d ", S->max_nof_restarts );
 	for( unsigned i = 0; i < cnf.size(); ++i )
 		delete cnf[i];
@@ -300,12 +308,17 @@ bool do_work( string &input_path, string &current_result_str )
 	fprintf( stderr, " before loop of solving " );
 	double total_solving_time = Minisat :: cpuTime();
 	
+	//string core_activity_str;
+	//sstream << "core_activity " << endl;
+
 	for ( int i = last_iteration_done; i < dummy_vec.size(); ++i ) {
 		S->last_time = Minisat :: cpuTime();
 		/*fprintf( stderr, "\n S->solveLimited() start " );
 		for ( unsigned j=0; j < dummy_vec[i].size(); ++j )
 			fprintf( stderr, "%d ", dummy_vec[i][j].x);
 		fprintf( stderr, "\n" );*/
+		//S->printCoreActivity( core_activity_str );
+		//sstream << core_activity_str;
 		ret = S->solveLimited( dummy_vec[i] );
 		//fprintf( stderr, "\n S->solveLimited() done " );
 		one_solving_time = Minisat :: cpuTime() - S->last_time;

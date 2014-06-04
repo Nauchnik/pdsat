@@ -213,6 +213,23 @@ void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&va
 				var_activity[j] *= 1e-10;
 }
 
+void Solver :: resetVarActivity()
+{
+	for( int i=0; i < activity.size(); ++i )
+		activity[i] = 0.0;
+}
+
+/*
+void Solver :: printCoreActivity( std::string &str )
+{
+	str = "";
+	std::stringstream sstream;
+	for( unsigned i=0; i < core_len; ++i )
+		sstream << activity[i] << " ";
+	sstream << std::endl;
+	str = sstream.str();
+}
+*/
 // Creates a new SAT variable in the solver. If 'decision' is cleared, variable will not be
 // used as a decision variable (NOTE! This has effects on the meaning of a SATISFIABLE result).
 //
@@ -979,9 +996,12 @@ lbool Solver::solve_()
     }
 
 	// added
-	if ( ( core_len <= nVars() ) && ( start_activity > 0 ) )
+	if ( ( core_len <= nVars() ) && ( start_activity > 0 ) ) {
 		for (int v = 0; v < core_len; ++v)
 			varBumpActivity(v, start_activity);
+		var_decay = 1;
+		clause_decay = 1;
+	}
 #ifdef _MPI
 	MPI_Status mpi_status;
 	MPI_Request mpi_request;

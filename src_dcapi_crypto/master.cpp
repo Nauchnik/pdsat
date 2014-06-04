@@ -294,8 +294,13 @@ bool do_work( vector<long long> &wu_id_vec )
 	long long wus_for_creation_count = 0;
 	
 	ParseConfigFile( config_p, cnf_head, config_sstream );
-	if ( config_p.data_file == "no" )
+	ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
+	if ( !ifile.is_open() ) {
 		isRangeMode = true;
+		cout << "isRangeMode " << isRangeMode << endl;
+	}
+	else
+		ifile.close();
 	bool IsLastGenerating = false;
 	
 	/*if ( IsTasksFile ) // get problems_in_wu assumptions for every task
@@ -414,7 +419,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 		cout << "isRangeMode" << endl;
 		shl64( assumptions_count, var_choose_order.size() );
 		cout << "var_choose_order.size() " << var_choose_order.size() << endl;
-		cout << "assumptions_count " << endl;
+		cout << "assumptions_count " << assumptions_count << endl;
 	}
 	else {
 		// count blocks of data in file

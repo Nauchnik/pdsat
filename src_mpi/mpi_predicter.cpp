@@ -351,12 +351,20 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	MPI_Recv( &activity_vec_len, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &known_last_bits,  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &input_var_num,    1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &start_activity,   1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	if ( input_var_num == 0 ) {
 		cerr << "input_var_num == 0" << endl;
 		exit(1);
 	}
-	if ( rank == 1 )
-		cout << "input_var_num " << input_var_num << endl;
+	if ( rank == 1 ) {
+		cout << "rank 1" << endl;
+		cout << "var_count "        << var_count << endl;
+		cout << "core_len "         << core_len << endl;
+		cout << "activity_vec_len " << activity_vec_len << endl;
+		cout << "known_last_bits "  << activity_vec_len << endl;
+		cout << "input_var_num "    << input_var_num << endl;
+		cout << "start_activity "   << start_activity << endl;
+	}
 	int *full_local_decomp_set = new int[core_len];
 	MPI_Recv( full_local_decomp_set, core_len, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	full_var_choose_order.resize( core_len );
@@ -389,6 +397,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		S->max_solving_time = max_solving_time;
 		S->rank             = rank;
 		S->core_len         = core_len;
+		S->start_activity   = start_activity;
 	}
 	
 	if ( te > 0 ) { // ro es te mode
@@ -660,7 +669,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 						ofile << all_var_activity[i] << " ";
 					ofile.close();
 				}
-				if ( var_choose_order.size() <= max_var_count_state_writing ) {
+				/*if ( var_choose_order.size() <= max_var_count_state_writing ) {
 					sstream << "blob_point_set_len_" << var_choose_order.size() << "_rank_" << rank << "_num_" << cur_point_number;
 					cur_state_file_name = sstream.str();
 					sstream.clear(); sstream.str("");
@@ -673,16 +682,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 					for ( unsigned i=0; i < var_choose_order.size(); i++ )
 						ofile << var_choose_order[i] << " ";
 					ofile.close();
-				}
-				unsigned hamming_distanse = 0;
-				for ( unsigned t = 0; t < input_var_num; t++ )
-					if ( ( ( S->model[t] == l_True ) ? true : false ) != state_vec_vec[sat_sample_index][t] )
-						hamming_distanse++;
-				if ( hamming_distanse > 0 ) {
-					ofstream ofile( collisions_file_name.c_str(), ios_base :: out | ios_base :: app );
-					ofile << "set_len " << var_choose_order.size() << " h_d " << hamming_distanse << endl;
-					ofile.close();
-				}
+				}*/
 			}
 			//delete S;
 			S->clearDB();
@@ -1252,6 +1252,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			MPI_Send( &activity_vec_len, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &known_last_bits,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &input_var_num,    1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &start_activity,   1, MPI_DOUBLE, i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( full_local_decomp_set, core_len, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 		}
 		delete[] full_local_decomp_set;

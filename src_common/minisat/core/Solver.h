@@ -63,6 +63,8 @@ public:
 	void clearPolarity();
 	void clearParams();
 	void getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len );
+	//void printCoreActivity( std::string &str );
+	void resetVarActivity();
 	void saveState( const std::string file_blob_name );
 	
     // Problem specification:
@@ -385,14 +387,12 @@ inline bool     Solver::addClause       (Lit p, Lit q)          { add_tmp.clear(
 inline bool     Solver::addClause       (Lit p, Lit q, Lit r)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp); }
 inline bool     Solver::addClause       (Lit p, Lit q, Lit r, Lit s){ add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); add_tmp.push(s); return addClause_(add_tmp); }
 
-// win mode
+// added
 inline bool     Solver::addProblem      (const Problem& p)
 {
-	for(size_t i = 0; i < p.size(); i++)
-	{
-		// если необходимо, добавляем переменные
-		for(int j = 0; j < p[i]->size(); j++)
-		{
+	for(size_t i = 0; i < p.size(); i++) {
+		// add variables if needed
+		for(int j = 0; j < p[i]->size(); j++) {
 			Lit& lit = (*p[i])[j];
 			while (var(lit) >= nVars()) newVar();
 			//while(var(lit) >= nVars()) (size_actitity ? newVar(temp_activity[var(lit)]) : newVar());
@@ -402,11 +402,6 @@ inline bool     Solver::addProblem      (const Problem& p)
 			return false;
 	}
 	return true;
-}
-
-inline void Solver::resetCapacity()
-{
-	trail.capacity(nVars());
 }
 
 inline bool Solver::addProblem_modified(const Problem& p, int num_of_variables)

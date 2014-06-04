@@ -910,7 +910,7 @@ static lbool_dminisat solver_search( solver* s, int nof_conflicts, int nof_learn
 		test_message = 0,
 		iprobe_message = 0;
 
-#ifdef _ISMPI
+#ifdef _MPI
 	MPI_Request request;
 	MPI_Status mpi_status;
 #endif
@@ -936,7 +936,7 @@ static lbool_dminisat solver_search( solver* s, int nof_conflicts, int nof_learn
 #endif
             s->stats.conflicts++; conflictC++;
 
-#ifdef _ISMPI
+#ifdef _MPI
 			if ( s->IsPredict )
 			{
 				// check every CHECK_EVERY_NOCONFL conflicts
@@ -1339,10 +1339,6 @@ boolean_dminisat solver_solve( solver* s, lit* begin, lit* end )
         nof_conflicts *= 1.5;
         nof_learnts   *= 1.1;
 
-#ifndef _ISMPI
-		if ( nof_conflicts > 5000 )
-			return -1;
-#endif
 		//printf( "\n *** IsPredict is ", IsPredict );
     }
 /**
