@@ -116,18 +116,22 @@ bool do_work( string &input_path, string &current_result_str )
 	getline( ifile, problem_type );
 	fprintf( stderr, problem_type.c_str() );
 
+	stringstream range_sstream;
+
 	while ( getline( ifile, str ) ) {
-		if ( str == "before_assignments")
+		if ( str.find( "before_assignments") != string::npos )
 			break;
-		if ( str == "before_range" ) {
+		if ( str.find( "before_range") != string::npos ) {
 			isRangeMode = true;
 			getline( ifile, str );
 			sstream << str;
 			sstream >> range1 >> range2;
+			sstream.str(""); sstream.clear();
 			if ( range2 < range1 ) {
 				cerr << "range2 < range1" << endl;
 				return false;
 			}
+			range_sstream << "range1 " << range1 << " range2 " << range2;
 			fprintf( stderr, " range1 %llu range2 %llu ", range1, range2 );
 			break;
 		}
@@ -181,8 +185,9 @@ bool do_work( string &input_path, string &current_result_str )
 	S->verbosity = 0;
 	// minisat core mod
 	S->core_len = mpi_b.input_var_num;
-	fprintf( stderr, " S->core_len %d ", S->core_len );
 	S->start_activity = 1;
+	fprintf( stderr, " S->core_len %d ", S->core_len );
+	fprintf( stderr, " S->start_activity %f ", S->start_activity );
 	// 
 	fprintf( stderr, " S->max_nof_restarts %d ", S->max_nof_restarts );
 	for( unsigned i = 0; i < cnf.size(); ++i )
@@ -289,7 +294,7 @@ bool do_work( string &input_path, string &current_result_str )
 		current_result_str = previous_results_str;
 	else {
 		sstream << mpi_b.var_choose_order.size();
-		current_result_str = problem_type + " var_set size " + sstream.str() + ": ";
+		current_result_str = problem_type + " " + range_sstream.str() + " var_set size " + sstream.str() + ": ";
 		sstream.clear(); sstream.str("");
 		for ( unsigned i=0; i < mpi_b.var_choose_order.size(); ++i ) {
 			sstream << mpi_b.var_choose_order[i];

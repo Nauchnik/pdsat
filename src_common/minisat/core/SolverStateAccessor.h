@@ -1,4 +1,6 @@
-﻿
+#ifndef Minisat_SolverStateAccessor_h
+#define Minisat_SolverStateAccessor_h
+
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -132,3 +134,5 @@ std::ostream& operator<<(std::ostream& out, const lbool& lb);
 std::ostream& operator<<(std::ostream& out, const SolverStateDesc& desc);
 
 } // namespace Minisat
+
+#endif

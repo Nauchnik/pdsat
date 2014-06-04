@@ -294,6 +294,7 @@ bool do_work( vector<long long> &wu_id_vec )
 	long long wus_for_creation_count = 0;
 	
 	ParseConfigFile( config_p, cnf_head, config_sstream );
+	ifstream ifile;
 	ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
 	if ( !ifile.is_open() ) {
 		isRangeMode = true;
@@ -308,54 +309,54 @@ bool do_work( vector<long long> &wu_id_vec )
 	else
 	{*/
 		// create wus - supply needed level of unsent wus
-		wus_for_creation_count = 0;
-		long long old_wus_for_creation_count = 0;
-		for (;;) {
-			if ( IsLastGenerating ) {
-				if ( config_p.created_wus == config_p.total_wus ) {
-					cout << "config_p.created_wus == config_p.total_wus" << endl;
-					cout << config_p.created_wus << " == " << config_p.total_wus << endl;
-				}
-				cout << "IsLastGenerating " << IsLastGenerating << endl;
-				cout << "generation done" << endl;
-				break;
+	wus_for_creation_count = 0;
+	long long old_wus_for_creation_count = 0;
+	for (;;) {
+		if ( IsLastGenerating ) {
+			if ( config_p.created_wus == config_p.total_wus ) {
+				cout << "config_p.created_wus == config_p.total_wus" << endl;
+				cout << config_p.created_wus << " == " << config_p.total_wus << endl;
 			}
-
-			GetCountOfUnsentWUs( unsent_count );
-			cout << "unsent_count " << unsent_count << endl;
-			
-			if ( unsent_count < 0 ) {
-				cout << "SQL error. unsent_count < 0. Waiting 60 seconds and try again" << endl;
-				sleep( 60 );
-				continue; // try to execute SQL again
-			}
-			
-			wus_for_creation_count = config_p.unsent_needed_wus - unsent_count;
-
-			if ( wus_for_creation_count + config_p.created_wus >= config_p.total_wus ) {
-				wus_for_creation_count = config_p.total_wus - config_p.created_wus; // create last several task
-				IsLastGenerating = true;
-				cout << "IsLastGenerating " << IsLastGenerating << endl;
-			}
-
-			cout << "wus_for_creation_count " << wus_for_creation_count << endl;
-
-			if ( ( wus_for_creation_count >= MIN_WUS_FOR_CREATION ) || ( IsLastGenerating ) ) {
-				// ls can be used many times - each launch vectore will be resized and filled again
-				// ls.skip_valus is updated too
-				create_wus( config_sstream, config_p, cnf_head, wus_for_creation_count, wu_id_vec, IsLastGenerating );
-			}
-			else {
-				cout << "wus_for_creation_count < MIN_WUS_FOR_CREATION" << endl;
-				cout << wus_for_creation_count << " < " << MIN_WUS_FOR_CREATION << endl;
-				if ( old_wus_for_creation_count != wus_for_creation_count )
-					cout << "wus_for_creation_count " << wus_for_creation_count << endl;
-				old_wus_for_creation_count = wus_for_creation_count;
-			}
-			
-			if ( !IsLastGenerating )
-				sleep( 1800 ); // wait
+			cout << "IsLastGenerating " << IsLastGenerating << endl;
+			cout << "generation done" << endl;
+			break;
 		}
+
+		GetCountOfUnsentWUs( unsent_count );
+		cout << "unsent_count " << unsent_count << endl;
+			
+		if ( unsent_count < 0 ) {
+			cout << "SQL error. unsent_count < 0. Waiting 60 seconds and try again" << endl;
+			sleep( 60 );
+			continue; // try to execute SQL again
+		}
+			
+		wus_for_creation_count = config_p.unsent_needed_wus - unsent_count;
+
+		if ( wus_for_creation_count + config_p.created_wus >= config_p.total_wus ) {
+			wus_for_creation_count = config_p.total_wus - config_p.created_wus; // create last several task
+			IsLastGenerating = true;
+			cout << "IsLastGenerating " << IsLastGenerating << endl;
+		}
+
+		cout << "wus_for_creation_count " << wus_for_creation_count << endl;
+
+		if ( ( wus_for_creation_count >= MIN_WUS_FOR_CREATION ) || ( IsLastGenerating ) ) {
+			// ls can be used many times - each launch vectore will be resized and filled again
+			// ls.skip_valus is updated too
+			create_wus( config_sstream, config_p, cnf_head, wus_for_creation_count, wu_id_vec, IsLastGenerating );
+		}
+		else {
+			cout << "wus_for_creation_count < MIN_WUS_FOR_CREATION" << endl;
+			cout << wus_for_creation_count << " < " << MIN_WUS_FOR_CREATION << endl;
+			if ( old_wus_for_creation_count != wus_for_creation_count )
+				cout << "wus_for_creation_count " << wus_for_creation_count << endl;
+			old_wus_for_creation_count = wus_for_creation_count;
+		}
+			
+		if ( !IsLastGenerating )
+			sleep( 1800 ); // wait
+	}
 	//}
 	
 	cout << "wus_for_creation_count " << wus_for_creation_count << endl;
@@ -467,6 +468,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	
 	cout << "before creating wus" << endl;
 	long long now_created = 0;
+	long long range1, range2;
 	for( long long wu_index = config_p.created_wus; wu_index < config_p.created_wus + wus_for_creation_count; wu_index++ ) {
 		if ( IsFastExit )
 			break;
@@ -480,12 +482,21 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 		
 		if ( isRangeMode ) {
 			if ( header_sstream.str().find( "before_range" ) == string::npos )
-				output << "before_range" << endl;
-			output << wu_index*config_p.problems_in_wu << " " << (wu_index+1)*config_p.problems_in_wu - 1 << endl;
+				output << "before_range" << endl; // add if forgot
+			range1 = wu_index*config_p.problems_in_wu;
+			IsAddingWUneeded = ( range1 < assumptions_count ) ? true : false;
+			range2 = (wu_index+1)*config_p.problems_in_wu - 1;
+			if ( range2 >= assumptions_count ) {
+				range2 = assumptions_count - 1;
+				cout << "range2 changed to " << range2 << endl;
+				IsFastExit = true; // add last values to WU and exit
+				IsLastGenerating = true; // tell to high-level function about ending of generation
+			}
+			output << range1 << " " << range2;
 		}
 		else {
 			if ( header_sstream.str().find( "before_assignments" ) == string::npos )
-				output << "before_assignments" << endl;
+				output << "before_assignments" << endl; // add if forgot
 			output.close();
 			output.open( "wu-input.txt", ios_base::out | ios_base::app | ios_base::binary );
 			output.write( (char*)&si, sizeof(si) ); // write first 2 symbols
@@ -505,9 +516,9 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 			}
 		}
 		output.close();
-	
+		
 		if ( !IsAddingWUneeded ) {
-			cout << "IsAddingWUneeded true" << endl;
+			cout << "break cause of IsAddingWUneeded " << IsAddingWUneeded << endl;
 			break; // don't create new WU
 		}
 		

@@ -1003,9 +1003,9 @@ void MPI_Base :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< v
 		vec<Lit> dummy;
 		int cur_var_ind;
 		int state_vec_len = state_vec_vec[0].size();
-		for ( auto x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) {
+		for ( vector< vector<bool> > :: iterator x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) {
 			cur_var_ind = 0;
-			for ( auto y = (*x).begin(); y != (*x).end(); y++ ) {
+			for ( vector<bool> :: iterator y = (*x).begin(); y != (*x).end(); y++ ) {
 				dummy.push( (*y) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
 				cur_var_ind++;
 			}
@@ -1023,14 +1023,14 @@ void MPI_Base :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< v
 			dummy.clear();
 		}
 		sstream << "state" << endl;
-		for ( auto x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) {
-			for ( auto y = (*x).begin(); y != (*x).end(); y++ )
+		for ( vector< vector<bool> > :: iterator x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) {
+			for ( vector<bool> :: iterator y = (*x).begin(); y != (*x).end(); y++ )
 				sstream << *y;
 			sstream << endl;
 		}
 		sstream << "stream" << endl;
-		for ( auto x = stream_vec_vec.begin(); x != stream_vec_vec.end(); x++ ) {
-			for ( auto y = (*x).begin(); y != (*x).end(); y++ )
+		for ( vector< vector<bool> > :: iterator x = stream_vec_vec.begin(); x != stream_vec_vec.end(); x++ ) {
+			for ( vector<bool> :: iterator y = (*x).begin(); y != (*x).end(); y++ )
 				sstream << *y;
 			sstream << endl;
 		}

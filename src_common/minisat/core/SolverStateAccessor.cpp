@@ -1,4 +1,4 @@
-﻿#include "Solver.h"
+#include "Solver.h"
 #include "SolverStateAccessor.h"
 
 namespace Minisat

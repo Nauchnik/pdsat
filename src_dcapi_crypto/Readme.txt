@@ -1,4 +1,5 @@
 CLIENT APP
+04.06.2014 [+] range mode for crypto problems
 [4.00] 07.02.2014 [+] Added work with crypto problems
 03.10.2013 - added using of known 2nd row for 1s square
            - in WU file fixed c ls_10_3_inc70
