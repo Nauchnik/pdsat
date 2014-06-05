@@ -571,11 +571,12 @@ bool MPI_Solver :: ControlProcessSolve( )
 	cout << "before sending configuration info" << endl;
 	// send core_len once to every compute process
 	for ( int i=0; i < corecount-1; ++i ) {
-		MPI_Send( &core_len,                1, MPI_INT,       i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( &all_tasks_count,         1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( &assumptions_count,       1, MPI_UNSIGNED_LONG_LONG, i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( &solving_iteration_count, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( &max_solving_time,        1, MPI_DOUBLE,    i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &core_len,                1, MPI_INT,                 i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &all_tasks_count,         1, MPI_UNSIGNED,            i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &assumptions_count,       1, MPI_UNSIGNED_LONG_LONG,  i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &solving_iteration_count, 1, MPI_INT,                 i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &max_solving_time,        1, MPI_DOUBLE,              i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( &start_activity,          1, MPI_DOUBLE,              i + 1, 0, MPI_COMM_WORLD );
 		MPI_Send( var_choose_order_int,     MAX_ASSIGNS_COUNT, MPI_INT, i + 1, 0, MPI_COMM_WORLD );
 	}
 	delete[] var_choose_order_int;
@@ -666,10 +667,8 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		in.close();
 		S = new Solver();
 		S->addProblem(cnf);
-		S->verbosity        = 0;
-		S->IsPredict        = false;
-		S->start_activity   = start_activity; // values obtained directly from params
-		S->max_nof_restarts = max_nof_restarts;
+		S->verbosity = 0;
+		S->IsPredict = false;
 	}
 	
 	for (;;) {
@@ -683,6 +682,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		MPI_Recv( &assumptions_count,        1, MPI_UNSIGNED_LONG_LONG, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &solving_iteration_count,  1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &max_solving_time,         1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( &start_activity,           1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( var_choose_order_int,      MAX_ASSIGNS_COUNT, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
 		
 		var_choose_order.resize(0);
@@ -703,6 +703,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 			cout << "Received assumptions_count "       << assumptions_count        << endl;
 			cout << "Received solving_iteration_count " << solving_iteration_count  << endl;
 			cout << "Received max_solving_time "        << max_solving_time         << endl;
+			cout << "Received start_activity "          << start_activity           << endl;
 			cout << "Received var_choose_order.size() " << var_choose_order.size()  << endl;
 			for ( unsigned i=0; i < var_choose_order.size(); ++i )
 				cout << var_choose_order[i] << " ";
@@ -714,6 +715,8 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		}
 		S->core_len         = core_len;
 		S->max_solving_time = max_solving_time;
+		S->start_activity   = start_activity;
+		S->resetVarActivity();
 		sstream << base_known_assumptions_file_name << "_" << solving_iteration_count;
 		known_assumptions_file_name = sstream.str();
 		sstream.clear(); sstream.str("");

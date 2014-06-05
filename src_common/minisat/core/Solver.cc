@@ -213,10 +213,18 @@ void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&va
 				var_activity[j] *= 1e-10;
 }
 
+// added
 void Solver :: resetVarActivity()
 {
-	for( int i=0; i < activity.size(); ++i )
-		activity[i] = 0.0;
+	if ( ( core_len <= nVars() ) && ( start_activity > 0 ) ) {
+		// set default minisat values
+		for( int i=0; i < activity.size(); ++i )
+			activity[i] = 0.0;
+		for (int v = 0; v < core_len; ++v)
+			varBumpActivity(v, start_activity);
+		var_decay = 1;
+		clause_decay = 1;
+	}
 }
 
 /*
@@ -995,13 +1003,6 @@ lbool Solver::solve_()
         printf("===============================================================================\n");
     }
 
-	// added
-	if ( ( core_len <= nVars() ) && ( start_activity > 0 ) ) {
-		for (int v = 0; v < core_len; ++v)
-			varBumpActivity(v, start_activity);
-		var_decay = 1;
-		clause_decay = 1;
-	}
 #ifdef _MPI
 	MPI_Status mpi_status;
 	MPI_Request mpi_request;

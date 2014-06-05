@@ -688,6 +688,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			S->clearDB();
 			S->clearPolarity();
 			S->clearParams();
+			S->resetVarActivity();
         }
 		else { 
 			cout << "solver_type has unknown format"; return false;
