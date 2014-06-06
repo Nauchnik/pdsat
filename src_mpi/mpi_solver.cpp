@@ -48,7 +48,6 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	IsPredict = false;
 	double iteration_start_time, iteration_final_time;
 	double whole_final_time;
-	double whole_start_time = MPI_Wtime( ); // get init time
 	stringstream sstream;
 	int break_message = -1;
 	int stop_message  = -2;
@@ -64,7 +63,7 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	}
 	else { // rank == 0
 		cout << "*** MPI_Solve is running ***" << endl;
-		total_start_time = Minisat::cpuTime();
+		total_start_time = MPI_Wtime();
 		for (;;) {
 			sstream << base_solving_info_file_name << "_" << solving_iteration_count;
 			solving_info_file_name = sstream.str();
@@ -100,7 +99,7 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 				break;
 		}
 		
-		whole_final_time = MPI_Wtime( ) - whole_start_time;
+		whole_final_time = MPI_Wtime() - total_start_time;
 		solving_info_file_name = base_solving_info_file_name + "_total";
 		WriteTimeToFile( whole_final_time );
 		

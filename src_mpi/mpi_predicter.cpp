@@ -625,6 +625,8 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			IsSolvedOnPreprocessing = 0;
 			cnf_time_from_node = MPI_Wtime( );
 			
+			S->resetVarActivity();
+			
 			if ( ( verbosity > 2 ) && ( rank == corecount-1 ) )
 				cout << "Before S->solveLimited( dummy )" << endl;
 			ret = S->solveLimited( dummy );
@@ -688,7 +690,6 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			S->clearDB();
 			S->clearPolarity();
 			S->clearParams();
-			S->resetVarActivity();
         }
 		else { 
 			cout << "solver_type has unknown format"; return false;
@@ -1633,6 +1634,7 @@ bool MPI_Predicter :: GetPredict()
 	int set_index_bound = 0,
 		cur_cnf_in_set_count = 0;
 	double current_time = Minisat::cpuTime();
+	double huge_double = 1e+308;;
 	
 	cnf_to_stop_arr.clear(); // every time get stop-list again
 	stringstream sstream;
@@ -1709,12 +1711,13 @@ bool MPI_Predicter :: GetPredict()
 			cur_predict_time *= pow( 2, (double)cur_var_num );
 		}
 		else if ( te > 0.0 ) { // here med_time_arr in (0,1)
-			if ( med_time_arr[i] > 0.0 ) {
+			if ( med_time_arr[i] <= 0.0 ) // no solved instanses in sample
+				cur_predict_time = 0;
+			else if ( penalty > med_time_arr[i] ) // if limit exceeded
+				cur_predict_time = huge_double;
+			else {
 				if ( er_strategy == 0 ) { // fixed er
-					cur_predict_time = pow( er, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom ) + 
-						pow( 2.0, ( penalty - med_time_arr[i] ) * cur_cnf_in_set_count )*( prev_area_best_predict_time );
-					//if ( ( ( prev_best_sum != sum_time_arr[i] ) || // don't go to point with same decomp power and sum
-					//	   ( prev_best_decomp_set_power != decomp_set_arr[i].var_choose_order.size() ) ) && 
+					cur_predict_time = pow( er, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom );
 					if ( cur_predict_time < best_predict_time )
 						isTeBkvUpdated = true;
 				}
@@ -1741,8 +1744,6 @@ bool MPI_Predicter :: GetPredict()
 					cur_predict_time = cur_predict_times[er_index];
 				}
 			}
-			else // no solved instanses in sample
-				cur_predict_time = 0;
 		}
 		
 		predict_time_arr[i] = cur_predict_time;
