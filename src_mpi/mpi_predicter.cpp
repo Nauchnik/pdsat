@@ -14,12 +14,12 @@ MPI_Predicter :: MPI_Predicter( ) :
 	deep_predict        ( 6 ),
 	IsRestartNeeded     ( false ),
 	IsDecDecomp         ( false ),
-	IsSimulatedGranted  ( false ),
+	isSimulatedGranted  ( false ),
 	deep_predict_file_name ( "deep_predict" ),
 	var_activity_file_name ( "var_activity" ),
 	cur_temperature ( 0 ),
 	min_temperature ( 20 ),
-	temperature_multiply_koef ( 0.99 ),
+	temperature_multiply_koef ( 0.9 ),
 	start_temperature_koef ( 0.1 ),
 	deep_diff_decomp_set_count ( 100 ),
 	point_admission_koef ( 0.2 ),
@@ -843,7 +843,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 		checked_area c_a;
 		unupdated_count++;
 		sstream << "unupdated_count " << unupdated_count << endl;
-		if ( deep_predict == 6 ) { // tabu search mode
+		if ( deep_predict >= 5 ) { // tabu search mode
 			boost::dynamic_bitset<> bs, xor_bs;
 			unsigned min_hamming_distance;
 			bool IsAdding;
@@ -1480,17 +1480,17 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	sstream << "best_predict_time " << best_predict_time << " s" << endl;
 
 	if ( deep_predict == 5 ) { // Simulated annealing
-		if ( IsSimulatedGranted ) {
+		if ( isSimulatedGranted ) {
 			sstream << "*** Simulated granted" << endl;
 			//sstream << "rand_num " << rand_num << endl;
 			sstream << "delta " << delta << endl;
 			sstream << "exp_value " << exp_value << endl;
-			IsSimulatedGranted = false;
+			isSimulatedGranted = false;
 		}
 		// init or update temperature if == 0 or > limit
-		if ( ( cur_temperature == 0 ) || 
+		if ( ( cur_temperature == 0.0 ) || 
 		     ( cur_temperature > best_predict_time * start_temperature_koef ) )  
-		{     
+		{
 		    // start temperature
 		    cur_temperature = best_predict_time * start_temperature_koef;
 		}
@@ -1541,7 +1541,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	if ( isFirstPoint ) {
 		graph_file.open( "graph_file", ios_base :: out ); // erase info from previous launches 
 		graph_file << "# best_var_num best_predict_time best_sum_time cnf_in_set_count last_predict_record_time current_predict_time";
-		if ( deep_predict == 5 ) // simulated anealing
+		if ( deep_predict == 5 ) // simulated annealing
 			graph_file << " cur_temperature";
 		graph_file << endl;
 		var_activity_file.open( var_activity_file_name.c_str(), ios_base :: out );
@@ -1577,19 +1577,21 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	var_activity_file.close();
 }
 
-bool MPI_Predicter :: IfSimulatedGranted( double predict_time )
+bool MPI_Predicter :: checkSimulatedGranted( double predict_time )
 {
-	if ( deep_predict != 4 )
+	if ( deep_predict != 5 )
 		return false;
-	double rand_num = 0;
+	delta = predict_time - best_predict_time;
+	if ( delta < 0 )
+		return true;
+	double rand_num = 0; // get value from [0.1..0.9] with step 0.1
 	while ( rand_num == 0 ) {
 		rand_num = ( unsigned )( uint_rand( gen ) % 10 );
 		rand_num *= 0.1;
 	}
-	delta = predict_time - best_predict_time;
 	exp_value = exp(-delta / cur_temperature);
 	if ( rand_num < exp_value ) {
-		IsSimulatedGranted = true;	
+		isSimulatedGranted = true;	
 		return true;
 	}
 	else return false;
@@ -1716,11 +1718,8 @@ bool MPI_Predicter :: GetPredict()
 			else if ( penalty > med_time_arr[i] ) // if limit exceeded
 				cur_predict_time = huge_double;
 			else {
-				if ( er_strategy == 0 ) { // fixed er
+				if ( er_strategy == 0 ) // fixed er
 					cur_predict_time = pow( er, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom );
-					if ( cur_predict_time < best_predict_time )
-						isTeBkvUpdated = true;
-				}
 				else if ( er_strategy == 1 ) {
 					for( unsigned j = 0; j < cur_predict_times.size(); j++ ) {
 						cur_predict_times[j] = pow( 1.5 + j*0.1, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom ) + 
@@ -1752,9 +1751,9 @@ bool MPI_Predicter :: GetPredict()
 		if ( ( set_status_arr[i] == 4  ) && 
 			 ( predict_time_arr[i] > 0 ) &&
 			 ( ( best_predict_time == 0.0 ) ||
+			   ( ( best_predict_time > 0.0 ) && ( ( predict_time_arr[i] < best_predict_time ) ) ) || 
 			   ( isTeBkvUpdated ) ||
-			   ( ( te == 0.0 ) && ( best_predict_time > 0.0 ) && ( ( predict_time_arr[i] < best_predict_time ) ) ) || 
-			   ( ( deep_predict == 5 ) && ( IfSimulatedGranted( predict_time_arr[i] ) ) )
+			   ( checkSimulatedGranted( predict_time_arr[i] ) )
 			 )
 		   )
 		{
@@ -1823,7 +1822,7 @@ bool MPI_Predicter :: GetPredict()
 		cout << "In GetPredict() after main loop" << endl;
 	
 	//cout << "before cycle of AddNewUncheckedArea()" << endl;
-	if ( deep_predict == 6 ) {
+	if ( deep_predict >= 5 ) {
 		// add to L2 once for every set
 		for ( unsigned i = 0; i < set_status_arr.size(); ++i ) {
 			if ( ( decomp_set_arr[i].IsAddedToL2 == false ) && ( set_status_arr[i] > 0 ) )  {
@@ -2302,7 +2301,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 			else if ( deep_predict != 6 )
 				GetNewHammingPoint( var_choose_order, cur_vars_changing, cur_var_count, combinations[cur_index],
 									new_var_choose_order );*/
-			if ( deep_predict == 6 ) {
+			if ( deep_predict >= 5 ) {
 				if ( current_unchecked_area.checked_points[cur_index] == 1 ) {
 					current_skipped++;
 					continue; // checked already

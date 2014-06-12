@@ -73,7 +73,7 @@ public:
 	int deep_predict_cur_var;
 	bool IsRestartNeeded;
 	bool IsDecDecomp;
-	bool IsSimulatedGranted;
+	bool isSimulatedGranted;
 	bool isFirstPoint;
 
 	double cur_temperature;
@@ -133,7 +133,7 @@ public:
 	
 	bool PrepareForPredict();
 	bool GetRandomValuesArray( unsigned shortcnf_count, vector< vector<unsigned> > &values_arr );
-	bool IfSimulatedGranted( double predict_time );
+	bool checkSimulatedGranted( double predict_time );
 	bool WritePredictToFile( int all_skip_count, double whole_time_sec );
 	void SendPredictTask( int ProcessListNumber, int process_number_to_send, int &cur_task_index, unsigned &cur_decomp_set_index );
 	vector<int> BitsetToIntVecPredict( boost::dynamic_bitset<> &bs );
