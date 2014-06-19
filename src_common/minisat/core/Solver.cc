@@ -35,7 +35,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "minisat/utils/System.h"
 #include "minisat/utils/MinisatLogger.h" // added
 #include "minisat/core/Solver.h"
-#include "minisat/core/SolverStateAccessor.h" // added
+#include "minisat/utils/SolverStateAccessor.h" // added
 #include <algorithm>
 using namespace Minisat;
 
@@ -616,7 +616,7 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     vardata[var(p)] = mkVarData(from, decisionLevel());
 	if ( !trail.checkTrailSize() )
 		printf("bad trail");
-    trail.push_(p);
+    trail.push(p);
 }
 
 

@@ -54,6 +54,7 @@ struct Flags
 	double penalty;
 	int er_strategy;
 	double exp_denom;
+	unsigned blob_var_count;
 };
 
 // prototypes
@@ -162,7 +163,9 @@ int main( int argc, char** argv )
 			mpi_p.er = myflags.er;
 		if ( myflags.penalty > 0 )
 			mpi_p.penalty = myflags.penalty;
-
+		if ( myflags.blob_var_count )
+			mpi_p.blob_var_count = myflags.blob_var_count;
+		
 		// Predict compute cost
 		if ( !mpi_p.MPI_Predict( argc, argv ) ) {
 			printf( "\n Error in MPI_Predict" );
@@ -295,6 +298,7 @@ void WriteUsage( )
 	"\n   -penalty - penalty for function in satisfiably predict mode";
 	"\n   -er_strategy - strategy for SAT predict";
 	"\n   -exp_denom - exponent for denominant in predict function computing";
+	"\n   -blob_var_count - max var count in decomposition set for writing blob (state of SAT solver)";
 }
 
 //---------------------------------------------------------
@@ -359,6 +363,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.penalty = 0;
 	myflags.er_strategy = -1;
 	myflags.exp_denom = 0.0;
+	myflags.blob_var_count = 0;
 	
 	k = 0;
 	
@@ -408,6 +413,8 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.er_strategy = atoi( value.c_str() );
 		else if ( hasPrefix_String( argv_string, "-max_nof_restarts=", value ) )
 			myflags.max_nof_restarts = atoi( value.c_str( ) );
+		else if ( hasPrefix_String( argv_string, "-blob_var_count=", value ) )
+			myflags.blob_var_count = atoi( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-max_solving_time=", value ) )
 			myflags.max_solving_time = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-max_solving_time_koef=", value ) )

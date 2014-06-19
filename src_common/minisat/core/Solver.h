@@ -211,15 +211,17 @@ protected:
         VarOrderLt(const IntMap<Var, double>&  act) : activity(act) { }
     };
 
-    struct ShrinkStackElem {
+   struct ShrinkStackElem {
         uint32_t i;
         Lit      l;
+		ShrinkStackElem(): i(0) {}
         ShrinkStackElem(uint32_t _i, Lit _l) : i(_i), l(_l){}
     };
 	
 	friend std::ostream& operator<<(std::ostream& out, const VarData& data);
 	friend std::ostream& operator<<(std::ostream& out, const Watcher& watcher);
-
+	friend std::ostream& operator<<(std::ostream& out, const ShrinkStackElem& elem);
+	
     // Solver state:
     //
     vec<CRef>           clauses;          // List of problem clauses.

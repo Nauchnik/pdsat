@@ -1,5 +1,5 @@
 #include "mpi_predicter.h"
-#include "minisat/core/SolverStateAccessor.h"
+#include "minisat/utils/SolverStateAccessor.h"
 
 MPI_Predicter :: MPI_Predicter( ) :
 	predict_from           ( 0 ),   
@@ -50,7 +50,7 @@ MPI_Predicter :: MPI_Predicter( ) :
 	prev_area_best_predict_time ( 0 ),
 	er_strategy ( 0 ),
 	exp_denom ( 1.0 ),
-	max_var_count_state_writing ( 35 )
+	blob_var_count ( 0 )
 {
 	array_message = NULL;
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
@@ -671,7 +671,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 						ofile << all_var_activity[i] << " ";
 					ofile.close();
 				}
-				/*if ( var_choose_order.size() <= max_var_count_state_writing ) {
+				if ( var_choose_order.size() <= blob_var_count ) {
 					sstream << "blob_point_set_len_" << var_choose_order.size() << "_rank_" << rank << "_num_" << cur_point_number;
 					cur_state_file_name = sstream.str();
 					sstream.clear(); sstream.str("");
@@ -684,7 +684,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 					for ( unsigned i=0; i < var_choose_order.size(); i++ )
 						ofile << var_choose_order[i] << " ";
 					ofile.close();
-				}*/
+				}
 			}
 			//delete S;
 			S->clearDB();
@@ -1331,6 +1331,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "er_strategy " << er_strategy << endl;
 		cout << "exp_denom " << exp_denom << endl;
 		cout << "keystream_len " << keystream_len << endl;
+		cout << "blob_var_count " << blob_var_count << endl;
 		cout << endl;
 		
 		DeepPredictMain();

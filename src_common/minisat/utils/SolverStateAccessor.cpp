@@ -1,4 +1,4 @@
-#include "Solver.h"
+﻿#include "../core/Solver.h"
 #include "SolverStateAccessor.h"
 
 namespace Minisat
@@ -114,6 +114,10 @@ void SolverStateAccessor::ReadStateBlob(const std::string& filename)
 
 	ReadBlob(in, desc.released_vars_size, solver_.released_vars);
 	ReadBlob(in, desc.free_vars_size, solver_.free_vars);
+	ReadBlob(in, desc.seen_size, solver_.seen);
+	ReadBlob(in, desc.analyze_stack_size, solver_.analyze_stack);
+	ReadBlob(in, desc.analyze_toclear_size, solver_.analyze_toclear);
+	ReadBlob(in, desc.add_tmp_size, solver_.add_tmp);
 
 	//! memory allocator
 	{
@@ -136,7 +140,7 @@ void SolverStateAccessor::WriteStateBlob(const std::string& filename) const
 		std::cerr << "ReadStateBlob: can't open file " << filename << std::endl;
 		exit(1);
 	}
-	
+
 	SolverStateDesc desc;
 	GetSolverStateDesc(desc);
 	out.write(reinterpret_cast<char*>(&desc), sizeof(desc));
@@ -169,6 +173,10 @@ void SolverStateAccessor::WriteStateBlob(const std::string& filename) const
 
 	WriteBlob(out, solver_.released_vars);
 	WriteBlob(out, solver_.free_vars);
+	WriteBlob(out, solver_.seen);
+	WriteBlob(out, solver_.analyze_stack);
+	WriteBlob(out, solver_.analyze_toclear);
+	WriteBlob(out, solver_.add_tmp);
 
 	//! memory allocator
 	{
@@ -245,6 +253,10 @@ void SolverStateAccessor::GetSolverStateDesc(SolverStateDesc& desc) const
 	desc.order_heap_indices_size = solver_.order_heap.indices.size();
 	desc.released_vars_size = solver_.released_vars.size();
 	desc.free_vars_size = solver_.free_vars.size();
+	desc.seen_size = solver_.seen.size();
+	desc.analyze_stack_size = solver_.analyze_stack.size();
+	desc.analyze_toclear_size = solver_.analyze_toclear.size();
+	desc.add_tmp_size = solver_.add_tmp.size();
 	desc.allocator_capacity = solver_.ca.ra.capacity();
 	desc.allocator_size = solver_.ca.ra.size();
 	desc.allocator_wasted = solver_.ca.ra.wasted();
@@ -308,7 +320,7 @@ void SolverStateAccessor::WriteStateText(const std::string& filename) const
 		std::cerr << "ReadStateBlob: can't open file " << filename << std::endl;
 		exit(1);
 	}
-
+	
 	SolverStateDesc desc;
 	GetSolverStateDesc(desc);
 	out << desc << std::endl;
@@ -335,6 +347,10 @@ void SolverStateAccessor::WriteStateText(const std::string& filename) const
 	WriteOut(out, "order_heap.indices:", solver_.order_heap.indices);
 	WriteOut(out, "released_vars:", solver_.released_vars);
 	WriteOut(out, "free_vars:", solver_.free_vars);
+	WriteOut(out, "seen:", solver_.seen);
+	WriteOut(out, "analyze_stack:", solver_.analyze_stack);
+	WriteOut(out, "analyze_toclear:", solver_.analyze_toclear);
+	WriteOut(out, "add_tmp:", solver_.add_tmp);
 }
 
 std::ostream& operator<<(std::ostream& out, const SolverStateDesc& desc)
@@ -403,6 +419,10 @@ std::ostream& operator<<(std::ostream& out, const SolverStateDesc& desc)
 	out << "order_heap_indices_size: " << desc.order_heap_indices_size << std::endl;
 	out << "released_vars_size: " << desc.released_vars_size << std::endl;
 	out << "free_vars_size: " << desc.free_vars_size << std::endl;
+	out << "seen_size: " << desc.seen_size << std::endl;
+	out << "analyze_stack_size: " << desc.analyze_stack_size << std::endl;
+	out << "analyze_toclear_size: " << desc.analyze_toclear_size << std::endl;
+	out << "add_tmp_size: " << desc.add_tmp_size << std::endl;
 	out << "allocator_capacity: " << desc.allocator_capacity << std::endl;
 	out << "allocator_size: " << desc.allocator_size << std::endl;
 	out << "allocator_wasted: " << desc.allocator_wasted << std::endl;
@@ -430,6 +450,12 @@ std::ostream& operator<<(std::ostream& out, const Solver::VarData& data)
 std::ostream& operator<<(std::ostream& out, const Solver::Watcher& watcher)
 {
 	out << "(" << watcher.cref << "," << watcher.blocker << ")";
+	return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const Solver::ShrinkStackElem& elem)
+{
+	out << "(" << elem.i << "," << elem.l << ")";
 	return out;
 }
 

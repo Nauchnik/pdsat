@@ -1,6 +1,4 @@
-#ifndef Minisat_SolverStateAccessor_h
-#define Minisat_SolverStateAccessor_h
-
+﻿
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -8,6 +6,7 @@
 
 namespace Minisat
 {
+
 // Дескриптор для дапма состояния решателя
 struct SolverStateDesc
 {
@@ -94,6 +93,13 @@ struct SolverStateDesc
 	uint32_t  released_vars_size;
 	uint32_t  free_vars_size;
 
+	// Temporary data collections:
+
+	uint32_t  seen_size;
+	uint32_t  analyze_stack_size;
+	uint32_t  analyze_toclear_size;
+	uint32_t  add_tmp_size;
+
 	// Memory pool: 
 
 	uint32_t  allocator_capacity;
@@ -134,5 +140,3 @@ std::ostream& operator<<(std::ostream& out, const lbool& lb);
 std::ostream& operator<<(std::ostream& out, const SolverStateDesc& desc);
 
 } // namespace Minisat
-
-#endif
