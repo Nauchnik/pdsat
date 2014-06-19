@@ -50,8 +50,8 @@ Options.o: ../src_common/minisat/utils/Options.cc
 System.o: ../src_common/minisat/utils/System.cc
 	${CPP} ${CPPFLAGS} ../src_common/minisat/utils/System.cc -c
 
-SolverStateAccessor.o: ../src_common/minisat/core/SolverStateAccessor.cpp
-	${CPP} ${CPPFLAGS} ../src_common/minisat/core/SolverStateAccessor.cpp -c
+SolverStateAccessor.o: ../src_common/minisat/utils/SolverStateAccessor.cpp
+	${CPP} ${CPPFLAGS} ../src_common/minisat/utils/SolverStateAccessor.cpp -c
 
 Solver.o: ../src_common//minisat/core/Solver.cc
 	${CPP} ${CPPFLAGS} ../src_common//minisat/core/Solver.cc -c
