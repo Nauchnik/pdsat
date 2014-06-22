@@ -614,8 +614,6 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assert(value(p) == l_Undef);
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
-	if ( !trail.checkTrailSize() )
-		printf("bad trail");
     trail.push(p);
 }
 
