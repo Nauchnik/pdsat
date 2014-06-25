@@ -282,8 +282,6 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 			prev_starts    = S->starts;
 			prev_conflicts = S->conflicts;
 			
-			S->last_time = Minisat :: cpuTime();
-
 			cnf_time_from_node = Minisat :: cpuTime();
 			ret = S->solveLimited( dummy_vec[i] );
 			cnf_time_from_node = Minisat :: cpuTime() - cnf_time_from_node;
