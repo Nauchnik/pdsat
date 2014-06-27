@@ -1,6 +1,6 @@
-p cnf 777 12800
 c input variables 177
 c output variables 200
+p cnf 777 12800
 178 162 175 177 -69 0
 178 162 175 -177 69 0
 178 162 176 177 -69 0
