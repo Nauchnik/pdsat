@@ -54,7 +54,7 @@ public:
 	double max_solving_time;
 	double start_solving_time;
 	double start_activity;
-	unsigned core_len;
+	int core_len;
 	bool IsPredict;
 	double last_time;
 	int rank;
