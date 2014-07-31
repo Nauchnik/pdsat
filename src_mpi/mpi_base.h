@@ -39,7 +39,8 @@ const unsigned FULL_MASK_LEN = 26;
 const unsigned SOLVING_TIME_LEN = 15; // info about time of solving tasks
 const unsigned MAX_ASSIGNS_COUNT = 800;
 
-enum ProblemStates{ Solved, SolvedOnPreprocessing, Interrupted };
+enum ProblemStates{Solved, SolvedOnPreprocessing, Interrupted};
+enum solver_type{minisat_orig, minisat_hack_minigolf};
 
 class MPI_Base
 {
@@ -56,7 +57,7 @@ public:
 	
 	int rank;
 	int corecount;
-	int solver_type;
+	solver_type cur_solver_type;
 	unsigned koef_val;
 	string schema_type;
 	unsigned core_len;

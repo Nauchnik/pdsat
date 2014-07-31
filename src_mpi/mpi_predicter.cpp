@@ -353,17 +353,17 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	MPI_Recv( &input_var_num,    1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &start_activity,   1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	if ( input_var_num == 0 ) {
-		cerr << "input_var_num == 0" << endl;
+		std::cerr << "input_var_num == 0" << endl;
 		exit(1);
 	}
 	if ( rank == 1 ) {
-		cout << "rank 1" << endl;
-		cout << "var_count "        << var_count << endl;
-		cout << "core_len "         << core_len << endl;
-		cout << "activity_vec_len " << activity_vec_len << endl;
-		cout << "known_last_bits "  << activity_vec_len << endl;
-		cout << "input_var_num "    << input_var_num << endl;
-		cout << "start_activity "   << start_activity << endl;
+		std::cout << "rank 1" << endl;
+		std::cout << "var_count "        << var_count << std::endl;
+		std::cout << "core_len "         << core_len << std::endl;
+		std::cout << "activity_vec_len " << activity_vec_len << std::endl;
+		std::cout << "known_last_bits "  << activity_vec_len << std::endl;
+		std::cout << "input_var_num "    << input_var_num << std::endl;
+		std::cout << "start_activity "   << start_activity << std::endl;
 	}
 	int *full_local_decomp_set = new int[core_len];
 	MPI_Recv( full_local_decomp_set, core_len, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
@@ -385,20 +385,21 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	// read file with CNF once
 	Problem cnf;
 	Solver *S;
-	if ( solver_type == 4 ) {
-		minisat22_wrapper m22_wrapper;
-		ifstream in( input_cnf_name );
-		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
-		in.close();
-		S = new Solver();
-		S->addProblem(cnf);
-		S->pdsat_verbosity  = verbosity;
-		S->IsPredict        = IsPredict;
-		S->max_solving_time = max_solving_time;
-		S->rank             = rank;
-		S->core_len         = core_len;
-		S->start_activity   = start_activity;
-	}
+	minisat22_wrapper m22_wrapper;
+	ifstream in( input_cnf_name );
+	m22_wrapper.parse_DIMACS_to_problem(in, cnf);
+	in.close();
+	S = new Solver();
+	S->addProblem(cnf);
+	S->pdsat_verbosity  = verbosity;
+	S->IsPredict        = IsPredict;
+	S->max_solving_time = max_solving_time;
+	S->rank             = rank;
+	S->core_len         = core_len;
+	S->start_activity   = start_activity;
+	
+	if ( cur_solver_type == minisat_hack_minigolf )
+		S->cur_hack_type = hack_minigolf;
 	
 	if ( te > 0 ) { // ro es te mode
 		MPI_Recv( &first_stream_var_index,  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
@@ -551,7 +552,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		}
 		
 		process_sat_count = 0;
-        if ( solver_type == 4 ) {
+        if ( ( cur_solver_type == minisat_orig ) || ( cur_solver_type == minisat_hack_minigolf ) ) {
 			if ( te > 0 ) { // make satisfiable instanse by known state and keystream
 				dummy.clear();
 				sat_sample_index = current_task_index % cnf_in_set_count;
@@ -692,7 +693,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			S->clearParams();
         }
 		else { 
-			cout << "solver_type has unknown format"; return false;
+			std::cout << "solver_type has unknown format" << std::endl; return false;
 		}
 		
 		MPI_Send( &current_task_index,         1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
@@ -702,7 +703,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		MPI_Send( var_activity, activity_vec_len, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
 		
 		if ( verbosity > 0 )
-			cout << "rank " << rank << " sended decision" << endl;
+			std::cout << "rank " << rank << " sended decision" << std::endl;
 	}
 	
 	delete[] var_activity;
@@ -1307,7 +1308,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		array_message = NULL;
 		
 		cout << "verbosity "     << verbosity           << endl;
-		cout << "solver_type "   << solver_type         << endl;
+		cout << "cur_solver_type " << cur_solver_type   << endl;
 		cout << "schema_type "   << schema_type         << endl;
 		cout << "corecount "     << corecount           << endl;
 		cout << "deep_predict  " << deep_predict        << endl;
@@ -1865,7 +1866,7 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 			<< "Count of CNF in set "      << cnf_in_set_count << endl
 			<< "Count of CNF in all sets " << all_tasks_count << endl
 			<< "Count of core-variables "  << core_len << endl
-			<< "Solver type "              << solver_type << endl
+			<< "Solver type "              << cur_solver_type << endl
 			<< "Schema type "              << schema_type << endl
 			<< "start activity "           << start_activity << endl;
 

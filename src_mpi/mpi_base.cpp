@@ -15,7 +15,7 @@ const int    NUM_KEY_BITS                  = 64;
 MPI_Base :: MPI_Base( ) :
 	sat_count            ( 0 ),
 	corecount			 ( 0 ),
-	solver_type          ( 4 ),
+	cur_solver_type      ( minisat_orig ),
 	core_len             ( 0 ),
 	koef_val             ( 8 ),
 	schema_type          ( "" ),

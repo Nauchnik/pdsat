@@ -36,12 +36,12 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "minisat/utils/MinisatLogger.h" // added
 #include "minisat/core/Solver.h"
 #include "minisat/utils/SolverStateAccessor.h" // added
+
 #include <algorithm>
 using namespace Minisat;
 
 //=================================================================================================
 // Options:
-
 
 static const char* _cat = "CORE";
 
@@ -63,6 +63,10 @@ static DoubleOption  start_activity        (_cat, "start_activity",   "start_act
 //=================================================================================================
 // Constructor/Destructor:
 
+int32_t s=0,t=0,u,v=0;
+
+BoolOption  D("", "c", "", 0);
+BoolOption  R("", "p", "", 0);
 
 Solver::Solver() :
 
@@ -127,6 +131,7 @@ Solver::Solver() :
   , last_time          ( 0 )
   , rank               ( -1 )
   , pdsat_verbosity    ( 0 )
+  , cur_hack_type      ( no )
 {}
 
 Solver::~Solver()
@@ -262,6 +267,7 @@ Var Solver::newVar(lbool upol, bool dvar)
     decision .reserve(v);
     trail    .capacity(v+1);
     setDecisionVar(v, dvar);
+    if(D)P.push(-1);
     return v;
 }
 
@@ -284,7 +290,20 @@ bool Solver::addClause_(vec<Lit>& ps)
 
     // Check if clause is satisfied and remove false/duplicate literals:
     sort(ps);
-    Lit p; int i, j;
+
+	Lit p; int i, j;
+
+	if ( cur_hack_type == hack_minigolf ) {
+	    vec<Lit> oc;
+		oc.clear();
+		int flag = 0;
+		for (i = j = 0, p = lit_Undef; i < ps.size(); i++) {
+			oc.push(ps[i]);
+			if (value(ps[i]) == l_True || ps[i] == ~p || value(ps[i]) == l_False)
+			  flag = 1;
+		}
+	}
+
     for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
         if (value(ps[i]) == l_True || ps[i] == ~p)
             return true;
@@ -344,7 +363,6 @@ void Solver::removeClause(CRef cr) {
     ca.free(cr);
 }
 
-
 bool Solver::satisfied(const Clause& c) const {
     for (int i = 0; i < c.size(); i++)
         if (value(c[i]) == l_True)
@@ -370,7 +388,6 @@ void Solver::cancelUntil(int level) {
 
 //=================================================================================================
 // Major methods:
-
 
 Lit Solver::pickBranchLit()
 {
@@ -419,44 +436,94 @@ Lit Solver::pickBranchLit()
 |        rest of literals. There may be others from the same level though.
 |  
 |________________________________________________________________________________________________@*/
-void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
+U Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
 {
     int pathC = 0;
     Lit p     = lit_Undef;
+
+	U x = 0, y = 1;
 
     // Generate conflict clause:
     //
     out_learnt.push();      // (leave room for the asserting literal)
     int index   = trail.size() - 1;
+	
+	if ( cur_hack_type == no ) {
+		do{
+			assert(confl != CRef_Undef); // (otherwise should be UIP)
+			Clause& c = ca[confl];
 
-    do{
-        assert(confl != CRef_Undef); // (otherwise should be UIP)
-        Clause& c = ca[confl];
+			if (c.learnt())
+				claBumpActivity(c);
 
-        if (c.learnt())
-            claBumpActivity(c);
+			for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++){
+				Lit q = c[j];
 
-        for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++){
-            Lit q = c[j];
+				if (!seen[var(q)] && level(var(q)) > 0){
+					varBumpActivity(var(q));
+					seen[var(q)] = 1;
+					if (level(var(q)) >= decisionLevel())
+						pathC++;
+					else
+						out_learnt.push(q);
+				}
+			}
 
-            if (!seen[var(q)] && level(var(q)) > 0){
-                varBumpActivity(var(q));
-                seen[var(q)] = 1;
-                if (level(var(q)) >= decisionLevel())
-                    pathC++;
-                else
-                    out_learnt.push(q);
-            }
-        }
+			// Select next clause to look at:
+			while (!seen[var(trail[index--])]);
+			p     = trail[index+1];
+			confl = reason(var(p));
+			seen[var(p)] = 0;
+			pathC--;
+
+		}while (pathC > 0);
+	}
+	else if ( cur_hack_type == hack_minigolf ) {
+		do{
+			assert(confl != CRef_Undef); // (otherwise should be UIP)
+			Clause& c = ca[confl];
+
+			if (c.learnt())
+				claBumpActivity(c);
+
+			for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++){
+				Lit q = c[j];
+
+				if (!seen[var(q)] && level(var(q)) > 0){
+					varBumpActivity(var(q));
+					seen[var(q)] = 1;
+					if (level(var(q)) >= decisionLevel())
+						pathC++;
+					else 
+						out_learnt.push(q),y=0;
+				}
+			}
         
-        // Select next clause to look at:
-        while (!seen[var(trail[index--])]);
-        p     = trail[index+1];
-        confl = reason(var(p));
-        seen[var(p)] = 0;
-        pathC--;
+			if(!y && x>0)break;
+        
+			// Select next clause to look at:
+			while (!seen[var(trail[index--])]);
+			p     = trail[index+1];
+			confl = reason(var(p));
+			seen[var(p)] = 0;
+			pathC--;
+	
+		if( pathC < 1 && y && O.size()==1+x) {x ++;O.push(~p);}
 
-    }while (pathC > 0);
+		}while ( ( pathC  
+						  >0 && !x )
+		  || (y && x>0 && Ca
+		);
+		if(x){ 
+		  for(u=x+1;u<O Ha;) S(O,u++)
+		  O.shrink(O Ha -1-x);
+		  O[0]=O[x];O.pop();
+		  out_btlevel=0;
+		  while (!y && Ca S(trail,index--)
+		  return x;
+		}
+	}
+
     out_learnt[0] = ~p;
 
     // Simplify conflict clause:
@@ -507,6 +574,8 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     }
 
     for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0;    // ('seen[]' is now cleared)
+	
+	return 0;
 }
 
 
@@ -615,8 +684,11 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
     trail.push(p);
+	if ( cur_hack_type == hack_minigolf )
+		if(D)P[var(p)] = trail.size();
+    trail.push_(p);
+    //if(R) __builtin_prefetch( & watches[p] );
 }
-
 
 /*_________________________________________________________________________________________________
 |
@@ -659,6 +731,14 @@ CRef Solver::propagate()
             Lit     first = c[0];
             Watcher w     = Watcher(cr, first);
             if (first != blocker && value(first) == l_True){
+				if ( cur_hack_type == hack_minigolf ) {
+					if(D){U t = var(first);
+					if( reason(t) != CRef_Undef) {
+					U p = P[ t ],f = 0;
+					for( U i = 1; i < c Ha; ++ i ) if( value( c[i] ) != l_False || P[ var(c[i]) ] > p ) {f = 1; break;}
+					if( !f && Ta.cost > c Ha )  Ta.reason = cr,Ta.cost = c Ha;
+					}}
+				}
                 *j++ = w; continue; }
 
             // Look for new watch:
@@ -851,10 +931,11 @@ lbool Solver::search(int nof_conflicts)
 			}
 
             learnt_clause.clear();
-            analyze(confl, learnt_clause, backtrack_level);
+            v = analyze(confl, learnt_clause, backtrack_level);
             cancelUntil(backtrack_level);
-
-            if (learnt_clause.size() == 1){
+			if ( ( cur_hack_type == hack_minigolf ) && ( v ) )
+				for(u=0;u<v;) uncheckedEnqueue(learnt_clause[u++]);
+			else if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
             }else{
 				if ( print_learnts ) {

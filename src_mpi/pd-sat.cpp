@@ -13,7 +13,7 @@
 
 struct Flags
 {
-	int solver_type;
+	solver_type cur_solver_type;
 	int sort_type;
 	int koef_val;
 	string schema_type; 
@@ -90,8 +90,7 @@ int main( int argc, char** argv )
 	
 	if ( myflags.IsConseq ) {
 		MPI_Solver mpi_s;
-		if ( myflags.solver_type != -1 )
-			mpi_s.solver_type = myflags.solver_type;
+		mpi_s.cur_solver_type = myflags.cur_solver_type;
 		if ( myflags.core_len != -1 )
 			mpi_s.core_len = myflags.core_len;
 		mpi_s.verbosity = myflags.verbosity;
@@ -113,9 +112,7 @@ int main( int argc, char** argv )
 	if ( myflags.IsPredict ) {
 		MPI_Predicter mpi_p;
 		mpi_p.input_cnf_name          = input_cnf_name; // for C dminisat
-		
-		if ( myflags.solver_type != -1 )
-			mpi_p.solver_type         = myflags.solver_type;
+		mpi_p.cur_solver_type         = myflags.cur_solver_type;
 		if ( myflags.koef_val != -1 )
 			mpi_p.koef_val            = myflags.koef_val;
 		if ( myflags.schema_type != "" )
@@ -191,8 +188,8 @@ int main( int argc, char** argv )
 		if ( full_mask_var_count != -1 )
 			mpi_s.full_mask_var_count = (unsigned)full_mask_var_count;
 
-		if ( myflags.solver_type != -1 )
-			mpi_s.solver_type = myflags.solver_type;
+		if ( myflags.cur_solver_type != -1 )
+			mpi_s.cur_solver_type = myflags.cur_solver_type;
 		if ( myflags.koef_val != -1 )
 			mpi_s.koef_val    = myflags.koef_val;
 		if ( myflags.schema_type != "" )
@@ -238,11 +235,9 @@ void WriteUsage( )
 	std :: cout << 
 	"\n USAGE: pdsat [options] <input_cnf> <split_var_count>"
 	"\n options::"
-	"\n   -solver = { dm, m2_orig, m2_mod }, -s = -solver"
-	"\n	    dm		     - mod of minisat 1.14 for (9+11+11) schema,"
-	"\n	    m2_orig		 - origignal minisat 2.0"
-	"\n		m2_mod		 - modified minisat 2.0 on C++ (by constants changing)"
-	"\n		m2.2		 - minisat 2.2"
+	"\n   -solver = { minisat, minigolf }, -s = -solver"
+	"\n		minisat - minisat 2.2"
+	"\n		minigolf - hack of minisat 2.2 from SAT 2013"
 	"\n   -sort = { 0, 1, 2 }"
 	"\n	    0			 - no sort,"
 	"\n	    1			 - only sort of tasks,"
@@ -322,7 +317,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	string argv_string,
 		   value;
 	// default values
-	myflags.solver_type			= -1;
+	myflags.cur_solver_type		= minisat_orig;
 	myflags.koef_val			= -1,
 	myflags.schema_type			= "";
 	myflags.poly_mod			= -1;
@@ -457,23 +452,18 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 		else if ( ( hasPrefix_String( argv_string, "-solver=",      value ) ) || 
 				  ( hasPrefix_String( argv_string, "-s=",           value ) ) )
 		{
-			if ( ( value == "dm"       ) || 
-				 ( value == "dminisat" ) )
-			{
-				myflags.solver_type = 1;
-				if ( !IsSchemaFixed ) // if no key -schema
-					myflags.schema_type = "0"; // default schema is first variables
-			}
-			else if ( value == "m2.2" )
-				myflags.solver_type = 4;
+			if ( value == "minisat" )
+				myflags.cur_solver_type = minisat_orig;
+			else if ( value == "minigolf" )
+				myflags.cur_solver_type = minisat_hack_minigolf;
 			else
-                cout << "ERROR! unknown solver " << value;
+                std::cerr << "unknown solver " << value << std::endl;
 		}
-		else if ( hasPrefix_String( argv_string, "-koef=",       value ) ) {
+		else if ( hasPrefix_String( argv_string, "-koef=", value ) ) {
 			myflags.koef_val = atoi( value.c_str( ) );
 			if ( myflags.koef_val < 1 ) {
 				myflags.koef_val = 1;
-				cout << "koef_val was changed to 1";
+				std::cout << "koef_val was changed to 1";
 			}
 		}
 		else if ( ( hasPrefix_String( argv_string, "-core=",     value ) ) ||
@@ -591,7 +581,7 @@ void TestSolve()
 	MPI_Solver mpi_s;
 	mpi_s.input_cnf_name = input_cnf_name;
 	//mpi_s.schema_type = "rslos_end";
-	mpi_s.solver_type = 4;
+	mpi_s.cur_solver_type = minisat_orig;
 	mpi_s.ReadIntCNF();
 	mpi_s.MakeVarChoose();
 	int current_task_index = 0;

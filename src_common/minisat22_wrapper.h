@@ -13,7 +13,7 @@
 #include "minisat/utils/Options.h"
 #include "minisat/core/Dimacs.h"
 #include "minisat/core/Solver.h"
-#include "minisat/simp/SimpSolver.h"
+//#include "minisat/simp/SimpSolver.h"
 
 using namespace Minisat;
 

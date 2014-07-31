@@ -253,60 +253,60 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 	boost::dynamic_bitset<> cur_bitset;
 	
 	unsigned long long before_binary_length = 0;
-	if ( solver_type == 4 ) {
-		if ( assumptions_count ) // if assumptions in file 
-			MakeAssignsFromFile( current_task_index, before_binary_length, dummy_vec );
-		else
-			MakeAssignsFromMasks( full_mask, part_mask, mask_value, dummy_vec );
+	
+	if ( assumptions_count ) // if assumptions in file 
+		MakeAssignsFromFile( current_task_index, before_binary_length, dummy_vec );
+	else
+		MakeAssignsFromMasks( full_mask, part_mask, mask_value, dummy_vec );
+	
+	cur_bitset.resize( var_choose_order.size() );
 		
-		cur_bitset.resize( var_choose_order.size() );
-		
-		if ( ( verbosity > 1 ) && ( rank == 1 ) ) {
-			cout << "dummy_vec size" << dummy_vec.size() << endl;
-			for ( int i = 0; i < dummy_vec.size(); ++i ) {
-				for ( int j=0; j < dummy_vec[i].size(); ++j )
-					cout << dummy_vec[i][j].x << " ";
-				cout << endl;
-			}
+	if ( ( verbosity > 1 ) && ( rank == 1 ) ) {
+		std::cout << "dummy_vec size" << dummy_vec.size() << std::endl;
+		for ( int i = 0; i < dummy_vec.size(); ++i ) {
+			for ( int j=0; j < dummy_vec[i].size(); ++j )
+				std::cout << dummy_vec[i][j].x << " ";
+			std::cout << std::endl;
 		}
+	}
 
-		for ( int i = 0; i < dummy_vec.size(); ++i )
-			if ( dummy_vec[i].size() == 0 ) {
-				cerr << "dummy_vec.size() == 0" << endl;
-				return false;
-			}
+	for ( int i = 0; i < dummy_vec.size(); ++i )
+		if ( dummy_vec[i].size() == 0 ) {
+			std::cerr << "dummy_vec.size() == 0" << std::endl;
+			return false;
+		}
 		
-		uint64_t prev_starts, prev_conflicts;
-		for ( int i=0; i < dummy_vec.size(); ++i ) {
-			// save current state to check differences
-			prev_starts    = S->starts;
-			prev_conflicts = S->conflicts;
+	uint64_t prev_starts, prev_conflicts;
+	for ( int i=0; i < dummy_vec.size(); ++i ) {
+		// save current state to check differences
+		prev_starts    = S->starts;
+		prev_conflicts = S->conflicts;
 			
-			cnf_time_from_node = Minisat :: cpuTime();
-			ret = S->solveLimited( dummy_vec[i] );
-			cnf_time_from_node = Minisat :: cpuTime() - cnf_time_from_node;
+		cnf_time_from_node = Minisat :: cpuTime();
+		ret = S->solveLimited( dummy_vec[i] );
+		cnf_time_from_node = Minisat :: cpuTime() - cnf_time_from_node;
 			
-			if ( no_increm )
-				S->clearDB(); // clear database if incremental solving disabled
+		if ( no_increm )
+			S->clearDB(); // clear database if incremental solving disabled
 			
-			//ret = S->solveLimited( dummy_vec[i], true, false ); // for SimpSolver
+		//ret = S->solveLimited( dummy_vec[i], true, false ); // for SimpSolver
 
-			total_time += cnf_time_from_node;
+		total_time += cnf_time_from_node;
 			
-			if ( ret == l_Undef )
-				cur_problem_state = Interrupted; // interrupted cause of restarts or time limit
-			else if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) )
-				cur_problem_state = SolvedOnPreprocessing;  // solved by BCP
-			else
-				cur_problem_state = Solved; // just solved
+		if ( ret == l_Undef )
+			cur_problem_state = Interrupted; // interrupted cause of restarts or time limit
+		else if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) )
+			cur_problem_state = SolvedOnPreprocessing;  // solved by BCP
+		else
+			cur_problem_state = Solved; // just solved
 			
-			AddSolvingTimeToArray( cur_problem_state, cnf_time_from_node, solving_times );
+		AddSolvingTimeToArray( cur_problem_state, cnf_time_from_node, solving_times );
 
-			if ( cur_problem_state == Interrupted ) {
-				batch_interrupted_count++;
-				if ( cur_bitset.size() < (unsigned)dummy_vec[i].size() ) {
-					cerr << "cur_bitset.size() < dummy_vec[i].size()" << endl;
-					cerr << cur_bitset.size() << " < " << dummy_vec[i].size() << endl;
+		if ( cur_problem_state == Interrupted ) {
+			batch_interrupted_count++;
+			if ( cur_bitset.size() < (unsigned)dummy_vec[i].size() ) {
+					std::cerr << "cur_bitset.size() < dummy_vec[i].size()" << std::endl;
+					std::cerr << cur_bitset.size() << " < " << dummy_vec[i].size() << std::endl;
 					return false;
 				}
 				for ( int j = 0; j < dummy_vec[i].size(); ++j )
@@ -314,51 +314,49 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 				vec_bitset.push_back( cur_bitset );
 			}
 			
-			if ( ret == l_True ) {
-				process_sat_count++;
-				cout << "process_sat_count " << process_sat_count << endl;
-				if ( !solving_times[3] ) {
-					solving_times[3] = cnf_time_from_node; // time of 1st SAT, write only once
-					cout << "SAT time " << solving_times[3] << endl;
-				}
-				b_SAT_set_array.resize( S->model.size() );
-				for ( int i=0; i < S->model.size(); i++ )
-					b_SAT_set_array[i] = ( S->model[i] == l_True) ? 1 : 0 ;
-				// check res file for SAT set existing
-				if ( !AnalyzeSATset( ) ) {
-					// is't needed to deallocate memory - MPI_Abort will do it	
-					cout << "Error in Analyzer" << endl;
-					MPI_Abort( MPI_COMM_WORLD, 0 );
-					return false;
-				}
-				if ( !IsSolveAll )
-					break;
+		if ( ret == l_True ) {
+			process_sat_count++;
+			std::cout << "process_sat_count " << process_sat_count << std::endl;
+			if ( !solving_times[3] ) {
+				solving_times[3] = cnf_time_from_node; // time of 1st SAT, write only once
+				std::cout << "SAT time " << solving_times[3] << std::endl;
 			}
+			b_SAT_set_array.resize( S->model.size() );
+			for ( int i=0; i < S->model.size(); i++ )
+				b_SAT_set_array[i] = ( S->model[i] == l_True) ? 1 : 0 ;
+			// check res file for SAT set existing
+			if ( !AnalyzeSATset( ) ) {
+				// is't needed to deallocate memory - MPI_Abort will do it	
+				std::cout << "Error in Analyzer" << endl;
+				MPI_Abort( MPI_COMM_WORLD, 0 );
+				return false;
+			}
+			if ( !IsSolveAll )
+				break;
 		}
-		if ( batch_interrupted_count ) {
-			fstream file( new_assumptions_file_name.c_str(), ios_base::in );
-			if ( file.peek() == fstream::traits_type::eof() ) { // if file is empty
-				file.close();
-				file.open( new_assumptions_file_name.c_str(), ios_base::out );
-				file << var_choose_order.size();  // write length of boolean vectors
-				file.close();
-			}
-			else file.close();
-			
-			ofile.open( new_assumptions_file_name.c_str(), ios_base::out | ios_base::app | ios_base::binary );
-			unsigned long long ul;
-			for( unsigned i=0; i < vec_bitset.size(); ++i ) {
-				//ul = vec_bitset[i].to_ullong();
-				ul = BitsetToUllong( vec_bitset[i] );
-				ofile.write( (char*)&ul, sizeof(ul) );
-			}
-			ofile.close();
-		}
-		
-		solving_times[2] = total_time / dummy_vec.size(); // med time for current batch
 	}
-	else 
-		{ cout << "solver_type has unknown format" << endl; return false; }
+
+	if ( batch_interrupted_count ) {
+		fstream file( new_assumptions_file_name.c_str(), ios_base::in );
+		if ( file.peek() == fstream::traits_type::eof() ) { // if file is empty
+			file.close();
+			file.open( new_assumptions_file_name.c_str(), ios_base::out );
+			file << var_choose_order.size();  // write length of boolean vectors
+			file.close();
+		}
+		else file.close();
+			
+		ofile.open( new_assumptions_file_name.c_str(), ios_base::out | ios_base::app | ios_base::binary );
+		unsigned long long ul;
+		for( unsigned i=0; i < vec_bitset.size(); ++i ) {
+			//ul = vec_bitset[i].to_ullong();
+			ul = BitsetToUllong( vec_bitset[i] );
+			ofile.write( (char*)&ul, sizeof(ul) );
+		}
+		ofile.close();
+	}
+	
+	solving_times[2] = total_time / dummy_vec.size(); // med time for current batch
 
 	return true;
 }
@@ -658,7 +656,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	ifstream infile;
 	int *var_choose_order_int;
 	
-	if ( solver_type == 4 ) { // last version of minisat
+	if ( cur_solver_type == minisat_orig ) { // last version of minisat
 		ifstream in( input_cnf_name );
 		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
 		in.close();
@@ -714,6 +712,9 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		S->max_solving_time = max_solving_time;
 		S->start_activity   = start_activity;
 		S->resetVarActivity();
+		if ( cur_solver_type == minisat_hack_minigolf )
+			S->cur_hack_type = hack_minigolf;
+
 		sstream << base_known_assumptions_file_name << "_" << solving_iteration_count;
 		known_assumptions_file_name = sstream.str();
 		sstream.clear(); sstream.str("");
@@ -762,11 +763,11 @@ bool MPI_Solver :: ComputeProcessSolve( )
 					cout << mask_value[i] << " ";
 				cout << endl;
 			}
-			
+
 			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index ) ) { 
 				cout << endl << "Error in SolverRun"; return false; 
 			}
-		
+			
 			if ( verbosity > 0 )
 				cout << "process_sat_count is " << process_sat_count << endl;
 		
@@ -775,7 +776,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		}
 	}
 	
-	if ( solver_type == 4 )
+	if ( cur_solver_type == minisat_orig )
 		delete S;
 
 	return true;
@@ -887,7 +888,7 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 
 void MPI_Solver :: PrintParams( )
 {
-	cout << endl << "solver_type is "           << solver_type;                         
+	cout << endl << "cur_solver_type is "       << cur_solver_type;                         
 	cout << endl << "koef_val is "              << koef_val;             		
 	cout << endl << "schema_type is "		    << schema_type;           
 	cout << endl << "full_mask_var_count is "   << full_mask_var_count;  
