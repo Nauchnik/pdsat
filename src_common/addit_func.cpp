@@ -111,13 +111,16 @@ void Addit_func :: MakePermutations( int n, int k, vector< vector<int> > &permut
 int Addit_func :: getdir( string dir, vector<string> &files )
 {
     DIR *dp;
+	string cur_name;
     struct dirent *dirp;
     if((dp  = opendir(dir.c_str())) == NULL) {
         std::cout << std::endl << "Error in opening " << dir;
         return 1;
     }
-    while ((dirp = readdir(dp)) != NULL) 
-	{ files.push_back(string(dirp->d_name)); }
+    while ((dirp = readdir(dp)) != NULL) { 
+		cur_name = string(dirp->d_name);
+		if ( cur_name[0] != '.' ) files.push_back(cur_name); 
+	}
     closedir(dp);
     return 0;
 }
