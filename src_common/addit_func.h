@@ -33,7 +33,7 @@ extern void MakeCombinations( int n, int k, vector< vector<int> > &combinations 
 extern void MakePermutations( int n, int k, vector< vector<int> > &permutations );
 extern int ConseqMultip( int low_bound, int high_bound );
 extern int BitCount( unsigned u );
-extern int getdir( string dir, vector<string> &files );
+extern bool getdir( string dir, vector<string> &files );
 //extern boost::dynamic_bitset<> IntVecToBitset( unsigned bitset_len, vector<int> &vec_int );
 //extern vector<int> BitsetToIntVec( boost::dynamic_bitset<> &bs );
 extern void shl64( unsigned long long int &val_for_left_shift, unsigned int bit_count );
