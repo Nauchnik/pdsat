@@ -41,6 +41,7 @@ extern unsigned long long BitsetToUllong( boost::dynamic_bitset<> cur_bitset );
 extern void UllongToBitset( unsigned long long ull, boost::dynamic_bitset<> &bs );
 extern unsigned uint_rand( boost::random::mt19937 &gen );
 extern bool bool_rand( boost::random::mt19937 &gen );
+extern std::string exec( std::string cmd_str );
 
 template< typename T > 
 bool next_cartesian( vector<T> &vii, vector<int> &index_arr, T &cur_vi )

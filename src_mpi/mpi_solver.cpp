@@ -656,7 +656,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	ifstream infile;
 	int *var_choose_order_int;
 	
-	if ( cur_solver_type == minisat_orig ) { // last version of minisat
+	if ( !isSolverSystemCalling) { // last version of minisat
 		ifstream in( input_cnf_name );
 		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
 		in.close();
@@ -712,9 +712,9 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		S->max_solving_time = max_solving_time;
 		S->start_activity   = start_activity;
 		S->resetVarActivity();
-		if ( cur_solver_type == minisat_hack_minigolf )
+		if ( solver_name.find("minigolf") != std::string::npos )
 			S->cur_hack_type = hack_minigolf;
-
+		
 		sstream << base_known_assumptions_file_name << "_" << solving_iteration_count;
 		known_assumptions_file_name = sstream.str();
 		sstream.clear(); sstream.str("");
@@ -776,9 +776,9 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		}
 	}
 	
-	if ( cur_solver_type == minisat_orig )
+	if ( !isSolverSystemCalling )
 		delete S;
-
+	
 	return true;
 }
 
@@ -888,7 +888,7 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 
 void MPI_Solver :: PrintParams( )
 {
-	cout << endl << "cur_solver_type is "       << cur_solver_type;                         
+	cout << endl << "solver_name is "           << solver_name;                         
 	cout << endl << "koef_val is "              << koef_val;             		
 	cout << endl << "schema_type is "		    << schema_type;           
 	cout << endl << "full_mask_var_count is "   << full_mask_var_count;  

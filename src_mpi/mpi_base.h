@@ -40,7 +40,6 @@ const unsigned SOLVING_TIME_LEN = 15; // info about time of solving tasks
 const unsigned MAX_ASSIGNS_COUNT = 800;
 
 enum ProblemStates{Solved, SolvedOnPreprocessing, Interrupted};
-enum solver_type{minisat_orig, minisat_hack_minigolf};
 
 class MPI_Base
 {
@@ -57,7 +56,7 @@ public:
 	
 	int rank;
 	int corecount;
-	solver_type cur_solver_type;
+	string solver_name;
 	unsigned koef_val;
 	string schema_type;
 	unsigned core_len;
@@ -70,11 +69,12 @@ public:
 	unsigned *full_mask;
 	unsigned *part_mask;
 	unsigned *mask_value; // particular value of bits which set in part_mask
-
+	
 	unsigned activity_vec_len;
 	string known_point_file_name;
 	string base_known_assumptions_file_name;
 	string known_assumptions_file_name;
+	bool isSolverSystemCalling; // calling of solver file by system command
 	
 	bool IsPB; //  pseudo Bool mode. if 0 then common CNF mode
 	int PB_mode; // Pseudo Boolean mode. 1 - inequality mode, 2 - equality mode
@@ -100,8 +100,10 @@ public:
 	unsigned keystream_len;
 	unsigned cnf_in_set_count;
 	unsigned input_var_num;
-	
-	vector<int> rslos_lengths;
+	int current_task_index; 
+	Solver *S;
+	int process_sat_count;
+	double cnf_time_from_node;
 
 	int sat_count;
 	int verbosity;
@@ -114,7 +116,10 @@ public:
 	char *input_cnf_name;
 	vector<int> var_choose_order;
 	vector<int> full_var_choose_order; // all variables that can be chosen to decomp set
-	
+	vector<int> all_vars_set;
+	vector<int> rslos_lengths;
+	double *all_var_activity;
+
 	// Read header "p cnf [var_count] [clause_count]" from DIMACS file
 	bool ReadVarCount( );
 	// Read clauses from DIMACS file

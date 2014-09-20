@@ -50,7 +50,9 @@ MPI_Predicter :: MPI_Predicter( ) :
 	prev_area_best_predict_time ( 0 ),
 	er_strategy ( 0 ),
 	exp_denom ( 1.0 ),
-	blob_var_count ( 0 )
+	blob_var_count ( 0 ),
+	cur_point_number ( 0 ),
+	tmp_cnf_process_name ( "" )
 {
 	array_message = NULL;
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
@@ -242,7 +244,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		// then get 1 more mes
 		MPI_Recv( &process_sat_count,          1, MPI_INT,    current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		MPI_Recv( &cnf_time_from_node,         1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		MPI_Recv( &IsSolvedOnPreprocessing,    1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		MPI_Recv( &IsSolvedOnPreprocessing,    1, MPI_INT, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		MPI_Recv( var_activity, activity_vec_len, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		
 		for( unsigned i=0; i < total_var_activity.size(); ++i ) {
@@ -331,17 +333,231 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	
 	GetPredict();
 	if ( verbosity > 2 )
-		cout << "After GetPredict()" << endl;
+		std::cout << "After GetPredict()" << std::endl;
 
 	WritePredictToFile( all_skip_count, whole_time_sec );
 	
 	if ( verbosity > 2 )
-		cout << "After WritePredictToFile()" << endl;
+		std::cout << "After WritePredictToFile()" << std::endl;
 	
 	return true;
 }
 
-bool MPI_Predicter :: ComputeProcessPredict()
+bool MPI_Predicter :: solverSystemCalling()
+{	
+	string current_out_name = "./tmp_cnf/out_" + solver_name;
+	string system_str = solver_name + " " + "./tmp_cnf/" + tmp_cnf_process_name;
+	
+	fstream current_out;
+	current_out.open( current_out_name.c_str(), std::ios_base :: out );
+	std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+	current_out << Addit_func::exec( system_str );
+	std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+	double clock_solving_time = time_span.count();
+	current_out.close();
+	std::cout << "clock_solving_time " << clock_solving_time << std::endl;
+	
+			/*current_out.open( current_out_name.c_str(), std::ios_base :: in );
+			
+			isSAT = false;
+			cur_time = 0.0;
+			while ( getline( current_out, str ) ) {
+				if ( str.find("SATISFIABLE") != std::string::npos ) {
+					isSAT = true;
+					sat_count_vec[i]++;
+					std::cout << "SAT found" << std::endl;
+					std::cout << "current_out_name " << current_out_name << std::endl;
+					std::cout << "sat_count_vec" << std::endl;
+					for ( unsigned t=0; t < sat_count_vec.size(); t++ )
+						std::cout << solver_files_names[t] << " : " << sat_count_vec[t] << " sat from " << 
+						             cnf_files_names.size() << std::endl;
+				}
+				isTimeStr = true;
+				if ( str.find("CPU time") != std::string::npos ) {
+					copy_from = str.find(":") + 2;
+					copy_to = str.find(" s") - 1;
+				}
+				else if ( ( str.find("seconds") != std::string::npos ) && // lingeling format
+						  ( str.find("MB") != std::string::npos ) && 
+						  ( str.size() < 30 ) ) {
+					copy_from = str.find("c ") + 2;
+					copy_to = str.find(" seconds") - 1;
+				}
+				else if ( str.find("c Running time=") != std::string::npos ) { // glueSplit_clasp format
+					copy_from = str.find("c Running time=") + 15;
+					copy_to = str.size() - 1;
+				}
+				else
+					isTimeStr = false;
+				if ( isTimeStr ) {
+					str = str.substr( copy_from, (copy_to-copy_from+1) );
+					sstream << str;
+					sstream >> cur_time;
+					sstream.str(""); sstream.clear();
+				}
+			}
+			current_out.close();*/
+	
+	return true;
+}
+
+bool MPI_Predicter :: solverProgramCalling() 
+{
+	vec<Lit> dummy;
+	unsigned cur_var_ind;
+	int sat_sample_index;
+	int prev_sat_sample_index = -1;
+	int cur_stream_index;
+	int val;
+	uint64_t prev_starts, prev_conflicts;
+	lbool ret;
+	stringstream sstream;
+	string cur_state_file_name;
+	
+	if ( te > 0 ) { // make satisfiable instanse by known state and keystream
+		dummy.clear();
+		sat_sample_index = current_task_index % cnf_in_set_count;
+		/*if ( sat_sample_index == prev_sat_sample_index ) {
+			S->clearPolarity(); // if same keystrem, clear phase saving
+			sstream << rank;
+			polarity_file_name = "polarity_file_name_rank" + sstream.str();
+			sstream.clear(); sstream.str("");
+			ofstream ofile( polarity_file_name, ios_base :: out | ios_base :: app );
+			ofile << "sat_sample_index == prev_sat_sample_index" << endl;
+			ofile << sat_sample_index << " == " << prev_sat_sample_index << endl;
+			ofile << "prev_set_size " << prev_set_size << endl;
+			ofile << "cur_set_size " << var_choose_order.size() << endl;
+			ofile << endl;
+			ofile.close();
+		}
+		prev_sat_sample_index = sat_sample_index;
+		prev_set_size = var_choose_order.size();*/
+				
+		for ( auto &x : var_choose_order ) {
+			cur_var_ind = x-1;
+			if ( cur_var_ind > state_vec_vec[sat_sample_index].size()-1 ) {
+				cerr << "cur_var_ind > state_vec_vec[sat_sample_index].size()-1" << endl;
+				exit(1);
+			}
+			dummy.push( (state_vec_vec[sat_sample_index][cur_var_ind]) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
+		}
+		if ( known_last_bits ) { // add some last known bits
+			for ( unsigned i=0; i < known_last_bits; i++ ) {
+				cur_var_ind = core_len - known_last_bits + i;
+				dummy.push( (state_vec_vec[sat_sample_index][cur_var_ind]) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
+			}
+		}
+		cur_stream_index = 0;
+		for ( auto it = stream_vec_vec[sat_sample_index].begin(); it != stream_vec_vec[sat_sample_index].end(); it++ ) {
+			cur_var_ind = first_stream_var_index + cur_stream_index;
+				dummy.push( *it ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
+			cur_stream_index++;
+		}
+	}
+	else { // make random values of decomp variables
+		dummy.resize( var_choose_order.size() );
+		for ( unsigned i=0; i < var_choose_order.size(); ++i ) {
+			val = var_choose_order[i] - 1;
+			dummy[i] = bool_rand( gen ) ? mkLit( val ) : ~mkLit( val );
+		}
+	}
+			
+	if ( ( verbosity > 2 ) && ( rank == corecount-1 ) ) {
+		std::cout << std::endl;
+		std::cout << "dummy size " << dummy.size() << std::endl;
+		for ( int i=0; i < dummy.size(); ++i )
+			std::cout << dummy[i].x << " ";
+		std::cout << std::endl;
+	}
+			
+	if ( ( verbosity > 2 ) && ( rank == corecount-1 ) )
+		std::cout << "Before getting prev stats from Solver" << std::endl;
+			
+	// make Solver for every problem to make them independent from each other
+	/*S = new Solver();
+	S->addProblem(cnf);
+	S->pdsat_verbosity  = verbosity;
+	S->IsPredict        = IsPredict;
+	S->max_solving_time = max_solving_time;
+	S->rank             = rank;
+	S->core_len         = core_len;*/
+			
+	prev_starts    = S->starts;
+	prev_conflicts = S->conflicts;
+	IsSolvedOnPreprocessing = 0;
+	cnf_time_from_node = MPI_Wtime( );
+			
+	S->resetVarActivity();
+			
+	if ( ( verbosity > 2 ) && ( rank == corecount-1 ) )
+		std::cout << "Before S->solveLimited( dummy )" << std::endl;
+	ret = S->solveLimited( dummy );
+	if ( ( verbosity > 2 ) && ( rank == corecount-1 ) )
+		std::cout << "After S->solveLimited( dummy )" << std::endl;
+	if ( evaluation_type == "time" )
+		cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
+	else if ( evaluation_type == "propagation" )
+		cnf_time_from_node = (double)S->propagations;
+			
+	if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) )
+		IsSolvedOnPreprocessing = 1;  // solved by BCP
+			
+	if ( ( te > 0 ) && ( ret == l_False ) ) { // in ro es te mode all instances are satisfiable
+		std::cerr << "( te > 0 ) && ( ret == l_False ) " << std::endl;
+		exit(1);
+	}
+			
+	S->getActivity( full_var_choose_order, var_activity, activity_vec_len ); // get activity of Solver
+
+	if ( ( verbosity > 2 ) && ( rank == corecount-1 ) )
+		std::cout << "After S->getActivity" << std::endl;
+	if ( cnf_time_from_node < MIN_SOLVE_TIME ) // TODO. maybe 0 - but why?!
+		cnf_time_from_node = MIN_SOLVE_TIME;
+	if ( ret == l_True ) {
+		process_sat_count++;
+		if ( te == 0 ) {
+ 			std::cout << "SAT found" << std::endl;
+			std::cout << "process_sat_count " << process_sat_count << std::endl;
+			b_SAT_set_array.resize( S->model.size() );
+			for ( int i=0; i < S->model.size(); i++ )
+				b_SAT_set_array[i] = ( S->model[i] == l_True) ? 1 : 0;
+			if ( !AnalyzeSATset( ) ) { 	// check res file for SAT set existing
+				std::cout << "Error in Analyzer procedute" << std::endl;
+				return false;
+			}
+		}
+		if ( var_choose_order.size() <= 30 ) { // write activity of hard SAT instance
+			S->getActivity( all_vars_set, all_var_activity, all_vars_set.size() );
+			ofstream ofile( "bkv_activity" );
+			for ( unsigned i=0; i < all_vars_set.size(); i++)
+				ofile << all_var_activity[i] << " ";
+			ofile.close();
+		}
+		if ( var_choose_order.size() <= blob_var_count ) {
+			sstream << "blob_point_set_len_" << var_choose_order.size() << "_rank_" << rank << "_num_" << cur_point_number;
+			cur_state_file_name = sstream.str();
+			sstream.clear(); sstream.str("");
+			S->clearDB();
+			S->saveState( cur_state_file_name );
+			sstream << "blob_point_set_len_" << var_choose_order.size() << "_rank_" << rank << "_num_" << cur_point_number << "_set";
+			cur_state_file_name = sstream.str();
+			sstream.clear(); sstream.str("");
+			ofstream ofile( cur_state_file_name.c_str() );
+			for ( unsigned i=0; i < var_choose_order.size(); i++ )
+				ofile << var_choose_order[i] << " ";
+			ofile.close();
+		}
+	}
+	//delete S;
+	S->clearDB();
+	S->clearPolarity();
+	S->clearParams();
+
+	return true;
+}
+
+bool MPI_Predicter :: ComputeProcessPredict( )
 {	
 	MPI_Status status;
 	int message_size;
@@ -365,19 +581,19 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		std::cout << "input_var_num "    << input_var_num << std::endl;
 		std::cout << "start_activity "   << start_activity << std::endl;
 	}
+	stringstream sstream;
+	sstream << rank;
+	tmp_cnf_process_name = "tmp_cnf_process_" + sstream.str();
+	sstream.clear(); sstream.str("");
 	int *full_local_decomp_set = new int[core_len];
 	MPI_Recv( full_local_decomp_set, core_len, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	full_var_choose_order.resize( core_len );
 	for ( unsigned i=0; i < core_len; ++i )
 		full_var_choose_order[i] = full_local_decomp_set[i];
 	delete[] full_local_decomp_set;
-	vector<int> all_vars_set;
 	all_vars_set.resize( var_count ); // all vars including additional anf keystream
 	for ( unsigned i=0; i < all_vars_set.size(); i++ )
 		all_vars_set[i] = i+1;
-	int prev_sat_sample_index = -1;
-	unsigned cur_point_number = 0;
-	stringstream sstream; 
 	sstream << "collisions_rank" << rank;
 	string collisions_file_name = sstream.str();
 	sstream.str(""); sstream.clear();
@@ -385,20 +601,22 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	// read file with CNF once
 	Problem cnf;
 	Solver *S;
-	minisat22_wrapper m22_wrapper;
-	ifstream in( input_cnf_name );
-	m22_wrapper.parse_DIMACS_to_problem(in, cnf);
-	in.close();
-	S = new Solver();
-	S->addProblem(cnf);
-	S->pdsat_verbosity  = verbosity;
-	S->IsPredict        = IsPredict;
-	S->max_solving_time = max_solving_time;
-	S->rank             = rank;
-	S->core_len         = core_len;
-	S->start_activity   = start_activity;
+	if ( !isSolverSystemCalling ) {
+		minisat22_wrapper m22_wrapper;
+		ifstream in( input_cnf_name );
+		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
+		in.close();
+		S = new Solver();
+		S->addProblem(cnf);
+		S->pdsat_verbosity  = verbosity;
+		S->IsPredict        = IsPredict;
+		S->max_solving_time = max_solving_time;
+		S->rank             = rank;
+		S->core_len         = core_len;
+		S->start_activity   = start_activity;
+	}
 	
-	if ( cur_solver_type == minisat_hack_minigolf )
+	if ( solver_name.find("minigolf") != std::string::npos )
 		S->cur_hack_type = hack_minigolf;
 	
 	if ( te > 0 ) { // ro es te mode
@@ -456,21 +674,12 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	int current_task_index = 0;
 	double cnf_time_from_node = 0.0;
 	int ProcessListNumber;
-	vec<Lit> dummy;
-	lbool ret;
 	var_activity = new double[activity_vec_len];
-	double *all_var_activity = new double[all_vars_set.size()];
+	all_var_activity = new double[all_vars_set.size()];
 	bool isFirstDecompSetReceived = false, isNewDecompSetReceived = false;
 	int process_sat_count;
-	uint64_t prev_starts, prev_conflicts;
-	int IsSolvedOnPreprocessing;
-	int val;
 	unsigned large_message_count = 0, small_message_count = 0;
-	int sat_sample_index;
-	int cur_stream_index;
-	unsigned cur_var_ind;
 	string polarity_file_name;
-	string cur_state_file_name;
 	
 	for (;;) {
 		do {// get index of current task missing stop-messages
@@ -521,20 +730,20 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			cur_point_number++;
 			isNewDecompSetReceived = true;
 			if ( ( verbosity > 2 ) && ( rank == 1 ) ) {
-				cout << "Received array_message" << endl;
+				std::cout << "Received array_message" << std::endl;
 				for ( int i = 0; i < message_size; ++i )
 					cout << array_message[i] << " ";
-				cout << endl;
+				std::cout << std::endl;
 			}
 			current_task_index = array_message[0];
 			var_choose_order.resize( message_size - 1 );
 			for ( int i=1; i < message_size; ++i )
 				var_choose_order[i-1] = array_message[i];
 			if ( ( verbosity > 2 ) && ( rank == corecount-1 ) ) {
-				cout << "Received var_choose_order" << endl;
+				std::cout << "Received var_choose_order" << endl;
 				for ( unsigned i = 0; i < var_choose_order.size(); ++i )
-					cout << var_choose_order[i] << " ";
-				cout << endl;
+					std::cout << var_choose_order[i] << " ";
+				std::cout << std::endl;
 			}
 			/*if ( solver_type == 4 ) {
 				if ( isFirstDecompSetReceived ) // if not first time, delete old data
@@ -552,154 +761,16 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		}
 		
 		process_sat_count = 0;
-        if ( ( cur_solver_type == minisat_orig ) || ( cur_solver_type == minisat_hack_minigolf ) ) {
-			if ( te > 0 ) { // make satisfiable instanse by known state and keystream
-				dummy.clear();
-				sat_sample_index = current_task_index % cnf_in_set_count;
-				/*if ( sat_sample_index == prev_sat_sample_index ) {
-					S->clearPolarity(); // if same keystrem, clear phase saving
-					sstream << rank;
-					polarity_file_name = "polarity_file_name_rank" + sstream.str();
-					sstream.clear(); sstream.str("");
-					ofstream ofile( polarity_file_name, ios_base :: out | ios_base :: app );
-					ofile << "sat_sample_index == prev_sat_sample_index" << endl;
-					ofile << sat_sample_index << " == " << prev_sat_sample_index << endl;
-					ofile << "prev_set_size " << prev_set_size << endl;
-					ofile << "cur_set_size " << var_choose_order.size() << endl;
-					ofile << endl;
-					ofile.close();
-				}
-				prev_sat_sample_index = sat_sample_index;
-				prev_set_size = var_choose_order.size();*/
-				
-				for ( auto &x : var_choose_order ) {
-					cur_var_ind = x-1;
-					if ( cur_var_ind > state_vec_vec[sat_sample_index].size()-1 ) {
-						cerr << "cur_var_ind > state_vec_vec[sat_sample_index].size()-1" << endl;
-						exit(1);
-					}
-					dummy.push( (state_vec_vec[sat_sample_index][cur_var_ind]) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
-				}
-				if ( known_last_bits ) { // add some last known bits
-					for ( unsigned i=0; i < known_last_bits; i++ ) {
-						cur_var_ind = core_len - known_last_bits + i;
-						dummy.push( (state_vec_vec[sat_sample_index][cur_var_ind]) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
-					}
-				}
-				cur_stream_index = 0;
-				for ( auto it = stream_vec_vec[sat_sample_index].begin(); it != stream_vec_vec[sat_sample_index].end(); it++ ) {
-					cur_var_ind = first_stream_var_index + cur_stream_index;
-						dummy.push( *it ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
-					cur_stream_index++;
-				}
-			}
-			else { // make random values of decomp variables
-				dummy.resize( var_choose_order.size() );
-				for ( unsigned i=0; i < var_choose_order.size(); ++i ) {
-					val = var_choose_order[i] - 1;
-					dummy[i] = bool_rand( gen ) ? mkLit( val ) : ~mkLit( val );
-				}
-			}
-			
-			if ( ( verbosity > 2 ) && ( rank == corecount-1 ) ) {
-				cout << endl;
-				cout << "dummy size " << dummy.size() << endl;
-				for ( int i=0; i < dummy.size(); ++i )
-					cout << dummy[i].x << " ";
-				cout << endl;
-			}
-			
-			if ( ( verbosity > 2 ) && ( rank == corecount-1 ) )
-				cout << "Before getting prev stats from Solver" << endl;
-			
-			// make Solver for every problem to make them independent from each other
-			/*S = new Solver();
-			S->addProblem(cnf);
-			S->pdsat_verbosity  = verbosity;
-			S->IsPredict        = IsPredict;
-			S->max_solving_time = max_solving_time;
-			S->rank             = rank;
-			S->core_len         = core_len;*/
-			
-			prev_starts    = S->starts;
-			prev_conflicts = S->conflicts;
-			IsSolvedOnPreprocessing = 0;
-			cnf_time_from_node = MPI_Wtime( );
-			
-			S->resetVarActivity();
-			
-			if ( ( verbosity > 2 ) && ( rank == corecount-1 ) )
-				cout << "Before S->solveLimited( dummy )" << endl;
-			ret = S->solveLimited( dummy );
-			if ( ( verbosity > 2 ) && ( rank == corecount-1 ) )
-				cout << "After S->solveLimited( dummy )" << endl;
-			if ( evaluation_type == "time" )
-				cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
-			else if ( evaluation_type == "propagation" )
-				cnf_time_from_node = (double)S->propagations;
-			
-			if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) )
-				IsSolvedOnPreprocessing = 1;  // solved by BCP
-			
-			if ( ( te > 0 ) && ( ret == l_False ) ) { // in ro es te mode all instances are satisfiable
-				cerr << "( te > 0 ) && ( ret == l_False ) " << endl;
-				exit(1);
-			}
-			
-			S->getActivity( full_var_choose_order, var_activity, activity_vec_len ); // get activity of Solver
-
-			if ( ( verbosity > 2 ) && ( rank == corecount-1 ) )
-				cout << "After S->getActivity" << endl;
-			if ( cnf_time_from_node < MIN_SOLVE_TIME ) // TODO. maybe 0 - but why?!
-				cnf_time_from_node = MIN_SOLVE_TIME;
-			if ( ret == l_True ) {
-				process_sat_count++;
-				if ( te == 0 ) {
- 					cout << "SAT found" << endl;
-					cout << "process_sat_count " << process_sat_count << endl;
-					b_SAT_set_array.resize( S->model.size() );
-					for ( int i=0; i < S->model.size(); i++ )
-						b_SAT_set_array[i] = ( S->model[i] == l_True) ? 1 : 0;
-					if ( !AnalyzeSATset( ) ) { 	// check res file for SAT set existing
-						cout << "Error in Analyzer procedute" << endl;
-						return false;
-					}
-				}
-				if ( var_choose_order.size() <= 30 ) { // write activity of hard SAT instance
-					S->getActivity( all_vars_set, all_var_activity, all_vars_set.size() );
-					ofstream ofile( "bkv_activity" );
-					for ( unsigned i=0; i < all_vars_set.size(); i++)
-						ofile << all_var_activity[i] << " ";
-					ofile.close();
-				}
-				if ( var_choose_order.size() <= blob_var_count ) {
-					sstream << "blob_point_set_len_" << var_choose_order.size() << "_rank_" << rank << "_num_" << cur_point_number;
-					cur_state_file_name = sstream.str();
-					sstream.clear(); sstream.str("");
-					S->clearDB();
-					S->saveState( cur_state_file_name );
-					sstream << "blob_point_set_len_" << var_choose_order.size() << "_rank_" << rank << "_num_" << cur_point_number << "_set";
-					cur_state_file_name = sstream.str();
-					sstream.clear(); sstream.str("");
-					ofstream ofile( cur_state_file_name.c_str() );
-					for ( unsigned i=0; i < var_choose_order.size(); i++ )
-						ofile << var_choose_order[i] << " ";
-					ofile.close();
-				}
-			}
-			//delete S;
-			S->clearDB();
-			S->clearPolarity();
-			S->clearParams();
-        }
-		else { 
-			std::cout << "solver_type has unknown format" << std::endl; return false;
+		if ( !isSolverSystemCalling )
+			solverProgramCalling();
+		else {
+			solverSystemCalling();
 		}
 		
 		MPI_Send( &current_task_index,         1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &process_sat_count,          1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &cnf_time_from_node,         1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
-		MPI_Send( &IsSolvedOnPreprocessing,    1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
+		MPI_Send( &IsSolvedOnPreprocessing,    1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( var_activity, activity_vec_len, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
 		
 		if ( verbosity > 0 )
@@ -1201,6 +1272,9 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	MPI_Init( &argc, &argv );
 	MPI_Comm_size( MPI_COMM_WORLD, &corecount );
 	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+
+	if ( solver_name.find( "/" ) == std::string::npos )
+		isSolverSystemCalling = true;
 	
 	IsPredict = true;
 	if ( corecount < 2 ) { 
@@ -1307,8 +1381,8 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		
 		array_message = NULL;
 		
-		cout << "verbosity "     << verbosity           << endl;
-		cout << "cur_solver_type " << cur_solver_type   << endl;
+		std::cout << "verbosity "     << verbosity           << std::endl;
+		std::cout << "solver_name "   << solver_name         << std::endl;
 		cout << "schema_type "   << schema_type         << endl;
 		cout << "corecount "     << corecount           << endl;
 		cout << "deep_predict  " << deep_predict        << endl;
@@ -1333,7 +1407,8 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "exp_denom " << exp_denom << endl;
 		cout << "keystream_len " << keystream_len << endl;
 		cout << "blob_var_count " << blob_var_count << endl;
-		cout << endl;
+		std::cout << "isSolverSystemCalling " << std::endl;
+		std::cout << std::endl;
 		
 		DeepPredictMain();
 		
@@ -1857,21 +1932,21 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 	ofstream predict_file;
 	predict_file.open( predict_file_name.c_str( ), ios :: out ); // create and open for writing
 	if ( !( predict_file.is_open( ) ) )
-	{ cout << "Error in opening of predict_file " << predict_file_name << endl; return false; }
+	{ std::cout << "Error in opening of predict_file " << predict_file_name << std::endl; return false; }
 	
 	stringstream sstream;
-	sstream << "Predict from "             << predict_from << endl
-		    << "Predict to "               << predict_to << endl
-			<< "Processor count "          << proc_count << endl
-			<< "Count of CNF in set "      << cnf_in_set_count << endl
-			<< "Count of CNF in all sets " << all_tasks_count << endl
-			<< "Count of core-variables "  << core_len << endl
-			<< "Solver type "              << cur_solver_type << endl
-			<< "Schema type "              << schema_type << endl
-			<< "start activity "           << start_activity << endl;
+	sstream << "Predict from "             << predict_from << std::endl
+		    << "Predict to "               << predict_to << std::endl
+			<< "Processor count "          << proc_count << std::endl
+			<< "Count of CNF in set "      << cnf_in_set_count << std::endl
+			<< "Count of CNF in all sets " << all_tasks_count << std::endl
+			<< "Count of core-variables "  << core_len << std::endl
+			<< "Solver name "              << solver_name << std::endl
+			<< "Schema type "              << schema_type << std::endl
+			<< "start activity "           << start_activity << std::endl;
 
 	if ( deep_predict ) {
-		sstream << "deep_predict "     << deep_predict << endl;
+		sstream << "deep_predict "     << deep_predict << std::endl;
 		sstream << "decomp_set_arr.size() " << decomp_set_arr.size();	
 	}
 	

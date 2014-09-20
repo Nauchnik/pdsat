@@ -200,3 +200,29 @@ extern bool Addit_func :: bool_rand( boost::random::mt19937 &gen ) {
 	static boost::random::uniform_int_distribution<uint32_t> dist(0,1);
 	return ( dist(gen) == 0 );
 }
+
+// ececute command via system process
+extern std::string Addit_func :: exec( std::string cmd_str ) {
+	char* cmd = new char[cmd_str.size() + 1];
+	strcpy( cmd, cmd_str.c_str() );
+	cmd[cmd_str.size()] = '\0';
+#ifdef _WIN32
+    FILE* pipe = _popen(cmd, "r");
+#else
+	FILE* pipe = popen(cmd, "r");
+#endif
+	delete[] cmd;
+    if (!pipe) return "ERROR";
+    char buffer[128];
+    std::string result = "";
+    while(!feof(pipe)) {
+    	if(fgets(buffer, 128, pipe) != NULL)
+    		result += buffer;
+    }
+#ifdef _WIN32
+    _pclose(pipe);
+#else
+	pclose(pipe);
+#endif
+    return result;
+}

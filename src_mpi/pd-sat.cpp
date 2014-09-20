@@ -1,10 +1,10 @@
 // +---------------------------------------------------------------------------+
-// | PD-SAT: Parallel Distributed SAT                                          }
+// | PDSAT: Parallel and Distributed SAT solver                                |
 // | MPI-realization of packet D-SAT for SAT-problem solving                   |                         
 // +---------------------------------------------------------------------------+
-// | Institute of System Dynamics and Control Theory SB RAS                    |   
+// | Institute for System Dynamics and Control Theory SB RAS                   |   
 // +---------------------------------------------------------------------------+
-// | Author: Zaikin Oleg <oleg.zaikin@icc.ru>                                  |
+// | Author: Oleg Zaikin <zaikin.icc@gmail.com>                                |
 // +---------------------------------------------------------------------------+
 
 #include "mpi_base.h"
@@ -13,7 +13,7 @@
 
 struct Flags
 {
-	solver_type cur_solver_type;
+	string solver_name;
 	int sort_type;
 	int koef_val;
 	string schema_type; 
@@ -90,7 +90,7 @@ int main( int argc, char** argv )
 	
 	if ( myflags.IsConseq ) {
 		MPI_Solver mpi_s;
-		mpi_s.cur_solver_type = myflags.cur_solver_type;
+		mpi_s.solver_name = myflags.solver_name;
 		if ( myflags.core_len != -1 )
 			mpi_s.core_len = myflags.core_len;
 		mpi_s.verbosity = myflags.verbosity;
@@ -112,7 +112,7 @@ int main( int argc, char** argv )
 	if ( myflags.IsPredict ) {
 		MPI_Predicter mpi_p;
 		mpi_p.input_cnf_name          = input_cnf_name; // for C dminisat
-		mpi_p.cur_solver_type         = myflags.cur_solver_type;
+		mpi_p.solver_name             = myflags.solver_name;
 		if ( myflags.koef_val != -1 )
 			mpi_p.koef_val            = myflags.koef_val;
 		if ( myflags.schema_type != "" )
@@ -188,8 +188,8 @@ int main( int argc, char** argv )
 		if ( full_mask_var_count != -1 )
 			mpi_s.full_mask_var_count = (unsigned)full_mask_var_count;
 
-		if ( myflags.cur_solver_type != -1 )
-			mpi_s.cur_solver_type = myflags.cur_solver_type;
+		if ( myflags.solver_name != "" )
+			mpi_s.solver_name = myflags.solver_name;
 		if ( myflags.koef_val != -1 )
 			mpi_s.koef_val    = myflags.koef_val;
 		if ( myflags.schema_type != "" )
@@ -317,7 +317,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	string argv_string,
 		   value;
 	// default values
-	myflags.cur_solver_type		= minisat_orig;
+	myflags.solver_name		    = "";
 	myflags.koef_val			= -1,
 	myflags.schema_type			= "";
 	myflags.poly_mod			= -1;
@@ -452,12 +452,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 		else if ( ( hasPrefix_String( argv_string, "-solver=",      value ) ) || 
 				  ( hasPrefix_String( argv_string, "-s=",           value ) ) )
 		{
-			if ( value == "minisat" )
-				myflags.cur_solver_type = minisat_orig;
-			else if ( value == "minigolf" )
-				myflags.cur_solver_type = minisat_hack_minigolf;
-			else
-                std::cerr << "unknown solver " << value << std::endl;
+			myflags.solver_name = value;
 		}
 		else if ( hasPrefix_String( argv_string, "-koef=", value ) ) {
 			myflags.koef_val = atoi( value.c_str( ) );
@@ -581,7 +576,7 @@ void TestSolve()
 	MPI_Solver mpi_s;
 	mpi_s.input_cnf_name = input_cnf_name;
 	//mpi_s.schema_type = "rslos_end";
-	mpi_s.cur_solver_type = minisat_orig;
+	mpi_s.solver_name = "minisat";
 	mpi_s.ReadIntCNF();
 	mpi_s.MakeVarChoose();
 	int current_task_index = 0;
@@ -595,7 +590,6 @@ void TestSolve()
 	mpi_s.all_tasks_count = 16;
 	//mpi_s.verbosity = 2;
 	//mpi_s.SolverRun( S, process_sat_count, cnf_time_from_node,current_task_index );
-	int solver_type = 1;
 	int core_len = 64;
 	double corevars_activ_type = 1;
 	int sort_type = 0;

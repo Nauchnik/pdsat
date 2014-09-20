@@ -15,7 +15,7 @@ const int    NUM_KEY_BITS                  = 64;
 MPI_Base :: MPI_Base( ) :
 	sat_count            ( 0 ),
 	corecount			 ( 0 ),
-	cur_solver_type      ( minisat_orig ),
+	solver_name          ( "" ),
 	core_len             ( 0 ),
 	koef_val             ( 8 ),
 	schema_type          ( "" ),
@@ -54,7 +54,9 @@ MPI_Base :: MPI_Base( ) :
 	known_last_bits ( 0 ),
 	keystream_len ( 200 ),
 	isMakeSatSampleAnyWay ( false ),
-	input_var_num ( 0 )
+	input_var_num ( 0 ),
+	isSolverSystemCalling ( false ),
+	process_sat_count ( 0 )
 {
 	full_mask  = new unsigned[FULL_MASK_LEN];
 	part_mask  = new unsigned[FULL_MASK_LEN];

@@ -4,6 +4,8 @@
 
 #include "mpi_base.h"
 #include "Bivium.h"
+#include <thread>
+#include <chrono>
 
 const unsigned MAX_STEP_CNF_IN_SET		   = 30;
 
@@ -111,6 +113,9 @@ public:
 	//unsigned prev_best_decomp_set_power;
 	//unsigned prev_best_sum;
 	unsigned blob_var_count; // max count of var in decompositions set for writing blob
+	unsigned cur_point_number;
+	int IsSolvedOnPreprocessing;
+	string tmp_cnf_process_name;
 
 	vector< vector<bool> > stream_vec_vec;
 	vector< vector<bool> > state_vec_vec;
@@ -119,6 +124,8 @@ public:
 	bool ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control );
 	bool ComputeProcessPredict();
 	bool GetPredict();
+	bool solverProgramCalling();
+	bool solverSystemCalling();
 	
 	bool DeepPredictMain( );
 	bool DeepPredictFindNewUncheckedArea( stringstream &sstream );
