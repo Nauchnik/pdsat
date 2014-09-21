@@ -601,7 +601,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 	total_solving_times[0] = 1 << 30; // start min len
 	for ( unsigned i = 1; i < total_solving_times.size(); ++i )
 		total_solving_times[i] = 0;
-	int process_sat_count = 0;
+	process_sat_count = 0;
 	MPI_Status status, current_status;
 	
 	while ( solved_tasks_count < all_tasks_count ) {

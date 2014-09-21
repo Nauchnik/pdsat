@@ -204,7 +204,9 @@ extern bool Addit_func :: bool_rand( boost::random::mt19937 &gen ) {
 // ececute command via system process
 extern std::string Addit_func :: exec( std::string cmd_str ) {
 	char* cmd = new char[cmd_str.size() + 1];
-	strcpy( cmd, cmd_str.c_str() );
+	for( unsigned i=0; i < cmd_str.size(); i++ )
+		cmd[i] = cmd_str[i];
+	//strcpy( cmd, cmd_str.c_str() );
 	cmd[cmd_str.size()] = '\0';
 #ifdef _WIN32
     FILE* pipe = _popen(cmd, "r");

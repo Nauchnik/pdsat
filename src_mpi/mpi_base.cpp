@@ -202,15 +202,15 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, unsigned long long
 	unsigned long long ul;
 	unsigned long long byte_count = before_binary_length + 2 + sizeof(ul)*previous_problems_count;
 	stringstream sstream_info;
-	sstream_info << "current_task_index "      << current_task_index << endl;
-	sstream_info << "all_tasks_count "         << all_tasks_count << endl;
-	sstream_info << "previous_problems_count " << previous_problems_count << endl;
-	sstream_info << "assumptions_count "       << assumptions_count << endl;
-	sstream_info << "basic_batch_size "        << basic_batch_size  << endl;
-	sstream_info << "cur_batch_size "          << cur_batch_size << endl;
-	sstream_info << "byte_count "              << byte_count << endl;
+	sstream_info << "current_task_index "      << current_task_index << std::endl;
+	sstream_info << "all_tasks_count "         << all_tasks_count << std::endl;
+	sstream_info << "previous_problems_count " << previous_problems_count << std::endl;
+	sstream_info << "assumptions_count "       << assumptions_count << std::endl;
+	sstream_info << "basic_batch_size "        << basic_batch_size  << std::endl;
+	sstream_info << "cur_batch_size "          << cur_batch_size << std::endl;
+	sstream_info << "byte_count "              << byte_count << std::endl;
 	if ( verbosity > 0 )
-		cout << sstream_info.str() << endl;
+		std::cout << sstream_info.str() << std::endl;
 	ifile.clear();
 	ifile.seekg( byte_count, ifile.beg ); // skip some bytes
 	if ( ifile.fail() || ifile.eof() ) {

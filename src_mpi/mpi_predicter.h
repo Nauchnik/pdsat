@@ -114,18 +114,22 @@ public:
 	//unsigned prev_best_sum;
 	unsigned blob_var_count; // max count of var in decompositions set for writing blob
 	unsigned cur_point_number;
-	int IsSolvedOnPreprocessing;
-	string tmp_cnf_process_name;
-
-	vector< vector<bool> > stream_vec_vec;
-	vector< vector<bool> > state_vec_vec;
+	int isSolvedOnPreprocessing;
+	std::string tmp_cnf_process_name;
+	std::string current_cnf_out_name;
+	//int template_cnf_size;
+	std::stringstream template_sstream;
+	
+	std::vector< std::vector<bool> > stream_vec_vec;
+	std::vector< std::vector<bool> > state_vec_vec;
+	std::vector<std::string> oneliteral_string_vec;
 	
 	bool MPI_Predict( int argc, char **argv );
 	bool ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control );
 	bool ComputeProcessPredict();
 	bool GetPredict();
-	bool solverProgramCalling();
-	bool solverSystemCalling();
+	bool solverProgramCalling( vec<Lit> &dummy );
+	bool solverSystemCalling( vec<Lit> &dummy );
 	
 	bool DeepPredictMain( );
 	bool DeepPredictFindNewUncheckedArea( stringstream &sstream );
