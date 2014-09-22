@@ -1075,3 +1075,63 @@ void MPI_Base :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< v
 	cout << endl;
 	file.close();
 }
+
+string MPI_Base :: make_solver_launch_str( std::string solver_name, std::string cnf_name, 
+										   double maxtime_solving_time )
+{
+	string time_limit_str = "", result_str = "";
+	stringstream sstream;
+	sstream << max_solving_time;
+	string maxtime_seconds_str = sstream.str();
+	sstream.clear(); sstream.str("");
+	// minisat and solvers with same time limit paremeter
+	if ( ( solver_name.find( "minisat" ) != std::string::npos ) || 
+		 ( solver_name.find( "Minisat" ) != std::string::npos ) || 
+		 ( solver_name.find( "MiniSat" ) != std::string::npos ) ||
+		 ( solver_name.find( "minigolf" ) != std::string::npos ) ||
+		 ( solver_name.find( "mipisat" ) != std::string::npos ) ||
+		 ( solver_name.find( "minitsat" ) != std::string::npos ) ||
+		 ( solver_name.find( "rokk" ) != std::string::npos ) ||
+		 ( solver_name.find( "sinn" ) != std::string::npos ) ||
+		 ( solver_name.find( "zenn" ) != std::string::npos ) ||
+		 ( solver_name.find( "ClauseSplit" ) != std::string::npos ) 
+		 )
+	{
+		time_limit_str =  "-cpu-lim=";
+	}
+	else if ( ( solver_name.find( "lingeling" ) != std::string::npos ) && 
+		      ( solver_name.find( "plingeling" ) == std::string::npos ) ) {
+		time_limit_str = "-t ";
+	}
+	else {
+		std::cerr << "Unknown solver in system calling mode: " << solver_name << std::endl;
+		MPI_Abort( MPI_COMM_WORLD, 0 );
+	}
+	// glucose can't stop in time
+	/*if ( solver_name.find( "glucose" ) != std::string::npos ) {
+		std::cout << "glucose detected" << std::endl;
+		result_str = "-cpu-lim=";
+	}*/
+	/*else if ( solver_name.find( "plingeling" ) != std::string::npos ) {
+		//std::cout << "pingeling detected" << std::endl;
+		result_str = "-nof_threads ";
+		result_str += nof_threads_str;
+		result_str += " -t ";
+	}
+	else if ( solver_name.find( "trengeling" ) != std::string::npos ) {
+		//std::cout << "treengeling detected" << std::endl;
+		//result_str = "-t " + "11" + nof_threads_str;
+
+	if ( solver_name.find( "dimetheus" ) != std::string::npos )
+		result_str += " -formula";
+	}
+	
+	if ( time_limit_str == "" ) {
+		std::cout << "unknown solver detected. using timelimit" << std::endl;
+		result_str = "./timelimit -t " + maxtime_seconds_str + " -T 1 " + "./" + solvers_dir + "/" + solver_name;
+	}*/
+	
+	result_str = solver_name + " " + time_limit_str + maxtime_seconds_str + " " + cnf_name;
+	
+	return result_str;
+}

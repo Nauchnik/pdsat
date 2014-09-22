@@ -147,11 +147,11 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	sstream_control << "In ControlProcessPredict()" << endl;
 	
 	if ( verbosity > 0 )
-		cout << "all_tasks_count is " << all_tasks_count << endl;
+		std::cout << "all_tasks_count is " << all_tasks_count << std::endl;
 	
 	if ( (int)cnf_in_set_count < corecount-1 ) {
-		cerr << "Error. cnf_in_set_count < corecount-1" << endl;
-		cerr << "too small sample to send first batch of tasks" << endl;
+		std::cerr << "Error. cnf_in_set_count < corecount-1" << std::endl;
+		std::cerr << "too small sample to send first batch of tasks" << std::endl;
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 	
@@ -163,7 +163,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	for ( int i = 0; i < corecount-1; ++i )
 		SendPredictTask( ProcessListNumber, i+1, cur_task_index, cur_decomp_set_index );
 	
-	cout << "Sending of first tasks done" << endl;
+	std::cout << "Sending of first tasks done" << std::endl;
 	
 	int task_index_from_node = -1,
 	   stop_message = -1,
@@ -200,29 +200,30 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 					return true;
 				}
 				
-				if ( ( verbosity > 0 ) && ( cnf_to_stop_arr.size() > 0 ) )
-					cout << "cnf_to_stop_count " << cnf_to_stop_arr.size() << endl;
-				
-				// send list of stop-messages
-				for ( unsigned i = 0; i < cnf_to_stop_arr.size(); i++ ) {
-					MPI_Isend( &stop_message, 1, MPI_INT, node_list[cnf_to_stop_arr[i]], 0, 
-							   MPI_COMM_WORLD, &request ); // stop_message == -1
-					if ( verbosity > 0 )
-						cout << "stop-message was send to node # " 
-							 << node_list[cnf_to_stop_arr[i]] << endl;
+				if ( !isSolverSystemCalling ) {
+					if ( ( verbosity > 0 ) && ( cnf_to_stop_arr.size() > 0 ) )
+						std::cout << "cnf_to_stop_count " << cnf_to_stop_arr.size() << std::endl;
+					// send list of stop-messages
+					for ( unsigned i = 0; i < cnf_to_stop_arr.size(); i++ ) {
+						MPI_Isend( &stop_message, 1, MPI_INT, node_list[cnf_to_stop_arr[i]], 0, 
+								   MPI_COMM_WORLD, &request ); // stop_message == -1
+						if ( verbosity > 0 )
+							std::cout << "stop-message was send to node # " 
+								      << node_list[cnf_to_stop_arr[i]] << std::endl;
+					}
 				}
 				
 				get_predict_time = Minisat::cpuTime() - get_predict_time;
 				
 				while ( ceil(get_predict_time) > predict_every_sec ) {
 					predict_every_sec *= 2; // increase treshold  
-					cout << "get_predict_time " << get_predict_time << endl;
-					cout << "predict_every_sec timed to 2. new value " << predict_every_sec << endl;
+					std::cout << "get_predict_time " << get_predict_time << std::endl;
+					std::cout << "predict_every_sec timed to 2. new value " << predict_every_sec << std::endl;
 				}
 				
 				if ( cur_get_predict_count++ == 5 ) { // write to file every 5 GetPredict()
 					if ( !WritePredictToFile( all_skip_count, whole_time_sec ) ) {
-						cout << "Error in WritePredictToFile" << endl;
+						std::cout << "Error in WritePredictToFile" << std::endl;
 						MPI_Abort( MPI_COMM_WORLD, 0 );
 					}
 					cur_get_predict_count = 0;
@@ -234,7 +235,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		} // for( ; ; )
 		
 		if ( verbosity > 1 )
-			cout << "In ControlProcess() before recieving results" << endl;
+			std::cout << "In ControlProcess() before recieving results" << std::endl;
 		
 		// recieve from core message about solved task    
 		MPI_Recv( &task_index_from_node,       1, MPI_INT,    MPI_ANY_SOURCE,            MPI_ANY_TAG, MPI_COMM_WORLD, &status ); 
@@ -247,14 +248,13 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		if ( !isSolverSystemCalling ) {
 			MPI_Recv( &isSolvedOnPreprocessing,    1, MPI_INT, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 			MPI_Recv( var_activity, activity_vec_len, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+			for( unsigned i=0; i < total_var_activity.size(); ++i ) {
+				if( ( total_var_activity[i] += var_activity[i] ) > 1e50 )
+					for( unsigned j=0; j < total_var_activity.size(); ++j ) // Rescale:
+						total_var_activity[j] *= 1e-50;
+			}
 		}
 		
-		for( unsigned i=0; i < total_var_activity.size(); ++i ) {
-			if( ( total_var_activity[i] += var_activity[i] ) > 1e50 )
-				for( unsigned j=0; j < total_var_activity.size(); ++j ) // Rescale:
-					total_var_activity[j] *= 1e-50;
-		}
-
 		if ( verbosity > 1 )
 			cout << "Received result with current_task_index " << task_index_from_node << endl;
 		
@@ -348,6 +348,10 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 bool MPI_Predicter :: solverSystemCalling( vec<Lit> &dummy )
 {	
 	// for every literal make oneliteral clause
+
+	if ( ( rank == 1 ) && ( verbosity > 0 ) )
+		std::cout << "start of solverSystemCalling()" << std::endl;
+	
 	oneliteral_string_vec.resize( dummy.size() );
 	std::stringstream sstream;
 	for( int i=0; i < dummy.size(); i++ ) {
@@ -355,6 +359,9 @@ bool MPI_Predicter :: solverSystemCalling( vec<Lit> &dummy )
 		oneliteral_string_vec[i] = "\n" + sstream.str() + " 0";
 		sstream.str(""); sstream.clear();
 	}
+
+	if ( ( rank == 1 ) && ( verbosity > 2 ) )
+		std::cout << "oneliteral_string_vec.size() " << oneliteral_string_vec.size() << std::endl;
 	
 	ofstream ofile;
 	ofile.open( tmp_cnf_process_name, std::ios_base::out );
@@ -369,30 +376,39 @@ bool MPI_Predicter :: solverSystemCalling( vec<Lit> &dummy )
 		ofile << x;
 	ofile.close();
 	
-	sstream << max_solving_time;
-	string maxtime_seconds_str = sstream.str();
-	sstream.clear(); sstream.str("");
-	string system_str = "./timelimit -t " + maxtime_seconds_str + " -T 1 " + solver_name + " " + tmp_cnf_process_name;
-	if ( rank == 1 )
-		std::cout << system_str << std::endl;
+	string system_str = make_solver_launch_str( solver_name, tmp_cnf_process_name, max_solving_time );
 	
-	fstream current_out;
-	current_out.open( current_cnf_out_name, std::ios_base :: out );
+	if ( ( rank == 1 ) && ( verbosity > 2 ) )
+		std::cout << "system_str " << system_str << std::endl;
+	
+	fstream current_cnf_out;
+	current_cnf_out.open( current_cnf_out_name, std::ios_base :: out );
 	std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-	current_out << Addit_func::exec( system_str );
+	current_cnf_out << Addit_func::exec( system_str );
 	std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-	cnf_time_from_node = time_span.count();
-	current_out.clear(); current_out.close();
-	current_out.open( current_cnf_out_name.c_str(), std::ios_base :: in );
+	cnf_time_from_node = time_span.count() - SOLVER_PARSE_SIMP_TIME;
+	if ( cnf_time_from_node <= 0.0 ) {
+		std::cerr << "cnf_time_from_node <= 0.0: " << cnf_time_from_node << std::endl;
+		return false;
+	}
+	current_cnf_out.clear(); current_cnf_out.close();
+	current_cnf_out.open( current_cnf_out_name.c_str(), std::ios_base :: in );
 	
 	process_sat_count = 0;
 	std::string str;
-	while ( getline( current_out, str ) ) {
+	unsigned str_count = 0;
+	while ( getline( current_cnf_out, str ) ) {
 		if ( str.find("SATISFIABLE") != std::string::npos )
 			process_sat_count = 1;
+		str_count++;
 	}
-	current_out.close();
+	current_cnf_out.close();
+	
+	if ( !str_count ) {
+		std::cerr << "empty solver out file " << current_cnf_out_name << std::endl;
+		return false;
+	}
 	
 	return true;
 }
@@ -786,10 +802,13 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		
 		cnf_time_from_node = 0.0;
 		process_sat_count = 0;
-		if ( !isSolverSystemCalling )
-			solverProgramCalling( dummy );
+		if ( !isSolverSystemCalling ) {
+			if ( !solverProgramCalling( dummy ) )
+				MPI_Abort( MPI_COMM_WORLD, 0 );
+		}
 		else {
-			solverSystemCalling( dummy );
+			if ( !solverSystemCalling( dummy ) )
+				MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 		
 		MPI_Send( &current_task_index,         1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
@@ -1038,7 +1057,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 			}
 			if ( isChoosingByActivity ) {
 				sstream << "isChoosingByActivity " << isChoosingByActivity << endl;
-				switch ( ts_strategy ) { // find needed criteria and mathced points in neighborhood
+				switch ( ts_strategy ) { // randomly choose weight of point from L2 and go to such random point
 					case 0:
 						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
 							IsAdding = true;	
@@ -1300,8 +1319,11 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	MPI_Comm_size( MPI_COMM_WORLD, &corecount );
 	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
 
-	if ( solver_name.find( "/" ) != std::string::npos )
+	if ( solver_name.find( "/" ) != std::string::npos ) {
 		isSolverSystemCalling = true;
+		ts_strategy = 0;
+		exp_denom = 0.01;
+	}
 	
 	IsPredict = true;
 	if ( corecount < 2 ) { 
@@ -1650,19 +1672,24 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		if ( deep_predict == 5 ) // simulated annealing
 			graph_file << " cur_temperature";
 		graph_file << endl;
-		var_activity_file.open( var_activity_file_name.c_str(), ios_base :: out );
+		if ( !isSolverSystemCalling ) 
+			var_activity_file.open( var_activity_file_name.c_str(), ios_base :: out );
 	}
 	else {
 		graph_file.open( "graph_file", ios_base :: app );
-		var_activity_file.open( var_activity_file_name.c_str(), ios_base :: app );
+		if ( !isSolverSystemCalling )
+			var_activity_file.open( var_activity_file_name.c_str(), ios_base :: app );
 	}
 
-	var_activity_file << record_count << endl;
+	if ( !isSolverSystemCalling )
+		var_activity_file << record_count << endl;
 	//for( auto &x : total_var_activity )
 	//	var_activity_file << x << " ";
-	for( vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it )
-		var_activity_file << *it << " ";
-	var_activity_file << endl;
+	if ( !isSolverSystemCalling ) {
+		for( vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it )
+			var_activity_file << *it << " ";
+		var_activity_file << std::endl;
+	}
 	
 	graph_file << record_count << " " << best_var_num << " " << best_predict_time << " " << best_sum_time << " "
 		       << best_cnf_in_set_count << " " << last_predict_record_time << " " << current_predict_time;
@@ -1680,7 +1707,8 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	graph_file << " er=" << er << endl;
 	
 	graph_file.close();
-	var_activity_file.close();
+	if ( !isSolverSystemCalling )
+		var_activity_file.close();
 }
 
 bool MPI_Predicter :: checkSimulatedGranted( double predict_time )
@@ -1821,7 +1849,7 @@ bool MPI_Predicter :: GetPredict()
 		else if ( te > 0.0 ) { // here med_time_arr in (0,1)
 			if ( med_time_arr[i] <= 0.0 ) // no solved instanses in sample
 				cur_predict_time = 0;
-			else if ( penalty > med_time_arr[i] ) // if limit exceeded
+			else if ( med_time_arr[i] < penalty ) // if limit exceeded
 				cur_predict_time = huge_double;
 			else {
 				if ( er_strategy == 0 ) // fixed er
@@ -1878,7 +1906,7 @@ bool MPI_Predicter :: GetPredict()
 			//if ( IsRestartNeeded ) // don't stop immidiatly, new record can be found in calculated points
 			//	return true;
 		}
-		else if ( ( best_predict_time > 0.0 ) && ( predict_time_arr[i] >= best_predict_time  ) ) { // stop, predict >= best
+		else if ( ( best_predict_time > 0.0 ) && ( predict_time_arr[i] >= best_predict_time  ) && (!isSolverSystemCalling) ) { // stop, predict >= best
 			if ( ( deep_predict == 5 ) && 
 			     ( predict_time_arr[i] < best_predict_time * (1 + point_admission_koef) ) ) // new point can be worst for simalation annealing
 			{
@@ -2110,12 +2138,12 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 
 	sstream.str( "" ); // clear stringstream
 	sstream.clear();
-	sstream << endl << endl;
-	sstream << "All skipped count "       << all_skip_count << endl;
-	sstream << "Current solved tasks count " << solved_tasks_count << endl;
-	sstream << "Best var num "               << best_var_num;
-	sstream << "Best predict time " << left << scientific << best_predict_time << endl;
-	sstream << "Predict took time "          << whole_time_sec << endl;
+	sstream <<std::endl << std::endl;
+	sstream << "All skipped count "       << all_skip_count << std::endl;
+	sstream << "Current solved tasks count " << solved_tasks_count << std::endl;
+	sstream << "Best var num "               << best_var_num << std::endl;
+	sstream << "Best predict time " << left << scientific << best_predict_time << std::endl;
+	sstream << "Predict took time "          << whole_time_sec << std::endl;
 	predict_file << sstream.rdbuf( );
 	predict_file.close( );
 	

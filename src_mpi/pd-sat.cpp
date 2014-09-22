@@ -373,21 +373,21 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 		{
 			myflags.predict_from = atoi( value.c_str( ) );
 			if ( myflags.predict_from < 0 )
-			{ cout << "Error. predict_from is negative"; return false; }
+			{ std::cerr << "Error. predict_from is negative"; return false; }
 		}
 		else if ( ( hasPrefix_String( argv_string, "-to=",          value ) ) ||
 		          ( hasPrefix_String( argv_string, "-predict_to=",  value ) ) )
 		{
 			myflags.predict_to = atoi( value.c_str( ) );
 			if ( myflags.predict_to < 1 )
-			{ cout << "Error. predict_to < 1 "; return false; }
+			{ std::cerr << "Error. predict_to < 1 "; return false; }
 		}
 		else if ( ( hasPrefix_String( argv_string, "-proc=",        value ) ) ||
 			      ( hasPrefix_String( argv_string, "-proc_count=",  value ) ) )
 		{
 			myflags.proc_count = atoi( value.c_str( ) );
 			if ( myflags.proc_count < 1 )
-			{ cout << "Error. proc_count is negative"; return false; }
+			{ std::cerr << "Error. proc_count is negative"; return false; }
 		}
 		else if ( ( hasPrefix_String( argv_string, "-rslos_table=",      value ) ) ||
 				  ( hasPrefix_String( argv_string, "-rslos_table_name=", value ) ) )
@@ -467,11 +467,11 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.core_len = atoi( value.c_str( ) );
 			if ( myflags.core_len < 0 ) {
 				myflags.core_len = 0;
-				cout << "Error. core_len < 0, changed to 0";
+				std::cerr << "Error. core_len < 0, changed to 0";
 			}
 			if ( myflags.core_len > MAX_CORE_LEN ) { // check < MAX_CORE_LEN
 				myflags.core_len = MAX_CORE_LEN;
-				cout << "Error. core_len > MAX_CORE_LEN, changed to MAX_CORE_LEN";
+				std::cerr << "Error. core_len > MAX_CORE_LEN, changed to MAX_CORE_LEN";
 			}
 		}
 		else if ( ( hasPrefix_String( argv_string, "-cnf_in_set=",       value ) ) ||
@@ -480,11 +480,11 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.cnf_in_set_count = atoi( value.c_str( ) );
 			if ( myflags.cnf_in_set_count < 0 ) {
 				myflags.cnf_in_set_count = 64;
-				cout << "cnf_in_set_count was changed to " << myflags.cnf_in_set_count;
+				std::cout << "cnf_in_set_count was changed to " << myflags.cnf_in_set_count;
 			}
 			if ( myflags.cnf_in_set_count > ( 1 << MAX_STEP_CNF_IN_SET ) ) {
 				myflags.cnf_in_set_count = ( 1 << MAX_STEP_CNF_IN_SET );
-				cout << "cnf_in_set_count was changed to " << myflags.cnf_in_set_count;
+				std::cout << "cnf_in_set_count was changed to " << myflags.cnf_in_set_count;
 			}
 		}
 		else if ( hasPrefix_String( argv_string, "-schema=",              value ) ) {
@@ -527,12 +527,12 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 				  ( argv_string == "--help" ) )
 			WriteUsage( );
 		else if ( argv_string[0] == '-' )
-            cout << "ERROR! unknown flag " << argv_string;
+            std::cerr << "ERROR! unknown flag " << argv_string;
 		else
             argv[k++] = argv[i]; // skip flag arguments
     }
     argc = k;
-
+	
 	// if all keys needed for predicting exists then start predicting
 	if ( ( myflags.predict_to > 0 ) || 
 		 ( myflags.deep_predict > 0 ) ||
@@ -546,8 +546,10 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 		cout << endl;*/
 		if ( ( myflags.predict_to > MAX_CORE_LEN ) || ( myflags.predict_from > myflags.predict_to ) )
 		{
-			std :: cout << "\n Error. predict_from < 0 || predict_to > MAX_REDICT_TO ||" 
-						<< " predict_from > predict_to" << endl;
+			std::cerr << "\n Error. predict_to > MAX_CORE_LEN || predict_from > predict_to" << std::endl;
+			std::cerr << "myflags.predict_from " << myflags.predict_from << std::endl;
+			std::cerr << "myflags.predict_to " << myflags.predict_to << std::endl;
+			std::cerr << "MAX_CORE_LEN " << MAX_CORE_LEN << std::endl;
 			return false;
 		}
 	}

@@ -29,7 +29,7 @@
 using namespace Addit_func;
 using namespace std;
 
-#define MAX_CORE_LEN 800
+const int      MAX_CORE_LEN = 800;
 const double   MIN_SOLVE_TIME = 0.000001;
 const unsigned RECOMMEND_BATCH_VAR_COUNT = 21;
 const unsigned MAX_BATCH_VAR_COUNT = 31;
@@ -38,6 +38,7 @@ const unsigned UINT_LEN = 32;
 const unsigned FULL_MASK_LEN = 26;
 const unsigned SOLVING_TIME_LEN = 15; // info about time of solving tasks
 const unsigned MAX_ASSIGNS_COUNT = 800;
+const double   SOLVER_PARSE_SIMP_TIME = 0.03; // solver parse time + simplification time
 
 enum ProblemStates{Solved, SolvedOnPreprocessing, Interrupted};
 
@@ -143,8 +144,7 @@ public:
 	
 	void MakeRandArr( vector< vector<unsigned> > &rand_arr, unsigned shortcnf_count, unsigned rnd_uint32_count );
 	void MakeUniqueRandArr( vector<unsigned> &rand_arr, unsigned rand_arr_len, unsigned max_rand_val );
-	
-	static inline double cpuTime( void ) { return ( double )clock( ) / CLOCKS_PER_SEC; }
+	std::string make_solver_launch_str( std::string solver_name, std::string cnf_name, double maxtime_seconds_str );
 };
 
 #endif
