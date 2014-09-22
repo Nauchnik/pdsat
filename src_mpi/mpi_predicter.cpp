@@ -387,7 +387,9 @@ bool MPI_Predicter :: solverSystemCalling( vec<Lit> &dummy )
 	current_cnf_out << Addit_func::exec( system_str );
 	std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-	cnf_time_from_node = time_span.count() - SOLVER_PARSE_SIMP_TIME;
+	cnf_time_from_node = time_span.count();
+	if ( cnf_time_from_node > SOLVER_PARSE_SIMP_TIME )
+		cnf_time_from_node -= SOLVER_PARSE_SIMP_TIME;
 	if ( cnf_time_from_node <= 0.0 ) {
 		std::cerr << "cnf_time_from_node <= 0.0: " << cnf_time_from_node << std::endl;
 		return false;

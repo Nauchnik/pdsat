@@ -1079,7 +1079,7 @@ void MPI_Base :: MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< v
 string MPI_Base :: make_solver_launch_str( std::string solver_name, std::string cnf_name, 
 										   double maxtime_solving_time )
 {
-	string time_limit_str = "", result_str = "";
+	string time_limit_str, result_str;
 	stringstream sstream;
 	sstream << max_solving_time;
 	string maxtime_seconds_str = sstream.str();
@@ -1094,6 +1094,7 @@ string MPI_Base :: make_solver_launch_str( std::string solver_name, std::string 
 		 ( solver_name.find( "rokk" ) != std::string::npos ) ||
 		 ( solver_name.find( "sinn" ) != std::string::npos ) ||
 		 ( solver_name.find( "zenn" ) != std::string::npos ) ||
+		 ( solver_name.find( "SWDiA5BY" ) != std::string::npos ) ||
 		 ( solver_name.find( "ClauseSplit" ) != std::string::npos ) 
 		 )
 	{
@@ -1104,8 +1105,9 @@ string MPI_Base :: make_solver_launch_str( std::string solver_name, std::string 
 		time_limit_str = "-t ";
 	}
 	else {
-		std::cerr << "Unknown solver in system calling mode: " << solver_name << std::endl;
-		MPI_Abort( MPI_COMM_WORLD, 0 );
+		time_limit_str = "";
+		//std::cerr << "Unknown solver in system calling mode: " << solver_name << std::endl;
+		//MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 	// glucose can't stop in time
 	/*if ( solver_name.find( "glucose" ) != std::string::npos ) {
@@ -1131,7 +1133,10 @@ string MPI_Base :: make_solver_launch_str( std::string solver_name, std::string 
 		result_str = "./timelimit -t " + maxtime_seconds_str + " -T 1 " + "./" + solvers_dir + "/" + solver_name;
 	}*/
 	
-	result_str = solver_name + " " + time_limit_str + maxtime_seconds_str + " " + cnf_name;
+	if ( time_limit_str != "" )
+		result_str = solver_name + " " + time_limit_str + maxtime_seconds_str + " " + cnf_name;
+	else
+		result_str = solver_name + " " + cnf_name;
 	
 	return result_str;
 }
