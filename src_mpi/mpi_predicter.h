@@ -26,9 +26,6 @@ struct unchecked_area
 	boost::dynamic_bitset<> checked_points; // i here corresponds to checked point with component # i
 	int radius;
 	double med_var_activity;
-	vector<double> predict_times;
-	double cur_er_predict_time; // for current er - for comparison in sorting
-	double sum_time; // sum of predict time 
 };
 
 struct checked_area
@@ -69,7 +66,6 @@ public:
 	int deep_diff_decomp_set_count;
 	int max_var_deep_predict;
 	int deep_predict;
-	int er_strategy;
 	// how many new best points were finded with such count of new vars
 	vector<int> global_count_var_changing; // how many points were found with particular Hamming distance
 	int deep_predict_cur_var;
@@ -85,7 +81,6 @@ public:
 	double point_admission_koef; // how exactly worse can new point be. all others will be interrupted
 	double delta;
 	double exp_value;
-	double exp_denom;
 	int cur_vars_changing;
 	int global_deep_point_index;
 	int global_checked_points_count;
@@ -122,7 +117,7 @@ public:
 	
 	std::vector< std::vector<bool> > stream_vec_vec;
 	std::vector< std::vector<bool> > state_vec_vec;
-	std::vector<std::string> oneliteral_string_vec;
+	std::vector< std::string > oneliteral_string_vec;
 	
 	bool MPI_Predict( int argc, char **argv );
 	bool ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control );
@@ -130,6 +125,7 @@ public:
 	bool GetPredict();
 	bool solverProgramCalling( vec<Lit> &dummy );
 	bool solverSystemCalling( vec<Lit> &dummy );
+	double getCurPredictTime( const unsigned cur_var_num, const unsigned i );
 	
 	bool DeepPredictMain( );
 	bool DeepPredictFindNewUncheckedArea( stringstream &sstream );
@@ -138,7 +134,7 @@ public:
 	void NewRecordPoint( int set_index );
 	bool IsPointInCheckedArea( boost::dynamic_bitset<> &point );
 	bool IsPointInUnCheckedArea( boost::dynamic_bitset<> &point );
-	void AddNewUncheckedArea( boost::dynamic_bitset<> &point, vector<double> &cur_predict_times, double sum_time, stringstream &sstream );
+	void AddNewUncheckedArea( boost::dynamic_bitset<> &point, stringstream &sstream );
 	
 	void AllocatePredictArrays();
 	
@@ -164,12 +160,15 @@ private:
 	vector<int> sum_block_lens_arr;
 	vector<int> sorted_index_array;
 	vector<bool> vec_IsDecompSetSendedToProcess;
+	std::vector<double> predict_time_limites;
 	
 	int best_var_num;
 	double best_predict_time;
 	double best_predict_time_arr[PREDICT_TIMES_COUNT];
 	double best_sum_time;
 	int best_cnf_in_set_count;
+	unsigned best_solved_in_time;
+	double best_time_limit;
 	int *array_message; // for sending via MPI
 	unsigned array_message_size;
 	
@@ -195,7 +194,9 @@ private:
 	vector<int> solved_cnf_count_arr;	
 	vector<double> cnf_start_time_arr;		    
 	vector<double> cnf_final_time_arr; 
-	vector<double> sum_time_arr;			    
+	vector<double> sum_time_arr;
+	vector<unsigned> solved_in_time_arr;
+	vector<double> time_limit_arr; // time limit with best predict value for a point in RoEsTe mode
 	vector<double> med_time_arr;
 	vector<double> predict_time_arr;
 	vector<double> predict_part_time_arr;

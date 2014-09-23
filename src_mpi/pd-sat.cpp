@@ -50,10 +50,7 @@ struct Flags
 	double max_solving_time_koef;
 	bool no_increm;
 	double te; // for (ro es te) predict strategy
-	double er;
 	double penalty;
-	int er_strategy;
-	double exp_denom;
 	unsigned blob_var_count;
 };
 
@@ -149,15 +146,9 @@ int main( int argc, char** argv )
 			mpi_p.max_solving_time = myflags.max_solving_time;
 		if ( myflags.evaluation_type != "" )
 			mpi_p.evaluation_type = myflags.evaluation_type;
-		if ( myflags.er_strategy != -1 )
-			mpi_p.ts_strategy = myflags.er_strategy;
-		if ( myflags.exp_denom != 0.0 )
-			mpi_p.exp_denom = myflags.exp_denom;
 		mpi_p.IsFirstStage = myflags.IsFirstStage;
 		if ( myflags.te > 0 )
 			mpi_p.te = myflags.te;
-		if ( myflags.er > 0 )
-			mpi_p.er = myflags.er;
 		if ( myflags.penalty > 0 )
 			mpi_p.penalty = myflags.penalty;
 		if ( myflags.blob_var_count )
@@ -354,10 +345,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.max_solving_time_koef = 0;
 	myflags.no_increm = false;
 	myflags.te = 0;
-	myflags.er = 0;
 	myflags.penalty = 0;
-	myflags.er_strategy = -1;
-	myflags.exp_denom = 0.0;
 	myflags.blob_var_count = 0;
 	
 	k = 0;
@@ -404,8 +392,6 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.max_L2_hamming_distance = atoi( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-skip_tasks=", value ) )
 			myflags.skip_tasks = atoi( value.c_str() );
-		else if ( hasPrefix_String( argv_string, "-er_strategy=", value ) )
-			myflags.er_strategy = atoi( value.c_str() );
 		else if ( hasPrefix_String( argv_string, "-max_nof_restarts=", value ) )
 			myflags.max_nof_restarts = atoi( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-blob_var_count=", value ) )
@@ -416,10 +402,6 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.max_solving_time_koef = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-te=", value ) )
 			myflags.te = atof( value.c_str( ) );
-		else if ( hasPrefix_String( argv_string, "-er=", value ) )
-			myflags.er = atof( value.c_str( ) );
-		else if ( hasPrefix_String( argv_string, "-exp_denom=", value ) )
-			myflags.exp_denom = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-penalty=", value ) )
 			myflags.penalty = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-deep_predict=", value ) )  {

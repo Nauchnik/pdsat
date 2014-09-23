@@ -48,12 +48,12 @@ MPI_Predicter :: MPI_Predicter( ) :
 	best_cnf_in_set_count ( 0 ),
 	unupdated_count ( 0 ),
 	prev_area_best_predict_time ( 0 ),
-	er_strategy ( 0 ),
-	exp_denom ( 1.0 ),
 	blob_var_count ( 0 ),
 	cur_point_number ( 0 ),
 	tmp_cnf_process_name ( "" ),
-	isSolvedOnPreprocessing ( 0 )
+	isSolvedOnPreprocessing ( 0 ),
+	best_solved_in_time ( 0 ),
+	best_time_limit ( 0.0 )
 	//template_cnf_size ( 0 )
 {
 	array_message = NULL;
@@ -68,11 +68,6 @@ MPI_Predicter :: ~MPI_Predicter( )
 bool ua_compareByActivity(const unchecked_area &a, const unchecked_area &b)
 {
 	return a.med_var_activity > b.med_var_activity;
-}
-
-bool ua_compareByErPredict(const unchecked_area &a, const unchecked_area &b)
-{
-	return a.cur_er_predict_time > b.cur_er_predict_time;
 }
 
 bool ds_compareByActivity(const decomp_set &a, const decomp_set &b)
@@ -145,6 +140,13 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	
 	sstream_control.str(""); sstream_control.clear();
 	sstream_control << "In ControlProcessPredict()" << endl;
+
+	if ( te > 0.0 ) {
+		predict_time_limites.resize( 20 );
+		predict_time_limites[predict_time_limites.size() - 1] = te;
+		for ( int i = predict_time_limites.size() - 2; i >= 0; --i )
+			predict_time_limites[i] = predict_time_limites[i+1] - ( te / (double)predict_time_limites.size() );
+	}
 	
 	if ( verbosity > 0 )
 		std::cout << "all_tasks_count is " << all_tasks_count << std::endl;
@@ -895,7 +897,6 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 	unsigned L1_erased_count = 0;
 	unsigned L2_erased_count = 0;
 	list<unchecked_area> :: iterator L2_it;
-	double last_predict_record_time;
 	bool isChoosingByActivity;
 	
 	if ( IsRecordUpdated ) {
@@ -1017,46 +1018,6 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 			sstream << "L2_matches.size() " << L2_matches.size() << endl;
 			isChoosingByActivity = true;
 			
-			if (( er_strategy == 1 ) && ( er > 1.5 )) {
-				er -= 0.1;
-				sstream << "er decreased " << er << endl;
-				unsigned er_index;
-				for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
-					if ( ( 1.5 + i*0.1 ) == er ) 
-						er_index = i;
-				for ( auto &x : L2_matches )
-					x.cur_er_predict_time = x.predict_times[er_index]; // for comparison
-				
-				L2_matches.sort( ua_compareByErPredict );
-				for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ )
-					if ( (*L2_it).sum_time == 0 ) // don't choose with 0 sum_time
-						continue;
-					else
-					{
-						current_unchecked_area = (*L2_it);
-						isChoosingByActivity = false;
-						break;
-					}
-				
-				if ( !isChoosingByActivity ) {
-					sstream << "isSkipCauseZeroSum " << isChoosingByActivity << endl;
-					real_var_choose_order = BitsetToIntVecPredict( current_unchecked_area.center );
-					sstream << "forced changing of real_var_choose_order to current_unchecked_area.center" << endl;
-					for ( auto &x : real_var_choose_order )
-						sstream << x << " ";
-					sstream << endl;
-					sstream << "real_var_choose_order.size() " << real_var_choose_order.size() << endl;
-					sstream << endl;
-					ofstream graph_file( "graph_file", ios_base :: app );
-					last_predict_record_time = MPI_Wtime() - current_predict_start_time;
-					current_predict_time += last_predict_record_time;
-					current_predict_start_time = MPI_Wtime(); // update time
-					graph_file << "  f " << real_var_choose_order.size() << " " << current_unchecked_area.predict_times[er_index] << " "
-							   << current_unchecked_area.sum_time << " " << best_cnf_in_set_count << " " 
-							   << last_predict_record_time << " " << current_predict_time << " er=" << er << endl;
-					graph_file.close();
-				}
-			}
 			if ( isChoosingByActivity ) {
 				sstream << "isChoosingByActivity " << isChoosingByActivity << endl;
 				switch ( ts_strategy ) { // randomly choose weight of point from L2 and go to such random point
@@ -1320,16 +1281,18 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	MPI_Init( &argc, &argv );
 	MPI_Comm_size( MPI_COMM_WORLD, &corecount );
 	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
-
-	if ( solver_name.find( "/" ) != std::string::npos ) {
+	
+	if ( ( solver_name.find( "." ) != std::string::npos ) ||
+		 ( solver_name.find( "/" ) != std::string::npos )
+		 )
+	{
 		isSolverSystemCalling = true;
 		ts_strategy = 0;
-		exp_denom = 0.01;
 	}
 	
 	IsPredict = true;
 	if ( corecount < 2 ) { 
-		cout << "Error. corecount < 2" << endl; return false; 
+		std::cerr << "Error. corecount < 2" << std::endl; return false; 
 	}
 	
 	vec_IsDecompSetSendedToProcess.resize( corecount - 1 );
@@ -1339,26 +1302,26 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	int stream_char_len, state_char_len;
 	
 	if ( rank == 0 ) { // control node
-		cout << "MPI_Predict is running " << endl;
+		std::cout << "MPI_Predict is running " << std::endl;
 		
 		if ( !ReadIntCNF( ) ) { 
-			cout << "Error in ReadIntCNF" << endl; return 1; 
+			std::cerr << "Error in ReadIntCNF" << std::endl; return 1; 
 		}
 		
 		if ( predict_to > MAX_CORE_LEN ) {
-			cerr << "Warning. predict_to > MAX_PREDICT_TO. Changed to MAX_PREDICT_TO" << endl;
-			cerr << predict_to << " > " << MAX_CORE_LEN << endl;
+			std::cout << "Warning. predict_to > MAX_PREDICT_TO. Changed to MAX_PREDICT_TO" << std::endl;
+			std::cout << predict_to << " > " << MAX_CORE_LEN << std::endl;
 			predict_to = MAX_CORE_LEN;
 		}
 		if  ( predict_to > (int)core_len ) {
-			cout << "core_len changed to predict_to" << endl;
-			cout << core_len << " changed to " << predict_to << endl;
+			std::cout << "core_len changed to predict_to" << std::endl;
+			std::cout << core_len << " changed to " << predict_to << std::endl;
 			core_len = predict_to;
 		}
 
 		if ( ( !predict_to ) && ( core_len ) ) {
-			cout << "predict_to changed to core_len" << endl;
-			cout << predict_to << " changed to " << core_len << endl;
+			std::cout << "predict_to changed to core_len" << std::endl;
+			std::cout << predict_to << " changed to " << core_len << std::endl;
 			predict_to = core_len;
 		}
 
@@ -1456,8 +1419,6 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "te for (ro, es, te) " << te << endl;
 		cout << "er for (ro, es, te) " << er << endl;
 		cout << "penalty for (ro, es, te) " << penalty << endl;
-		cout << "er_strategy " << er_strategy << endl;
-		cout << "exp_denom " << exp_denom << endl;
 		cout << "keystream_len " << keystream_len << endl;
 		cout << "blob_var_count " << blob_var_count << endl;
 		std::cout << "isSolverSystemCalling " << isSolverSystemCalling << std::endl;
@@ -1552,6 +1513,10 @@ bool MPI_Predicter :: PrepareForPredict()
 
 	cout << "all_tasks_count " << all_tasks_count << endl;
 	
+	// count of solved subproblems from sample with time limit
+	solved_in_time_arr.resize( decomp_set_arr.size() );
+	// 
+	time_limit_arr.resize( decomp_set_arr.size() );
 	// sum times
 	sum_time_arr.resize( decomp_set_arr.size() );
 	// array of median times of CNF in set
@@ -1585,6 +1550,8 @@ bool MPI_Predicter :: PrepareForPredict()
 		med_time_arr[i]          = 0.0;
 		predict_time_arr[i]      = 0.0;
 		predict_part_time_arr[i] = 0.0;
+		solved_in_time_arr[i]    = 0;
+		time_limit_arr[i]        = 0.0;
 	}
 
 	return true;
@@ -1630,23 +1597,23 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		sstream << "cur_temperature " << cur_temperature << endl;
 	}
 
-	sstream << "best_var_num " << best_var_num << endl;
-	sstream << "best_var_choose_order " << endl;
+	sstream << "best_var_num " << best_var_num << std::endl;
+	sstream << "best_var_choose_order " << std::endl;
 	for ( int j = 0; j < best_var_num; j++ )
 		sstream << var_choose_order[j] << " ";
-	sstream << endl;
+	sstream << std::endl;
 	sstream << "global_count_var_changing" << endl;
 	for ( int i = 0; i < max_var_deep_predict; i++ )
 		sstream << i + 1 << ":" << global_count_var_changing[i] << " ";
-	sstream << endl << endl;
+	sstream << std::endl << std::endl;
 
 	if ( IsDecDecomp ) {
-		sstream << "real best predict time " << real_best_predict_time << " s" << endl;
-		sstream << "real best var num " << real_best_var_num << endl;
-		sstream << "real var choose order " << endl;
+		sstream << "real best predict time " << real_best_predict_time << " s" << std::endl;
+		sstream << "real best var num " << real_best_var_num << std::endl;
+		sstream << "real var choose order " << std::endl;
 		for ( int j = 0; j < real_best_var_num; j++ )
 			sstream << real_var_choose_order[j] << " ";
-		sstream << endl;
+		sstream << std::endl;
 	}
 	
 	/*if ( 
@@ -1670,10 +1637,13 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	ofstream graph_file, var_activity_file;
 	if ( isFirstPoint ) {
 		graph_file.open( "graph_file", ios_base :: out ); // erase info from previous launches 
-		graph_file << "# best_var_num best_predict_time best_sum_time cnf_in_set_count last_predict_record_time current_predict_time";
+		if ( te == 0.0 )
+			graph_file << "# best_var_num best_predict_time best_sum_time cnf_in_set_count last_predict_record_time current_predict_time";
+		else
+			graph_file << "# best_var_num best_predict_time solved_in_time cnf_in_set_count last_predict_record_time current_predict_time";
 		if ( deep_predict == 5 ) // simulated annealing
 			graph_file << " cur_temperature";
-		graph_file << endl;
+		graph_file << std::endl;
 		if ( !isSolverSystemCalling ) 
 			var_activity_file.open( var_activity_file_name.c_str(), ios_base :: out );
 	}
@@ -1693,20 +1663,24 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		var_activity_file << std::endl;
 	}
 	
-	graph_file << record_count << " " << best_var_num << " " << best_predict_time << " " << best_sum_time << " "
-		       << best_cnf_in_set_count << " " << last_predict_record_time << " " << current_predict_time;
+	graph_file << record_count << " " << best_var_num << " " << best_predict_time << " ";
+	if ( te == 0.0 )
+		graph_file << best_sum_time;
+	else
+		graph_file << best_solved_in_time;
+	graph_file << " " << best_cnf_in_set_count << " " << last_predict_record_time << " " << current_predict_time;
 	if ( deep_predict == 5 ) 
 		graph_file << " " << cur_temperature;
 
 	if ( ( IsFirstStage ) && ( !isFirstPoint ) && ( best_var_num > old_best_var_num ) ) {
 		IsFirstStage = false;
-		cout << "IsFirstStage "      << IsFirstStage      << endl;
-		cout << "best_var_num "      << best_var_num      << endl;
-		cout << "best_predict_time " << best_predict_time << endl;
-		sstream << endl << " *** First stage done ***" << best_predict_time << endl;
+		std::cout << "IsFirstStage "      << IsFirstStage      << std::endl;
+		std::cout << "best_var_num "      << best_var_num      << std::endl;
+		std::cout << "best_predict_time " << best_predict_time << std::endl;
+		sstream << std::endl << " *** First stage done ***" << best_predict_time << std::endl;
 		graph_file << " first stage done";
 	}
-	graph_file << " er=" << er << endl;
+	graph_file << " time_limit=" << best_time_limit << std::endl;
 	
 	graph_file.close();
 	if ( !isSolverSystemCalling )
@@ -1749,6 +1723,44 @@ boost::dynamic_bitset<> MPI_Predicter :: IntVecToBitsetPredict( vector<int> &var
 	return bs;
 }
 
+double MPI_Predicter :: getCurPredictTime( const unsigned cur_var_num, const unsigned i )
+{
+	// (ro, es, te) mode, here sum for sample is number of solved problems with time < te 
+	// get best predict time for current point with different variants of time limits
+	double cur_predict_time, point_best_predict_time = HUGE_DOUBLE, cur_probability, point_best_time_limit = 0.0;
+	unsigned cur_solved_in_time, point_best_solved_in_time = 0, cnf_count;
+	vector<double> predict_times;
+	predict_times.resize( predict_time_limites.size() );
+	cnf_count = set_index_arr[i + 1] - set_index_arr[i];
+	
+	for ( auto &cur_time_limit : predict_time_limites ) {
+		cur_solved_in_time = 0;
+		for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ )
+			if ( ( cnf_issat_arr[j] ) && ( cnf_real_time_arr[j] > 0 ) && ( cnf_real_time_arr[j] <= cur_time_limit ) )
+				cur_solved_in_time++;
+		if ( !cur_solved_in_time )
+			continue;
+		cur_probability = cur_solved_in_time / cnf_count;
+		cur_predict_time = pow( 2.0, cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
+		if ( cur_predict_time < point_best_predict_time ) {
+			point_best_predict_time   = cur_predict_time;
+			point_best_solved_in_time = cur_solved_in_time;
+			point_best_time_limit     = cur_time_limit;
+		}
+	}
+	
+	solved_in_time_arr[i] = point_best_solved_in_time;
+	time_limit_arr[i]     = point_best_time_limit;
+	
+	/*if ( med_time_arr[i] <= 0.0 ) // no solved instanses in sample
+		cur_predict_time = 0;
+	else if ( med_time_arr[i] < penalty ) // if limit exceeded
+		cur_predict_time = HUGE_DOUBLE;
+	*/
+	
+	return point_best_predict_time;
+}		
+
 //---------------------------------------------------------
 bool MPI_Predicter :: GetPredict()
 {
@@ -1757,7 +1769,7 @@ bool MPI_Predicter :: GetPredict()
 // set_status_arr == 2, if all CNF in set are solved and it's BKV
 // set_status_arr == 4, if all CNF in set are solved, not BKV, but control process couldn't catch to stop it
 	if ( verbosity > 2 )
-		cout << "GetPredict()" << endl;
+		std::cout << "GetPredict()" << std::endl;
 	
 	int solved_tasks_count = 0;
 	unsigned cur_var_num, solved_in_sample_count, 
@@ -1772,14 +1784,12 @@ bool MPI_Predicter :: GetPredict()
 	int set_index_bound = 0,
 		cur_cnf_in_set_count = 0;
 	double current_time = Minisat::cpuTime();
-	double huge_double = 1e+308;;
 	
 	cnf_to_stop_arr.clear(); // every time get stop-list again
 	stringstream sstream;
-	vector<double> cur_predict_times;
-	cur_predict_times.resize( PREDICT_TIMES_COUNT );
 	bool isTeBkvUpdated;
-	unsigned er_index;
+	std::vector<double> cur_point_cnf_times;
+	cur_point_cnf_times.resize( cnf_in_set_count );
 	
 	// fill arrays of summary and median times in set of CNF
 	for ( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
@@ -1818,7 +1828,12 @@ bool MPI_Predicter :: GetPredict()
 
 		sum_time_arr[i] = 0.0; // init value of sum - every time must start from 0.0
 		//max_real_time_sample = 0;
-		if ( te == 0 ) {
+		cur_point_cnf_times.resize( set_index_arr[i + 1] - set_index_arr[i] );
+
+		isTeBkvUpdated = false;
+		
+		// get current predict time
+		if ( te == 0.0 ) {
 			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ ) {
 				// if real time from node doesn't exist, use roundly time from 0-core
 				if ( cnf_real_time_arr[j] > 0 ) {
@@ -1833,53 +1848,13 @@ bool MPI_Predicter :: GetPredict()
 				// we can stop processing of sample with such task if needed
 				sum_time_arr[i] += cur_cnf_time;
 			}
-		}
-		else if ( te > 0 ) { // (ro, es, te) mode, here sum for sample is number of solved problems with time < te  
-			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ )
-				if ( ( cnf_issat_arr[j] ) && ( cnf_real_time_arr[j] > 0 ) && ( cnf_real_time_arr[j] <= te ) )
-					sum_time_arr[i] += 1;
-		}
-		
-		// get current predict time
-		med_time_arr[i] = sum_time_arr[i] / (double)cur_cnf_in_set_count;
-		isTeBkvUpdated = false;
-		
-		if ( te == 0.0 ) {
+
+			med_time_arr[i] = sum_time_arr[i] / (double)cur_cnf_in_set_count;
 			cur_predict_time = med_time_arr[i] / (double)proc_count;
 			cur_predict_time *= pow( 2, (double)cur_var_num );
 		}
-		else if ( te > 0.0 ) { // here med_time_arr in (0,1)
-			if ( med_time_arr[i] <= 0.0 ) // no solved instanses in sample
-				cur_predict_time = 0;
-			else if ( med_time_arr[i] < penalty ) // if limit exceeded
-				cur_predict_time = huge_double;
-			else {
-				if ( er_strategy == 0 ) // fixed er
-					cur_predict_time = pow( er, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom );
-				else if ( er_strategy == 1 ) {
-					for( unsigned j = 0; j < cur_predict_times.size(); j++ ) {
-						cur_predict_times[j] = pow( 1.5 + j*0.1, (double)cur_var_num ) / pow( med_time_arr[i], exp_denom ) + 
-							pow( 2.0, (penalty - med_time_arr[i]) * cur_cnf_in_set_count )*prev_area_best_predict_time / 10.0;
-						if ( ( best_predict_time_arr[j] == 0.0 ) || ( cur_predict_times[j] < best_predict_time_arr[j] ) ) {
-							best_predict_time_arr[j] = cur_predict_times[j];
-							sstream << "best_predict_time_arr[" << j << "] "<< "updated " << best_predict_time_arr[j] << endl;
-							if ( ( 1.5 + j*0.1 ) >= er ) {
-								isTeBkvUpdated = true;
-								sstream << "isTeBkvUpdated " << isTeBkvUpdated << endl;
-								if ( ( 1.5 + j*0.1 ) > er ) {
-									er = 1.5 + j*0.1;
-									sstream << "er increased " << er << endl;
-								}
-							}
-						}
-					}
-					for( unsigned j=0; j < PREDICT_TIMES_COUNT; j++ )
-						if ( ( 1.5 + j*0.1 ) == er ) 
-							er_index = j;
-					cur_predict_time = cur_predict_times[er_index];
-				}
-			}
-		}
+		else if ( te > 0.0 ) // here med_time_arr in (0,1)
+			cur_predict_time = getCurPredictTime( cur_var_num, i );
 		
 		predict_time_arr[i] = cur_predict_time;
 		
@@ -1894,11 +1869,13 @@ bool MPI_Predicter :: GetPredict()
 		   )
 		{
 			// if all sat-problems were solved then it can be best predict
-			set_status_arr[i] = 2;
-			IsRecordUpdated = true;
-			best_predict_time = predict_time_arr[i];
-			best_sum_time     = sum_time_arr[i];
+			set_status_arr[i]     = 2;
+			IsRecordUpdated       = true;
+			best_predict_time     = predict_time_arr[i];
+			best_sum_time         = sum_time_arr[i];
+			best_solved_in_time   = solved_in_time_arr[i];
 			best_cnf_in_set_count = cur_cnf_in_set_count;
+			best_time_limit       = time_limit_arr[i];
 			
 			//prev_best_sum = sum_time_arr[i];
 			//prev_best_decomp_set_power = decomp_set_arr[i].var_choose_order.size();
@@ -1955,7 +1932,7 @@ bool MPI_Predicter :: GetPredict()
 	//cout << "time1 " << time1 << endl;
 
 	if ( verbosity > 2 )
-		cout << "In GetPredict() after main loop" << endl;
+		std::cout << "In GetPredict() after main loop" << std::endl;
 	
 	//cout << "before cycle of AddNewUncheckedArea()" << endl;
 	if ( deep_predict >= 5 ) {
@@ -1968,7 +1945,7 @@ bool MPI_Predicter :: GetPredict()
 				else 
 					global_checked_points_count++;
 				boost::dynamic_bitset<> bs = IntVecToBitsetPredict( decomp_set_arr[i].var_choose_order );
-				AddNewUncheckedArea( bs, cur_predict_times, sum_time_arr[i], sstream );
+				AddNewUncheckedArea( bs, sstream );
 			}
 		}
 		fstream deep_predict_file( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
@@ -2274,8 +2251,7 @@ bool MPI_Predicter :: IsPointInUnCheckedArea( boost::dynamic_bitset<> &point )
 	return false;
 }
 
-void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, vector<double> &cur_predict_times, 
-										   double sum_time, stringstream &sstream )
+void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, stringstream &sstream )
 {
 // Add new point as center to list of unchecked areas (L2)
 // Add 1 to checked_points vector of new point and all areas from L2 in
@@ -2298,8 +2274,6 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, vecto
 	new_ua.center = point;
 	new_ua.radius = 1;
 	new_ua.checked_points.resize( point.size() );
-	new_ua.predict_times = cur_predict_times;
-	new_ua.sum_time = sum_time;
 	
 	for ( L1_it = L1.begin(); L1_it != L1.end(); L1_it++ ) {
 		// necessary condition - points with close count of 1s

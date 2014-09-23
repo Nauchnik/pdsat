@@ -39,6 +39,7 @@ const unsigned FULL_MASK_LEN = 26;
 const unsigned SOLVING_TIME_LEN = 15; // info about time of solving tasks
 const unsigned MAX_ASSIGNS_COUNT = 800;
 const double   SOLVER_PARSE_SIMP_TIME = 0.03; // solver parse time + simplification time
+const double   HUGE_DOUBLE = 1e+308;
 
 enum ProblemStates{Solved, SolvedOnPreprocessing, Interrupted};
 
