@@ -18,7 +18,7 @@ const int    NUM_KEY_BITS                  = 64;
 const int    MAX_VAR_FOR_RANDOM            = 60;
 const double MIN_STOP_TIME				   = 0.01;
 const int    MAX_DISTANCE_TO_RECORD        = 10;
-const int    PREDICT_TIMES_COUNT            = 6;
+const int    PREDICT_TIMES_COUNT           = 6;
 
 struct unchecked_area
 {
@@ -105,6 +105,9 @@ public:
 	unsigned unupdated_count;
 	double start_sample_variance_limit;
 	double prev_area_best_predict_time;
+	double predict_time_limit_step;
+
+	Problem cnf;
 	//unsigned prev_best_decomp_set_power;
 	//unsigned prev_best_sum;
 	unsigned blob_var_count; // max count of var in decompositions set for writing blob

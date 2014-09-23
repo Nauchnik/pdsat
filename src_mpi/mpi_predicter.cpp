@@ -53,7 +53,8 @@ MPI_Predicter :: MPI_Predicter( ) :
 	tmp_cnf_process_name ( "" ),
 	isSolvedOnPreprocessing ( 0 ),
 	best_solved_in_time ( 0 ),
-	best_time_limit ( 0.0 )
+	best_time_limit ( 0.0 ),
+	predict_time_limit_step ( 0 )
 	//template_cnf_size ( 0 )
 {
 	array_message = NULL;
@@ -140,12 +141,13 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	
 	sstream_control.str(""); sstream_control.clear();
 	sstream_control << "In ControlProcessPredict()" << endl;
-
+	
 	if ( te > 0.0 ) {
-		predict_time_limites.resize( 20 );
+		predict_time_limites.resize( 100 );
+		predict_time_limit_step = te / (double)predict_time_limites.size();
 		predict_time_limites[predict_time_limites.size() - 1] = te;
 		for ( int i = predict_time_limites.size() - 2; i >= 0; --i )
-			predict_time_limites[i] = predict_time_limites[i+1] - ( te / (double)predict_time_limites.size() );
+			predict_time_limites[i] = predict_time_limites[i+1] - predict_time_limit_step;
 	}
 	
 	if ( verbosity > 0 )
@@ -429,21 +431,24 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 		std::cout << "Before getting prev stats from Solver" << std::endl;
 	
 	// make Solver for every problem to make them independent from each other
-	/*S = new Solver();
+	S = new Solver();
 	S->addProblem(cnf);
 	S->pdsat_verbosity  = verbosity;
 	S->IsPredict        = IsPredict;
 	S->max_solving_time = max_solving_time;
 	S->rank             = rank;
-	S->core_len         = core_len;*/
-			
+	S->core_len         = core_len;
+	S->start_activity   = start_activity;
+	if ( solver_name.find("minigolf") != std::string::npos )
+		S->cur_hack_type = hack_minigolf;
+	
 	prev_starts    = S->starts;
 	prev_conflicts = S->conflicts;
 	isSolvedOnPreprocessing = 0;
-	cnf_time_from_node = MPI_Wtime( );
 			
 	S->resetVarActivity();
-			
+
+	cnf_time_from_node = MPI_Wtime( );
 	if ( ( verbosity > 2 ) && ( rank == 1 ) )
 		std::cout << "Before S->solveLimited( dummy )" << std::endl;
 	ret = S->solveLimited( dummy );
@@ -481,7 +486,7 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 				return false;
 			}
 		}
-		if ( var_choose_order.size() <= 30 ) { // write activity of hard SAT instance
+		/*if ( var_choose_order.size() <= 30 ) { // write activity of hard SAT instance
 			S->getActivity( all_vars_set, all_var_activity, all_vars_set.size() );
 			ofstream ofile( "bkv_activity" );
 			for ( unsigned i=0; i < all_vars_set.size(); i++)
@@ -501,12 +506,12 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 			for ( unsigned i=0; i < var_choose_order.size(); i++ )
 				ofile << var_choose_order[i] << " ";
 			ofile.close();
-		}
+		}*/
 	}
-	//delete S;
-	S->clearDB();
+	delete S;
+	/*S->clearDB();
 	S->clearPolarity();
-	S->clearParams();
+	S->clearParams();*/
 
 	return true;
 }
@@ -585,10 +590,9 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	if ( !isSolverSystemCalling ) {
 		minisat22_wrapper m22_wrapper;
 		ifstream in( input_cnf_name );
-		Problem cnf;
 		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
 		in.close();
-		S = new Solver();
+		/*S = new Solver();
 		S->addProblem(cnf);
 		S->pdsat_verbosity  = verbosity;
 		S->IsPredict        = IsPredict;
@@ -597,7 +601,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		S->core_len         = core_len;
 		S->start_activity   = start_activity;
 		if ( solver_name.find("minigolf") != std::string::npos )
-			S->cur_hack_type = hack_minigolf;
+			S->cur_hack_type = hack_minigolf;*/
 	}
 	
 	if ( te > 0 ) { // ro es te mode
@@ -1420,7 +1424,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "er for (ro, es, te) " << er << endl;
 		cout << "penalty for (ro, es, te) " << penalty << endl;
 		cout << "keystream_len " << keystream_len << endl;
-		cout << "blob_var_count " << blob_var_count << endl;
+		std::cout << "blob_var_count " << blob_var_count << endl;
 		std::cout << "isSolverSystemCalling " << isSolverSystemCalling << std::endl;
 		std::cout << std::endl;
 		
@@ -1733,6 +1737,7 @@ double MPI_Predicter :: getCurPredictTime( const unsigned cur_var_num, const uns
 	predict_times.resize( predict_time_limites.size() );
 	cnf_count = set_index_arr[i + 1] - set_index_arr[i];
 	
+	unsigned index = 0, point_best_index = 0;
 	for ( auto &cur_time_limit : predict_time_limites ) {
 		cur_solved_in_time = 0;
 		for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ )
@@ -1746,17 +1751,26 @@ double MPI_Predicter :: getCurPredictTime( const unsigned cur_var_num, const uns
 			point_best_predict_time   = cur_predict_time;
 			point_best_solved_in_time = cur_solved_in_time;
 			point_best_time_limit     = cur_time_limit;
+			point_best_index          = index;
 		}
+		index++;
 	}
+	
+	// increase range if best value in right limit 
+	/*double last_value = predict_time_limites[predict_time_limites.size()-1];
+	if ( point_best_index == predict_time_limites.size() - 1 ) {
+		predict_time_limites.push_back( last_value + predict_time_limit_step );
+		te = predict_time_limites[predict_time_limites.size()-1];
+		ofstream deep_predict_file( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
+		deep_predict_file << std::endl << "predict_time_limites updated" <<std::endl;
+		for ( auto &x : predict_time_limites )
+			deep_predict_file << x << " ";
+		deep_predict_file << "te " << te << std::endl;
+		deep_predict_file.close();
+	}*/
 	
 	solved_in_time_arr[i] = point_best_solved_in_time;
 	time_limit_arr[i]     = point_best_time_limit;
-	
-	/*if ( med_time_arr[i] <= 0.0 ) // no solved instanses in sample
-		cur_predict_time = 0;
-	else if ( med_time_arr[i] < penalty ) // if limit exceeded
-		cur_predict_time = HUGE_DOUBLE;
-	*/
 	
 	return point_best_predict_time;
 }		

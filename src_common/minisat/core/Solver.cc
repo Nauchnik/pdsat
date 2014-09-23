@@ -221,10 +221,10 @@ void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&va
 // added
 void Solver :: resetVarActivity()
 {
-	// set default minisat values
-	for( int i=0; i < activity.size(); ++i )
-		activity[i] = 0.0;
 	if ( ( core_len <= nVars() ) && ( start_activity > 0 ) ) {
+		// set default minisat values
+		for( int i=0; i < activity.size(); ++i )
+			activity[i] = 0.0;
 		for (int v = 0; v < core_len; ++v)
 			varBumpActivity(v, start_activity);
 		var_decay = 1;
