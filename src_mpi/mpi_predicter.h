@@ -128,7 +128,7 @@ public:
 	bool GetPredict();
 	bool solverProgramCalling( vec<Lit> &dummy );
 	bool solverSystemCalling( vec<Lit> &dummy );
-	double getCurPredictTime( const unsigned cur_var_num, const unsigned i );
+	double getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_set_count, unsigned i );
 	
 	bool DeepPredictMain( );
 	bool DeepPredictFindNewUncheckedArea( stringstream &sstream );

@@ -387,11 +387,13 @@ bool MPI_Predicter :: solverSystemCalling( vec<Lit> &dummy )
 	
 	fstream current_cnf_out;
 	current_cnf_out.open( current_cnf_out_name, std::ios_base :: out );
-	std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+	//std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+	cnf_time_from_node = MPI_Wtime();
 	current_cnf_out << Addit_func::exec( system_str );
-	std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-	cnf_time_from_node = time_span.count();
+	//std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+	//std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+	//cnf_time_from_node = time_span.count();
+	cnf_time_from_node = MPI_Wtime() - cnf_time_from_node;
 	if ( cnf_time_from_node > SOLVER_PARSE_SIMP_TIME )
 		cnf_time_from_node -= SOLVER_PARSE_SIMP_TIME;
 	if ( cnf_time_from_node <= 0.0 ) {
@@ -431,6 +433,7 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 		std::cout << "Before getting prev stats from Solver" << std::endl;
 	
 	// make Solver for every problem to make them independent from each other
+	Solver *S;
 	S = new Solver();
 	S->addProblem(cnf);
 	S->pdsat_verbosity  = verbosity;
@@ -834,7 +837,6 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	delete[] var_activity;
 	delete[] all_var_activity;
  	delete[] array_message;
-	if ( S ) delete S;
 	MPI_Finalize();
 	return true;
 }
@@ -1422,7 +1424,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "evaluation_type " << evaluation_type << endl;
 		cout << "te for (ro, es, te) " << te << endl;
 		cout << "er for (ro, es, te) " << er << endl;
-		cout << "penalty for (ro, es, te) " << penalty << endl;
+		//cout << "penalty for (ro, es, te) " << penalty << endl;
 		cout << "keystream_len " << keystream_len << endl;
 		std::cout << "blob_var_count " << blob_var_count << endl;
 		std::cout << "isSolverSystemCalling " << isSolverSystemCalling << std::endl;
@@ -1727,34 +1729,43 @@ boost::dynamic_bitset<> MPI_Predicter :: IntVecToBitsetPredict( vector<int> &var
 	return bs;
 }
 
-double MPI_Predicter :: getCurPredictTime( const unsigned cur_var_num, const unsigned i )
+double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_set_count, unsigned i )
 {
 	// (ro, es, te) mode, here sum for sample is number of solved problems with time < te 
 	// get best predict time for current point with different variants of time limits
-	double cur_predict_time, point_best_predict_time = HUGE_DOUBLE, cur_probability, point_best_time_limit = 0.0;
-	unsigned cur_solved_in_time, point_best_solved_in_time = 0, cnf_count;
+	double point_cur_predict_time = 0.0, point_best_predict_time = HUGE_DOUBLE, 
+		   cur_probability, point_best_time_limit = 0.0;
+	unsigned cur_solved_in_time, point_best_solved_in_time = 0;
 	vector<double> predict_times;
 	predict_times.resize( predict_time_limites.size() );
-	cnf_count = set_index_arr[i + 1] - set_index_arr[i];
 	
-	unsigned index = 0, point_best_index = 0;
+	/*string temp_file_name = "temp_file";
+	ofstream ofile( temp_file_name, std::ios::out );
+	ofile << "time_limit predict solved_in_time probability cur_cnf_in_set_count" << std::endl;*/
+	
+	//unsigned index = 0, point_best_index = 0;
 	for ( auto &cur_time_limit : predict_time_limites ) {
+		//ofile << cur_time_limit << " ";
 		cur_solved_in_time = 0;
 		for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ )
-			if ( ( cnf_issat_arr[j] ) && ( cnf_real_time_arr[j] > 0 ) && ( cnf_real_time_arr[j] <= cur_time_limit ) )
+			if ( ( cnf_issat_arr[j] ) && ( cnf_real_time_arr[j] > 0.0 ) && ( cnf_real_time_arr[j] <= cur_time_limit ) )
 				cur_solved_in_time++;
 		if ( !cur_solved_in_time )
 			continue;
-		cur_probability = cur_solved_in_time / cnf_count;
-		cur_predict_time = pow( 2.0, cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
-		if ( cur_predict_time < point_best_predict_time ) {
-			point_best_predict_time   = cur_predict_time;
+		cur_probability = (double)cur_solved_in_time / (double)cur_cnf_in_set_count;
+		point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
+		if ( point_cur_predict_time < point_best_predict_time ) {
+			point_best_predict_time   = point_cur_predict_time;
 			point_best_solved_in_time = cur_solved_in_time;
 			point_best_time_limit     = cur_time_limit;
-			point_best_index          = index;
+			//point_best_index          = index;
 		}
-		index++;
+		//index++;
+		/*ofile << point_cur_predict_time << " " << cur_solved_in_time << " " << 
+			     cur_probability << " " << cur_cnf_in_set_count << std::endl;*/
 	}
+	
+	//ofile.close();
 	
 	// increase range if best value in right limit 
 	/*double last_value = predict_time_limites[predict_time_limites.size()-1];
@@ -1789,7 +1800,7 @@ bool MPI_Predicter :: GetPredict()
 	unsigned cur_var_num, solved_in_sample_count, 
 			 cur_cnf_to_skip_count = 0, 
 			 cur_cnf_to_stop_count = 0;
-	double cur_predict_time = 0.0,
+	double cur_predict_time  = 0.0,
 		   cur_sum_part_time = 0.0,
 		   cur_med_part_time = 0.0,
 		   time1 = 0,
@@ -1802,8 +1813,6 @@ bool MPI_Predicter :: GetPredict()
 	cnf_to_stop_arr.clear(); // every time get stop-list again
 	stringstream sstream;
 	bool isTeBkvUpdated;
-	std::vector<double> cur_point_cnf_times;
-	cur_point_cnf_times.resize( cnf_in_set_count );
 	
 	// fill arrays of summary and median times in set of CNF
 	for ( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
@@ -1842,7 +1851,6 @@ bool MPI_Predicter :: GetPredict()
 
 		sum_time_arr[i] = 0.0; // init value of sum - every time must start from 0.0
 		//max_real_time_sample = 0;
-		cur_point_cnf_times.resize( set_index_arr[i + 1] - set_index_arr[i] );
 
 		isTeBkvUpdated = false;
 		
@@ -1865,10 +1873,10 @@ bool MPI_Predicter :: GetPredict()
 
 			med_time_arr[i] = sum_time_arr[i] / (double)cur_cnf_in_set_count;
 			cur_predict_time = med_time_arr[i] / (double)proc_count;
-			cur_predict_time *= pow( 2, (double)cur_var_num );
+			cur_predict_time *= pow( 2.0, (double)cur_var_num );
 		}
 		else if ( te > 0.0 ) // here med_time_arr in (0,1)
-			cur_predict_time = getCurPredictTime( cur_var_num, i );
+			cur_predict_time = getCurPredictTime( cur_var_num, cur_cnf_in_set_count, i );
 		
 		predict_time_arr[i] = cur_predict_time;
 		

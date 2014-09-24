@@ -50,7 +50,7 @@ struct Flags
 	double max_solving_time_koef;
 	bool no_increm;
 	double te; // for (ro es te) predict strategy
-	double penalty;
+	//double penalty;
 	unsigned blob_var_count;
 };
 
@@ -70,6 +70,7 @@ int main( int argc, char** argv )
 // main procedure
 	int full_mask_var_count;
 	char *input_cnf_name;
+
 
 #ifdef _DEBUG
 	//TestSolve( );
@@ -149,8 +150,8 @@ int main( int argc, char** argv )
 		mpi_p.IsFirstStage = myflags.IsFirstStage;
 		if ( myflags.te > 0 )
 			mpi_p.te = myflags.te;
-		if ( myflags.penalty > 0 )
-			mpi_p.penalty = myflags.penalty;
+		//if ( myflags.penalty > 0 )
+		//	mpi_p.penalty = myflags.penalty;
 		if ( myflags.blob_var_count )
 			mpi_p.blob_var_count = myflags.blob_var_count;
 		
@@ -281,7 +282,7 @@ void WriteUsage( )
 	"\n   -no_increm - disable incremental mode while solving";
 	"\n   -te - for (ro, es, te) strategy in predict";
 	"\n   -er - power of median for (ro, es, te) strategy in predict";
-	"\n   -penalty - penalty for function in satisfiably predict mode";
+	//"\n   -penalty - penalty for function in satisfiably predict mode";
 	"\n   -er_strategy - strategy for SAT predict";
 	"\n   -exp_denom - exponent for denominant in predict function computing";
 	"\n   -blob_var_count - max var count in decomposition set for writing blob (state of SAT solver)";
@@ -345,7 +346,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.max_solving_time_koef = 0;
 	myflags.no_increm = false;
 	myflags.te = 0;
-	myflags.penalty = 0;
+	//myflags.penalty = 0;
 	myflags.blob_var_count = 0;
 	
 	k = 0;
@@ -402,8 +403,8 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.max_solving_time_koef = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-te=", value ) )
 			myflags.te = atof( value.c_str( ) );
-		else if ( hasPrefix_String( argv_string, "-penalty=", value ) )
-			myflags.penalty = atof( value.c_str( ) );
+		//else if ( hasPrefix_String( argv_string, "-penalty=", value ) )
+		//	myflags.penalty = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-deep_predict=", value ) )  {
 			myflags.deep_predict = atoi( value.c_str( ) );
 			switch ( myflags.deep_predict ) {

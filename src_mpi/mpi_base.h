@@ -103,7 +103,6 @@ public:
 	unsigned cnf_in_set_count;
 	unsigned input_var_num;
 	int current_task_index; 
-	Solver *S;
 	int process_sat_count;
 	double cnf_time_from_node;
 
