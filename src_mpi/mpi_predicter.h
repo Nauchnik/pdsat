@@ -5,7 +5,11 @@
 #include "mpi_base.h"
 #include "Bivium.h"
 #include <thread>
-#include <chrono>
+
+#ifndef WIN32
+#include <unistd.h>.
+#include <sys/types.h>
+#endif
 
 const unsigned MAX_STEP_CNF_IN_SET		   = 30;
 
@@ -115,7 +119,7 @@ public:
 	int isSolvedOnPreprocessing;
 	std::string tmp_cnf_process_name;
 	std::string current_cnf_out_name;
-	//int template_cnf_size;
+	int template_cnf_size;
 	std::stringstream template_sstream;
 	
 	std::vector< std::vector<bool> > stream_vec_vec;

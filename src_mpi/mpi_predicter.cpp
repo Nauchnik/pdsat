@@ -54,8 +54,8 @@ MPI_Predicter :: MPI_Predicter( ) :
 	isSolvedOnPreprocessing ( 0 ),
 	best_solved_in_time ( 0 ),
 	best_time_limit ( 0.0 ),
-	predict_time_limit_step ( 0 )
-	//template_cnf_size ( 0 )
+	predict_time_limit_step ( 0 ),
+	template_cnf_size ( 0 )
 {
 	array_message = NULL;
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
@@ -367,14 +367,17 @@ bool MPI_Predicter :: solverSystemCalling( vec<Lit> &dummy )
 	if ( ( rank == 1 ) && ( verbosity > 2 ) )
 		std::cout << "oneliteral_string_vec.size() " << oneliteral_string_vec.size() << std::endl;
 	
+#ifndef WIN32
+	truncate( tmp_cnf_process_name.c_str(), template_cnf_size );
+#endif
 	ofstream ofile;
-	ofile.open( tmp_cnf_process_name, std::ios_base::out );
+	ofile.open( tmp_cnf_process_name, std::ios_base::out | std::ios_base::app );
 	//ofile.seekp( template_cnf_size, ofile.beg );
 	// write template data to temp file
-	sstream << "p cnf " << var_count << " " << clause_count + oneliteral_string_vec.size() << std::endl;
-	ofile << sstream.str();
-	sstream.str(""); sstream.clear();
-	ofile << template_sstream.str();
+	//sstream << "p cnf " << var_count << " " << clause_count + oneliteral_string_vec.size() << std::endl;
+	//ofile << sstream.str();
+	//sstream.str(""); sstream.clear();
+	//ofile << template_sstream.str();
 	//ofile.open( tmp_cnf_process_name, std::ios_base::out | std::ios_base::app );
 	for( auto &x : oneliteral_string_vec )
 		ofile << x;
@@ -578,15 +581,23 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 				isFirstTemplateStringRead = true;
 			}
 		}
-		/*file.clear();
-		file.seekg(0, file.end);
-		template_cnf_size = file.tellg();*/
 		file.close();
-		// make file names
+		// get final size in bytes
+		template_sstream.clear();
+		template_sstream.seekg(0, template_sstream.end);
+		template_cnf_size = template_sstream.tellg();
+		template_sstream.clear();
+		
 		sstream << rank;
 		tmp_cnf_process_name = "./tmp_cnf/tmp_cnf_process_" + sstream.str();
 		current_cnf_out_name = "./tmp_cnf/out_solver_" + sstream.str();
 		sstream.clear(); sstream.str("");
+
+		// add template file to tmp cnf file of every computing process
+		ofstream tmp_cnf_process;
+		tmp_cnf_process.open( tmp_cnf_process_name, std::ios_base::out );
+		tmp_cnf_process << template_sstream.str();
+		tmp_cnf_process.close();
 	}
 	
 	// read file with CNF once
@@ -982,27 +993,26 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 			bs = IntVecToBitsetPredict( real_var_choose_order ); // current center of searching
 			unsigned max_checked = 0;
 			// find new unchecked area
-			sstream << "finding new unchecked_area" << endl;
-			sstream << "ts_strategy " << ts_strategy << endl;
+			sstream << "finding new unchecked_area" << std::endl;
+			sstream << "ts_strategy " << ts_strategy << std::endl;
 			if ( verbosity > 0 )
-				cout << "finding new unchecked_area" << endl;
+				std::cout << "finding new unchecked_area" << std::endl;
 			// find min hamming distance of points in L2 from current record point
 			min_hamming_distance = (unsigned)core_len;
 			for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
 				xor_bs = (*L2_it).center ^ bs;
 				if ( xor_bs.count() == 0 ) {
-					cerr << "xor_bs == 0. current center in L2" << endl;
-					cerr << "xor_bs";
-					cerr << "(*L2_it).checked_points.count() " << (*L2_it).checked_points.count() << endl;
-					exit(1);
+					std::cerr << "xor_bs == 0. current center in L2" << std::endl;
+					std::cerr << "(*L2_it).checked_points.count() " << (*L2_it).checked_points.count() << std::endl;
+					MPI_Abort( MPI_COMM_WORLD, 0 );
 				}
 				if ( xor_bs.count() < min_hamming_distance )
 					min_hamming_distance = xor_bs.count();
 			}
-			sstream << "min hamming distance from L2 " << min_hamming_distance << endl;
+			sstream << "min hamming distance from L2 " << min_hamming_distance << std::endl;
 			if ( min_hamming_distance > max_L2_hamming_distance ) {
-				cerr << "min_hamming_distance > max_L2_hamming_distance " << endl;
-				cerr << min_hamming_distance << " > " << max_L2_hamming_distance << endl;
+				std::cerr << "min_hamming_distance > max_L2_hamming_distance " << std::endl;
+				std::cerr << min_hamming_distance << " > " << max_L2_hamming_distance << std::endl;
 				return false;
 			}
 			/*if ( cur_vars_changing != min_hamming_distance ) {
@@ -1907,13 +1917,14 @@ bool MPI_Predicter :: GetPredict()
 			//if ( IsRestartNeeded ) // don't stop immidiatly, new record can be found in calculated points
 			//	return true;
 		}
-		else if ( ( best_predict_time > 0.0 ) && ( predict_time_arr[i] >= best_predict_time  ) && (!isSolverSystemCalling) ) { // stop, predict >= best
+		else if ( ( best_predict_time > 0.0 ) && ( predict_time_arr[i] >= best_predict_time  ) && 
+			      ( predict_time_arr[i] != HUGE_DOUBLE ) && (!isSolverSystemCalling) ) { // stop, predict >= best
 			if ( ( deep_predict == 5 ) && 
 			     ( predict_time_arr[i] < best_predict_time * (1 + point_admission_koef) ) ) // new point can be worst for simalation annealing
 			{
 				//cout << "passed bad time " << predict_time_arr[i] << " , best time " << best_predict_time << endl; 
-				continue;	 
-			} 
+				continue;
+			}
 			
 			// don't stop if sample with too simple problems: final - start shows unreal large values
 			/*if ( ( max_real_time_sample > 0 ) && ( max_real_time_sample < MIN_STOP_TIME ) ) {
