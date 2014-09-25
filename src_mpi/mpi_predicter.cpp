@@ -370,15 +370,24 @@ bool MPI_Predicter :: solverSystemCalling( vec<Lit> &dummy )
 #ifndef WIN32
 	truncate( tmp_cnf_process_name.c_str(), template_cnf_size );
 #endif
-	ofstream ofile;
-	ofile.open( tmp_cnf_process_name, std::ios_base::out | std::ios_base::app );
-	//ofile.seekp( template_cnf_size, ofile.beg );
-	// write template data to temp file
-	//sstream << "p cnf " << var_count << " " << clause_count + oneliteral_string_vec.size() << std::endl;
-	//ofile << sstream.str();
-	//sstream.str(""); sstream.clear();
-	//ofile << template_sstream.str();
-	//ofile.open( tmp_cnf_process_name, std::ios_base::out | std::ios_base::app );
+	fstream ofile;
+	ofile.open( tmp_cnf_process_name, std::ios::in | std::ios::out );
+	// write head of CNF
+	sstream << "p cnf " << var_count << " " << clause_count + oneliteral_string_vec.size();
+	std::string str = sstream.str();
+	unsigned size = str.size();
+	if ( size > 20 ) {
+		std::cerr << "size > 20" << std::endl;
+		return false;
+	}
+	for ( unsigned i=0; i < 20-size; i++ )
+		str += ' '; // add additional wymbols to replace whole 1st line
+	ofile.seekp( 0, ofile.beg );
+	ofile << str;
+	ofile.clear();
+	//ofile.close();
+	//ofile.open( tmp_cnf_process_name, std::ios::out | std::ios::app );
+	ofile.seekp( 0, ofile.end ); // old oneliteral clauses were truncated previosly
 	for( auto &x : oneliteral_string_vec )
 		ofile << x;
 	ofile.close();
@@ -407,7 +416,6 @@ bool MPI_Predicter :: solverSystemCalling( vec<Lit> &dummy )
 	current_cnf_out.open( current_cnf_out_name.c_str(), std::ios_base :: in );
 	
 	process_sat_count = 0;
-	std::string str;
 	unsigned str_count = 0;
 	while ( getline( current_cnf_out, str ) ) {
 		if ( str.find("SATISFIABLE") != std::string::npos )
@@ -575,10 +583,11 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			str.erase( std::remove(str.begin(), str.end(), '\r'), str.end() ); // remove CR symbol
 			if ( isFirstTemplateStringRead )
 				template_sstream << std::endl;
-			if ( ( str[0] != 'p' ) && ( str[0] != 'c' ) ) {
+			if ( str[0] != 'c' ) {
 				template_sstream << str;
-				clause_count++;
 				isFirstTemplateStringRead = true;
+				if ( str[0] != 'p' )
+					clause_count++;
 			}
 		}
 		file.close();

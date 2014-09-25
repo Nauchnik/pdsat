@@ -1085,7 +1085,9 @@ string MPI_Base :: make_solver_launch_str( std::string solver_name, std::string 
 	string maxtime_seconds_str = sstream.str();
 	sstream.clear(); sstream.str("");
 	// minisat and solvers with same time limit paremeter
-	if ( ( solver_name.find( "minisat" ) != std::string::npos ) || 
+	if ( solver_name.find( "cryptominisat" ) != std::string::npos )
+		time_limit_str = "";
+	else if ( ( solver_name.find( "minisat" ) != std::string::npos ) || 
 		 ( solver_name.find( "Minisat" ) != std::string::npos ) || 
 		 ( solver_name.find( "MiniSat" ) != std::string::npos ) ||
 		 ( solver_name.find( "minigolf" ) != std::string::npos ) ||
