@@ -143,7 +143,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 	sstream_control << "In ControlProcessPredict()" << endl;
 	
 	if ( te > 0.0 ) {
-		predict_time_limites.resize( 100 );
+		predict_time_limites.resize( 1000 );
 		predict_time_limit_step = te / (double)predict_time_limites.size();
 		predict_time_limites[predict_time_limites.size() - 1] = te;
 		for ( int i = predict_time_limites.size() - 2; i >= 0; --i )
@@ -375,6 +375,7 @@ bool MPI_Predicter :: solverSystemCalling( vec<Lit> &dummy )
 	// write head of CNF
 	sstream << "p cnf " << var_count << " " << clause_count + oneliteral_string_vec.size();
 	std::string str = sstream.str();
+	sstream.str(""); sstream.clear();
 	unsigned size = str.size();
 	if ( size > 20 ) {
 		std::cerr << "size > 20" << std::endl;
@@ -400,29 +401,54 @@ bool MPI_Predicter :: solverSystemCalling( vec<Lit> &dummy )
 	fstream current_cnf_out;
 	current_cnf_out.open( current_cnf_out_name, std::ios_base :: out );
 	//std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-	cnf_time_from_node = MPI_Wtime();
+	//cnf_time_from_node = MPI_Wtime();
 	current_cnf_out << Addit_func::exec( system_str );
 	//std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
 	//std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
 	//cnf_time_from_node = time_span.count();
-	cnf_time_from_node = MPI_Wtime() - cnf_time_from_node;
+	/*cnf_time_from_node = MPI_Wtime() - cnf_time_from_node;
 	if ( cnf_time_from_node > SOLVER_PARSE_SIMP_TIME )
 		cnf_time_from_node -= SOLVER_PARSE_SIMP_TIME;
-	if ( cnf_time_from_node <= 0.0 ) {
-		std::cerr << "cnf_time_from_node <= 0.0: " << cnf_time_from_node << std::endl;
-		return false;
-	}
+	else 
+		cnf_time_from_node = 0.001;*/
+
 	current_cnf_out.clear(); current_cnf_out.close();
-	current_cnf_out.open( current_cnf_out_name.c_str(), std::ios_base :: in );
+	current_cnf_out.open( current_cnf_out_name, std::ios_base :: in );
+
+	unsigned copy_from = 0, copy_to = 0;
+	bool isTimeStr = false;
 	
 	process_sat_count = 0;
 	unsigned str_count = 0;
 	while ( getline( current_cnf_out, str ) ) {
 		if ( str.find("SATISFIABLE") != std::string::npos )
 			process_sat_count = 1;
+		if ( str.find("Solve time") != std::string::npos ) {
+			copy_from = str.find(":") + 2;
+			copy_to = str.find(" s") - 1;
+			isTimeStr = true;
+			/*std::cout << "time str " << str << std::endl;
+			std::cout << "copy_from " << copy_from << std::endl;
+			std::cout << "copy_to " << copy_to << std::endl;*/
+		}
+		if ( isTimeStr ) {
+			str = str.substr( copy_from, (copy_to-copy_from+1) );
+			sstream << str;
+			sstream >> cnf_time_from_node;
+			sstream.str(""); sstream.clear();
+			//std::cout << "cnf_time_from_node " << cnf_time_from_node << std::endl;
+			isTimeStr = false;
+		}
 		str_count++;
 	}
 	current_cnf_out.close();
+	
+	if ( cnf_time_from_node == 0.0 ) // if solved on simplification
+		cnf_time_from_node = 0.0001;
+	else if ( cnf_time_from_node < 0.0 ) {
+		std::cerr << "cnf_time_from_node < 0.0: " << cnf_time_from_node << std::endl;
+		return false;
+	}
 	
 	if ( !str_count ) {
 		std::cerr << "empty solver out file " << current_cnf_out_name << std::endl;
@@ -1771,17 +1797,21 @@ double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_
 				cur_solved_in_time++;
 		if ( !cur_solved_in_time )
 			continue;
-		cur_probability = (double)cur_solved_in_time / (double)cur_cnf_in_set_count;
-		point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
-		if ( point_cur_predict_time < point_best_predict_time ) {
-			point_best_predict_time   = point_cur_predict_time;
-			point_best_solved_in_time = cur_solved_in_time;
-			point_best_time_limit     = cur_time_limit;
-			//point_best_index          = index;
+		else if ( cur_solved_in_time == 1 ) // at least 1 subproblem must be solved
+			point_cur_predict_time = HUGE_DOUBLE;
+		else {
+			cur_probability = (double)cur_solved_in_time / (double)cur_cnf_in_set_count;
+			point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
+			if ( point_cur_predict_time < point_best_predict_time ) {
+				point_best_predict_time   = point_cur_predict_time;
+				point_best_solved_in_time = cur_solved_in_time;
+				point_best_time_limit     = cur_time_limit;
+				//point_best_index          = index;
+			}
+			//index++;
+			/*ofile << point_cur_predict_time << " " << cur_solved_in_time << " " << 
+					 cur_probability << " " << cur_cnf_in_set_count << std::endl;*/
 		}
-		//index++;
-		/*ofile << point_cur_predict_time << " " << cur_solved_in_time << " " << 
-			     cur_probability << " " << cur_cnf_in_set_count << std::endl;*/
 	}
 	
 	//ofile.close();
