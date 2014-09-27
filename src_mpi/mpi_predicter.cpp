@@ -1797,8 +1797,6 @@ double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_
 				cur_solved_in_time++;
 		if ( !cur_solved_in_time )
 			continue;
-		else if ( cur_solved_in_time == 1 ) // at least 1 subproblem must be solved
-			point_cur_predict_time = HUGE_DOUBLE;
 		else {
 			cur_probability = (double)cur_solved_in_time / (double)cur_cnf_in_set_count;
 			point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
