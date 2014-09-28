@@ -443,7 +443,10 @@ bool MPI_Predicter :: solverSystemCalling( vec<Lit> &dummy )
 	}
 	current_cnf_out.close();
 	
-	if ( cnf_time_from_node == 0.0 ) // if solved on simplification
+	if ( ( cnf_time_from_node < 0.0001 ) && ( cnf_time_from_node > 0.0 ) )
+		std::cout << "small cnf_time_from_node " << cnf_time_from_node << std::endl;
+	
+	if ( ( cnf_time_from_node >= 0.0 ) && ( cnf_time_from_node < 0.0001 ) ) // if solved on simplification
 		cnf_time_from_node = 0.0001;
 	else if ( cnf_time_from_node < 0.0 ) {
 		std::cerr << "cnf_time_from_node < 0.0: " << cnf_time_from_node << std::endl;
@@ -1788,6 +1791,14 @@ double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_
 	ofstream ofile( temp_file_name, std::ios::out );
 	ofile << "time_limit predict solved_in_time probability cur_cnf_in_set_count" << std::endl;*/
 	
+	
+	/*for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ )
+		if ( cnf_real_time_arr[j] < 0.0001 ) {
+			//std::cout << "cnf_real_time_arr[j] " << cnf_real_time_arr[j] << " changed to " << 0.0001 << std::endl;
+			cnf_real_time_arr[j] = 0.0001;
+			cnf_issat_arr[j] = false; // TODO remove
+		}*/
+	
 	//unsigned index = 0, point_best_index = 0;
 	for ( auto &cur_time_limit : predict_time_limites ) {
 		//ofile << cur_time_limit << " ";
@@ -1799,7 +1810,7 @@ double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_
 			continue;
 		else {
 			cur_probability = (double)cur_solved_in_time / (double)cur_cnf_in_set_count;
-			point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
+			//point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
 			if ( point_cur_predict_time < point_best_predict_time ) {
 				point_best_predict_time   = point_cur_predict_time;
 				point_best_solved_in_time = cur_solved_in_time;
