@@ -35,7 +35,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "minisat/utils/System.h"
 #include "minisat/utils/MinisatLogger.h" // added
 #include "minisat/core/Solver.h"
-#include "minisat/utils/SolverStateAccessor.h" // added
+//#include "minisat/utils/SolverStateAccessor.h" // added
 
 #include <algorithm>
 using namespace Minisat;
@@ -202,11 +202,11 @@ void Solver::clearParams()
 	}*/
 }
 
-void Solver::saveState( const std::string file_blob_name )
+/*void Solver::saveState( const std::string file_blob_name )
 {
 	SolverStateAccessor writer(*this);
 	writer.WriteStateBlob(file_blob_name);
-}
+}*/
 
 void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len )
 {
@@ -914,8 +914,8 @@ lbool Solver::search(int nof_conflicts)
     starts++;
 
 	// BOINC mode - added to speedup solving Latin square problems
-	if ( ( max_nof_restarts ) && ( !core_len ) ) 
-		reduceDB();
+	//if ( ( max_nof_restarts ) && ( !core_len ) ) 
+	//	reduceDB();
 	
     for (;;){
         CRef confl = propagate();

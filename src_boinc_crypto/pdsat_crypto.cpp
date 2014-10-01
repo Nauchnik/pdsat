@@ -31,12 +31,13 @@ using namespace std;
 #define OUTPUT_FILENAME "out"
 
 const int MAX_NOF_RESTARTS            = 5000;
+const double MAX_SOLVING_TIME         = 360.0;
 const int MIN_CHECKPOINT_INTERVAL_SEC = 10;
 
-int last_iteration_done = 0;
-int total_problems_count = 0;
+unsigned long long last_iteration_done = 0;
+unsigned long long total_problems_count = 0;
 string previous_results_str;
-double max_solving_time = 0;
+double max_solved_time = 0.0;
 
 int bivium_template_array[] = {
 #include "bivium_template.inc"
@@ -47,7 +48,7 @@ int a5_1_114_template_array[] = {
 };
 
 bool do_work( string &input_path, string &current_result_str );
-int do_checkpoint( unsigned current_solved, unsigned total_tasks, double max_solving_time, string &final_result_str );
+int do_checkpoint( unsigned long long current_solved, unsigned long long total_tasks, double max_solved, string &final_result_str );
 
 int main( int argc, char **argv ) {
     char buf[256];
@@ -72,7 +73,7 @@ int main( int argc, char **argv ) {
     boinc_resolve_filename_s( CHECKPOINT_FILE, chpt_path );
 	chpt_file.open( chpt_path.c_str(), ios_base :: in );
 	if ( chpt_file.is_open() ) {
-		chpt_file >> last_iteration_done >> total_problems_count >> max_solving_time;
+		chpt_file >> last_iteration_done >> total_problems_count >> max_solved_time;
 		while ( getline( chpt_file, str ) )
 			previous_results_str += str;
 		chpt_file.close();
@@ -182,44 +183,23 @@ bool do_work( string &input_path, string &current_result_str )
 	Solver *S = new Solver();
 	S->addProblem( cnf );
 	S->max_nof_restarts = MAX_NOF_RESTARTS;
+	S->max_solving_time = MAX_SOLVING_TIME;
+	fprintf( stderr, " S->max_nof_restarts %d ", S->max_nof_restarts );
+	fprintf( stderr, " S->max_solving_time %f ", S->max_solving_time );
 	S->verbosity = 0;
+	//S->cur_hack_type = hack_minigolf;
 	// minisat core mod
 	S->core_len = mpi_b.input_var_num;
 	S->start_activity = 1;
+	S->resetVarActivity();
 	fprintf( stderr, " S->core_len %d ", S->core_len );
 	fprintf( stderr, " S->start_activity %f ", S->start_activity );
-	// 
-	fprintf( stderr, " S->max_nof_restarts %d ", S->max_nof_restarts );
 	for( unsigned i = 0; i < cnf.size(); ++i )
 		delete cnf[i];
 	cnf.clear();
-	vec< vec<Lit> > dummy_vec;
-	
-	int cur_var_ind;
-	if ( isRangeMode ) { // read range of values and made assumptions
-		fprintf( stderr, "start of range mode " );
-		boost::dynamic_bitset<> d_b;
-		d_b.resize( mpi_b.var_choose_order.size() );
-		unsigned dummy_vec_index=0;
-		dummy_vec.resize( range2-range1 + 1 );
-		for( unsigned long long i=range1; i <= range2; ++i ) {
-			UllongToBitset( i, d_b );
-			if ( d_b.size() > mpi_b.var_choose_order.size() ) {
-				fprintf( stderr, "d_b.size() > mpi_b.var_choose_order.size()" );
-				return false;
-			}
-			for ( unsigned j=0; j < d_b.size(); ++j ) {
-				cur_var_ind = mpi_b.var_choose_order[j] - 1;
-				if ( d_b[j] == 1 )
-					dummy_vec[dummy_vec_index].push( mkLit( cur_var_ind ) );
-				else 
-					dummy_vec[dummy_vec_index].push( ~mkLit( cur_var_ind ) );
-			}
-			dummy_vec_index++;
-		}
-		fprintf( stderr, "dummy_vec.size() %d ", dummy_vec.size() );
-	}
-	else {
+	//vec< vec<Lit> > dummy_vec;
+
+	/*if ( !isRangeMode  ) {
 		// find size of text block before bynary block
 		ifile.open( input_path.c_str(), ios_base :: in | ios_base :: binary );
 		ifile.seekg (0, ifile.end);
@@ -257,8 +237,8 @@ bool do_work( string &input_path, string &current_result_str )
 		ifile.read( (char*)&si, sizeof(si) ); // read header
 		fprintf( stderr, " binary prefix %d", si );
 		mpi_b.assumptions_count = 0;
-		/*while ( ifile.read( (char*)&ul, sizeof(ul) ) )
-			mpi_b.assumptions_count++;*/
+		//while ( ifile.read( (char*)&ul, sizeof(ul) ) )
+		//	mpi_b.assumptions_count++;
 		ifile.clear();
 		ifile.seekg( 0, ifile.end );
 		long long int total_byte_length = ifile.tellg();
@@ -273,19 +253,7 @@ bool do_work( string &input_path, string &current_result_str )
 			return false;
 		}
 		fprintf( stderr, " vector of assumptions was made " );
-	}
-	
-	// add known data to assumptions (initially in oneliteral clauses)
-	for ( unsigned i=0; i < known_var_values_vec.size(); ++i ) {
-		cur_var_ind = abs( known_var_values_vec[i] ) - 1;
-		if ( known_var_values_vec[i] > 0 )
-			for ( int j=0; j < dummy_vec.size(); ++j )
-				dummy_vec[j].push( mkLit( cur_var_ind ) );
-		else
-			for ( int j=0; j < dummy_vec.size(); ++j )
-				dummy_vec[j].push( ~mkLit( cur_var_ind ) );
-	}
-	fprintf( stderr, "dummy_vec completed " );
+	}*/
 	
 	double time_last_checkpoint = Minisat :: cpuTime();
 	double current_time = 0;
@@ -305,30 +273,52 @@ bool do_work( string &input_path, string &current_result_str )
 	
 	lbool ret;
 	int retval;
-	int current_launch_problems_solved = 0;
-	total_problems_count = dummy_vec.size();
+	unsigned long long current_launch_problems_solved = 0;
+	total_problems_count = range2-range1 + 1;
 	double one_solving_time;
 	bool isSAT = false;
 	
+	fprintf( stderr, "start of range mode " );
 	fprintf( stderr, " before loop of solving " );
 	double total_solving_time = Minisat :: cpuTime();
 	
 	//string core_activity_str;
 	//sstream << "core_activity " << endl;
 
-	for ( int i = last_iteration_done; i < dummy_vec.size(); ++i ) {
+	int cur_var_ind;
+	// read range of values and made assumptions
+
+	boost::dynamic_bitset<> d_b;
+	d_b.resize( mpi_b.var_choose_order.size() );
+	vec<Lit> dummy;
+	unsigned dummy_size = mpi_b.var_choose_order.size() + known_var_values_vec.size();
+	dummy.resize( dummy_size );
+	unsigned dummy_index;
+
+	for ( unsigned long long i = last_iteration_done; i < total_problems_count; ++i ) {
+		// make vector of assignments
+		UllongToBitset( i, d_b );
+		if ( d_b.size() > mpi_b.var_choose_order.size() ) {
+			fprintf( stderr, "d_b.size() > mpi_b.var_choose_order.size()" );
+			return false;
+		}
+		dummy_index = 0;
+		for ( unsigned j=0; j < d_b.size(); ++j ) {
+			cur_var_ind = mpi_b.var_choose_order[j] - 1;
+			dummy[dummy_index++] = ( d_b[j] == 1 ) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind );
+		}
+		// add known data to assumptions (initially in oneliteral clauses)
+		for ( unsigned j=0; j < known_var_values_vec.size(); ++j ) {
+			cur_var_ind = abs( known_var_values_vec[j] ) - 1;
+			dummy[dummy_index++] = known_var_values_vec[j] > 0 ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind );
+		}
+		
 		S->last_time = Minisat :: cpuTime();
-		/*fprintf( stderr, "\n S->solveLimited() start " );
-		for ( unsigned j=0; j < dummy_vec[i].size(); ++j )
-			fprintf( stderr, "%d ", dummy_vec[i][j].x);
-		fprintf( stderr, "\n" );*/
-		//S->printCoreActivity( core_activity_str );
-		//sstream << core_activity_str;
-		ret = S->solveLimited( dummy_vec[i] );
+		ret = S->solveLimited( dummy );
 		//fprintf( stderr, "\n S->solveLimited() done " );
 		one_solving_time = Minisat :: cpuTime() - S->last_time;
-		if ( max_solving_time < one_solving_time )
-			max_solving_time = one_solving_time;
+		if ( max_solved_time < one_solving_time )
+			max_solved_time = one_solving_time;
 		current_launch_problems_solved++;
 		
 		if ( ret == l_True ) {
@@ -344,7 +334,7 @@ bool do_work( string &input_path, string &current_result_str )
 		if ( current_time >= time_last_checkpoint + MIN_CHECKPOINT_INTERVAL_SEC ) {
 			// checkpoint current position and results
 			//if ( ( boinc_is_standalone() ) || ( boinc_time_to_checkpoint() ) ) {
-				retval = do_checkpoint( current_launch_problems_solved + last_iteration_done, total_problems_count, max_solving_time, current_result_str );
+				retval = do_checkpoint( current_launch_problems_solved + last_iteration_done, total_problems_count, max_solved_time, current_result_str );
 				if ( retval ) {
 					fprintf(stderr, "APP: checkpoint failed %d\n", retval );
 					exit( retval );
@@ -358,14 +348,14 @@ bool do_work( string &input_path, string &current_result_str )
 
 	total_solving_time = Minisat :: cpuTime() - total_solving_time;
 	
-	int total_solved = current_launch_problems_solved + last_iteration_done;
+	unsigned long long total_solved = current_launch_problems_solved + last_iteration_done;
 	sstream << total_solved;
 	current_result_str += "solved " + sstream.str() + " ";
 	sstream.clear(); sstream.str("");
 	sstream << total_solving_time;
 	current_result_str += "total_time " + sstream.str() + " ";
 	sstream.clear(); sstream.str("");
-	sstream << max_solving_time;
+	sstream << max_solved_time;
 	current_result_str += "max_time " + sstream.str() + " ";
 	sstream.clear(); sstream.str("");
 	if ( !isSAT )
@@ -374,14 +364,15 @@ bool do_work( string &input_path, string &current_result_str )
 	return true;
 }
 
-int do_checkpoint( unsigned current_solved, unsigned total_tasks, double max_solving_time, string &current_result_str ) {
+int do_checkpoint( unsigned long long current_solved, unsigned long long total_tasks, 
+				   double max_solving_time, string &current_result_str ) {
     int retval;
     string resolved_name;
-
+	
     ofstream temp_ofile( "temp" );
 	if ( !temp_ofile.is_open() ) 
 		return 1;
-    temp_ofile << current_solved << " " << total_tasks << " " << max_solving_time << " " << current_result_str;
+    temp_ofile << current_solved << " " << total_tasks << " " << max_solved_time << " " << current_result_str;
     temp_ofile.close();
 
     boinc_resolve_filename_s( CHECKPOINT_FILE, resolved_name );

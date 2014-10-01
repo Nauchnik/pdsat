@@ -48,7 +48,7 @@ enum hack_type{no, hack_minigolf};
 // Solver -- the main class:
 
 class Solver {
-	friend class SolverStateAccessor;
+	//friend class SolverStateAccessor;
 public:
     // Constructor/Destructor:
     //

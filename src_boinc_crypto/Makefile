@@ -35,23 +35,19 @@ clean: distclean
 distclean:
 	/bin/rm -f $(PROGS) *.o libstdc++.a
 
-pdsat_crypto: minisat22_wrapper.o mpi_base.o addit_func.o System.o Options.o SolverStateAccessor.o Solver.o pdsat_crypto.o libstdc++.a $(BOINC_API_DIR)/libboinc_api.a $(BOINC_LIB_DIR)/libboinc.a
-	$(CPP) $(CPPFLAGS) minisat22_wrapper.o mpi_base.o addit_func.o System.o Options.o SolverStateAccessor.o Solver.o pdsat_crypto.o -o pdsat_crypto libstdc++.a -pthread \
+pdsat_crypto: minisat22_wrapper.o mpi_base.o addit_func.o System.o Options.o Solver.o pdsat_crypto.o libstdc++.a $(BOINC_API_DIR)/libboinc_api.a $(BOINC_LIB_DIR)/libboinc.a
+	$(CPP) $(CPPFLAGS) minisat22_wrapper.o mpi_base.o addit_func.o System.o Options.o Solver.o pdsat_crypto.o -o pdsat_crypto libstdc++.a -pthread \
 	$(BOINC_API_DIR)/libboinc_api.a \
 	$(BOINC_LIB_DIR)/libboinc.a
 	
 pdsat_crypto.o: ./pdsat_crypto.cpp
 	${CPP} ${CPPFLAGS} ./pdsat_crypto.cpp -c
 
-
 Options.o: ../src_common/minisat/utils/Options.cc
 	${CPP} ${CPPFLAGS} ../src_common//minisat/utils/Options.cc -c
 
 System.o: ../src_common/minisat/utils/System.cc
 	${CPP} ${CPPFLAGS} ../src_common/minisat/utils/System.cc -c
-
-SolverStateAccessor.o: ../src_common/minisat/utils/SolverStateAccessor.cpp
-	${CPP} ${CPPFLAGS} ../src_common/minisat/utils/SolverStateAccessor.cpp -c
 
 Solver.o: ../src_common//minisat/core/Solver.cc
 	${CPP} ${CPPFLAGS} ../src_common//minisat/core/Solver.cc -c
