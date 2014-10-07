@@ -8,14 +8,12 @@
 #include <fstream>
 #include <vector>
 
-#include "minisat/utils/System.h"
-#include "minisat/utils/ParseUtils.h"
-#include "minisat/utils/Options.h"
-#include "minisat/core/Dimacs.h"
-#include "minisat/core/Solver.h"
-//#include "minisat/simp/SimpSolver.h"
-
-using namespace Minisat;
+#include "utils/System.h"
+#include "utils/ParseUtils.h"
+#include "utils/Options.h"
+#include "core/Dimacs.h"
+#include "core/Solver.h"
+//#include "simp/SimpSolver.h"
 
 class minisat22_wrapper
 {

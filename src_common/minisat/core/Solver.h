@@ -30,6 +30,10 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 namespace Minisat {
 
+// added pdsat
+typedef vec<Lit> Disjunct;
+typedef std::vector< Disjunct* > Problem;
+
 //=================================================================================================
 // Solver -- the main class:
 
