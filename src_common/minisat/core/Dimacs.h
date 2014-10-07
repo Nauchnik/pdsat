@@ -23,8 +23,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <stdio.h>
 
-#include "minisat/utils/ParseUtils.h"
-#include "minisat/core/SolverTypes.h"
+#include "utils/ParseUtils.h"
+#include "core/SolverTypes.h"
 
 namespace Minisat {
 
@@ -45,7 +45,7 @@ static void readClause(B& in, Solver& S, vec<Lit>& lits) {
 }
 
 template<class B, class Solver>
-static void parse_DIMACS_main(B& in, Solver& S, bool strictp = false) {
+static void parse_DIMACS_main(B& in, Solver& S) {
     vec<Lit> lits;
     int vars    = 0;
     int clauses = 0;
@@ -70,18 +70,19 @@ static void parse_DIMACS_main(B& in, Solver& S, bool strictp = false) {
             readClause(in, S, lits);
             S.addClause_(lits); }
     }
-    if (strictp && cnt != clauses)
-        printf("PARSE ERROR! DIMACS header mismatch: wrong number of clauses\n");
+    if (vars != S.nVars())
+        fprintf(stderr, "WARNING! DIMACS header mismatch: wrong number of variables.\n");
+    if (cnt  != clauses)
+        fprintf(stderr, "WARNING! DIMACS header mismatch: wrong number of clauses.\n");
 }
 
 // Inserts problem into solver.
 //
-/*
 template<class Solver>
-static void parse_DIMACS(gzFile input_stream, Solver& S, bool strictp = false) {
+static void parse_DIMACS(gzFile input_stream, Solver& S) {
     StreamBuffer in(input_stream);
-    parse_DIMACS_main(in, S, strictp); }
-*/
+    parse_DIMACS_main(in, S); }
+
 //=================================================================================================
 }
 

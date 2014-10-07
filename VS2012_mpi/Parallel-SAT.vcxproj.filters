@@ -31,9 +31,6 @@
     <ClCompile Include="..\src_common\Bivium.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="..\src_common\minisat\utils\SolverStateAccessor.cpp">
-      <Filter>minisat</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src_common\minisat\core\Solver.h">
@@ -77,9 +74,6 @@
     </ClInclude>
     <ClInclude Include="..\src_mpi\mpi_solver.h">
       <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src_common\minisat\utils\SolverStateAccessor.h">
-      <Filter>minisat</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

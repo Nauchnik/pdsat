@@ -28,28 +28,12 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #   include <sys/int_fmtio.h>
 #   include <sys/int_limits.h>
 
-// win mode
-/*#else 
-
-#   include <stdint.h>
-#   include <inttypes.h>
-
-#endif*/
-// new start
-
-#elif _MSC_VER
-
-//! В msvc2008 необходимо явно включить нужные макроопределения
-#define __STDC_LIMIT_MACROS
-#   include <stdint.h>
-
 #else
 
 #   include <stdint.h>
 #   include <inttypes.h>
 
 #endif
-// new end
 
 #include <limits.h>
 

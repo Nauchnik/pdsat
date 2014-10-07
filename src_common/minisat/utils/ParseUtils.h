@@ -24,65 +24,42 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <stdlib.h>
 #include <stdio.h>
 
-//#include <zlib.h>
-
-#include <fstream>
-#include <iostream>
-
-#include "minisat/mtl/XAlloc.h"
+#include <zlib.h>
 
 namespace Minisat {
 
 //-------------------------------------------------------------------------------------------------
 // A simple buffered character stream class:
+
 static const int buffer_size = 1048576;
 
-class IStream
-{
-	std::istream& in;
-	char c;
-public:
-	IStream(std::istream& s = std::cin): in(s), c(0){in.get(c);}
-	int operator * () const {return (int)c;}
-	void operator ++ () {in.get(c);}
-	bool eof() const {return in.eof();}
-};
 
-typedef IStream StreamBuffer;
-
-/*
 class StreamBuffer {
-    gzFile         in;
-    unsigned char* buf;
-    int            pos;
-    int            size;
-
-    enum { buffer_size = 64*1024 };
+    gzFile        in;
+    unsigned char buf[buffer_size];
+    int           pos;
+    int           size;
 
     void assureLookahead() {
         if (pos >= size) {
             pos  = 0;
-            size = gzread(in, buf, buffer_size); } }
+            size = gzread(in, buf, sizeof(buf)); } }
 
 public:
-    explicit StreamBuffer(gzFile i) : in(i), pos(0), size(0){
-        buf = (unsigned char*)xrealloc(NULL, buffer_size);
-        assureLookahead();
-    }
-    ~StreamBuffer() { free(buf); }
+    explicit StreamBuffer(gzFile i) : in(i), pos(0), size(0) { assureLookahead(); }
 
     int  operator *  () const { return (pos >= size) ? EOF : buf[pos]; }
     void operator ++ ()       { pos++; assureLookahead(); }
     int  position    () const { return pos; }
 };
-*/
+
 
 //-------------------------------------------------------------------------------------------------
 // End-of-file detection functions for StreamBuffer and char*:
 
 
-//static inline bool isEof(StreamBuffer& in) { return *in == EOF;  }
-//static inline bool isEof(const char*   in) { return *in == '\0'; }
+static inline bool isEof(StreamBuffer& in) { return *in == EOF;  }
+static inline bool isEof(const char*   in) { return *in == '\0'; }
 
 //-------------------------------------------------------------------------------------------------
 // Generic parse functions parametrized over the input-stream type.
@@ -90,14 +67,14 @@ public:
 
 template<class B>
 static void skipWhitespace(B& in) {
-    while ( !in.eof() && ( (*in >= 9 && *in <= 13) || *in == 32) ) // win mofr: !in.eof() added
+    while ((*in >= 9 && *in <= 13) || *in == 32)
         ++in; }
 
 
 template<class B>
 static void skipLine(B& in) {
     for (;;){
-        if(in.eof()) return;  // win mode
+        if (isEof(in)) return;
         if (*in == '\n') { ++in; return; }
         ++in; } }
 
@@ -110,7 +87,7 @@ static int parseInt(B& in) {
     if      (*in == '-') neg = true, ++in;
     else if (*in == '+') ++in;
     if (*in < '0' || *in > '9') fprintf(stderr, "PARSE ERROR! Unexpected char: %c\n", *in), exit(3);
-    while (!in.eof() && *in >= '0' && *in <= '9' ) // win mode: !in.eof() added 
+    while (*in >= '0' && *in <= '9')
         val = val*10 + (*in - '0'),
         ++in;
     return neg ? -val : val; }

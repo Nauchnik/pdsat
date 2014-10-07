@@ -25,9 +25,9 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <math.h>
 #include <string.h>
 
-#include "minisat/mtl/IntTypes.h"
-#include "minisat/mtl/Vec.h"
-#include "minisat/utils/ParseUtils.h"
+#include "mtl/IntTypes.h"
+#include "mtl/Vec.h"
+#include "utils/ParseUtils.h"
 
 namespace Minisat {
 
@@ -60,7 +60,7 @@ class Option
     struct OptionLt {
         bool operator()(const Option* x, const Option* y) {
             int test1 = strcmp(x->category, y->category);
-            return test1 < 0 || (test1 == 0 && strcmp(x->type_name, y->type_name) < 0);
+            return test1 < 0 || test1 == 0 && strcmp(x->type_name, y->type_name) < 0;
         }
     };
 

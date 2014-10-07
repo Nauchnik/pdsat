@@ -488,7 +488,7 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	prev_starts    = S->starts;
 	prev_conflicts = S->conflicts;
 	isSolvedOnPreprocessing = 0;
-			
+	
 	S->resetVarActivity();
 
 	cnf_time_from_node = MPI_Wtime( );

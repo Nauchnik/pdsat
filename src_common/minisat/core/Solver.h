@@ -21,95 +21,48 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #ifndef Minisat_Solver_h
 #define Minisat_Solver_h
 
-#include "minisat/mtl/Vec.h"
-#include "minisat/mtl/Heap.h"
-#include "minisat/mtl/Alg.h"
-#include "minisat/mtl/IntMap.h"
-#include "minisat/utils/Options.h"
-#include "minisat/core/SolverTypes.h"
-#include <vector>
+#include "mtl/Vec.h"
+#include "mtl/Heap.h"
+#include "mtl/Alg.h"
+#include "utils/Options.h"
+#include "core/SolverTypes.h"
 
-#define U int32_t
-#define O out_learnt
-#define Ca index>=trail_lim[decisionLevel()-1])
-#define S(a,b) seen[var(a[b])]=0;
-#define Ta vardata[t]
-#define Ha .size()
 
 namespace Minisat {
-
-//дизъюнкт, тип определенный в структурах решателя
-typedef vec<Lit> Disjunct;
-//КНФ, заданная в структурах решателя
-typedef std::vector< Disjunct* > Problem;
-enum hack_type{no, hack_minigolf};
 
 //=================================================================================================
 // Solver -- the main class:
 
 class Solver {
-	//friend class SolverStateAccessor;
 public:
+
     // Constructor/Destructor:
     //
     Solver();
     virtual ~Solver();
 
-	// added Oleg Zaikin
-	int max_nof_restarts; // to interrupt after collecting some conflicts
-	double max_solving_time;
-	double start_solving_time;
-	double start_activity;
-	int core_len;
-	bool IsPredict;
-	double last_time;
-	int rank;
-	int pdsat_verbosity;
-	hack_type cur_hack_type;
-	void clearDB();
-	void clearPolarity();
-	void clearParams();
-	void getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len );
-	//void printCoreActivity( std::string &str );
-	void resetVarActivity();
-	void saveState( const std::string file_blob_name );
-	
     // Problem specification:
-    Var     newVar    (lbool upol = l_Undef, bool dvar = true); // Add a new variable with parameters specifying variable mode.
-    void    releaseVar(Lit l);                                  // Make literal true and promise to never refer to variable again.
+    //
+    Var     newVar    (bool polarity = true, bool dvar = true); // Add a new variable with parameters specifying variable mode.
 
     bool    addClause (const vec<Lit>& ps);                     // Add a clause to the solver. 
     bool    addEmptyClause();                                   // Add the empty clause, making the solver contradictory.
     bool    addClause (Lit p);                                  // Add a unit clause to the solver. 
     bool    addClause (Lit p, Lit q);                           // Add a binary clause to the solver. 
     bool    addClause (Lit p, Lit q, Lit r);                    // Add a ternary clause to the solver. 
-    bool    addClause (Lit p, Lit q, Lit r, Lit s);             // Add a quaternary clause to the solver. 
     bool    addClause_(      vec<Lit>& ps);                     // Add a clause to the solver without making superflous internal copy. Will
                                                                 // change the passed vector 'ps'.
+
     // Solving:
     //
     bool    simplify     ();                        // Removes already satisfied clauses.
     bool    solve        (const vec<Lit>& assumps); // Search for a model that respects a given set of assumptions.
-    lbool   solve_lbool  (const vec<Lit>& assumps); // added to get lbool as result
-	lbool   solveLimited (const vec<Lit>& assumps); // Search for a model that respects a given set of assumptions (With resource constraints).
-	bool    solve        ();                        // Search without assumptions.
+    lbool   solveLimited (const vec<Lit>& assumps); // Search for a model that respects a given set of assumptions (With resource constraints).
+    bool    solve        ();                        // Search without assumptions.
     bool    solve        (Lit p);                   // Search for a model that respects a single assumption.
     bool    solve        (Lit p, Lit q);            // Search for a model that respects two assumptions.
     bool    solve        (Lit p, Lit q, Lit r);     // Search for a model that respects three assumptions.
     bool    okay         () const;                  // FALSE means solver is in a conflicting state
-
-    bool    implies      (const vec<Lit>& assumps, vec<Lit>& out);
-
-	// added
-	bool    addProblem(const Problem& p);
-    bool    addProblem_modified(const Problem& p, int num_of_variables);
-	void    resetCapacity();
-
-    // Iterate over clauses and top-level assignments:
-    ClauseIterator clausesBegin() const;
-    ClauseIterator clausesEnd()   const;
-    TrailIterator  trailBegin()   const;
-    TrailIterator  trailEnd  ()   const;
 
     void    toDimacs     (FILE* f, const vec<Lit>& assumps);            // Write CNF to file in DIMACS-format.
     void    toDimacs     (const char *file, const vec<Lit>& assumps);
@@ -123,8 +76,8 @@ public:
     
     // Variable mode:
     // 
-    void    setPolarity    (Var v, lbool b); // Declare which polarity the decision heuristic should use for a variable. Requires mode 'polarity_user'.
-    void    setDecisionVar (Var v, bool b);  // Declare if a variable should be eligible for selection in the decision heuristic.
+    void    setPolarity    (Var v, bool b); // Declare which polarity the decision heuristic should use for a variable. Requires mode 'polarity_user'.
+    void    setDecisionVar (Var v, bool b); // Declare if a variable should be eligible for selection in the decision heuristic.
 
     // Read state:
     //
@@ -137,7 +90,6 @@ public:
     int     nLearnts   ()      const;       // The current number of learnt clauses.
     int     nVars      ()      const;       // The current number of variables.
     int     nFreeVars  ()      const;
-    void    printStats ()      const;       // Print some current statistics to standard output.
 
     // Resource contraints:
     //
@@ -156,7 +108,7 @@ public:
     // Extra results: (read-only member variable)
     //
     vec<lbool> model;             // If problem is satisfiable, this vector contains the model (if any).
-    LSet       conflict;          // If problem is unsatisfiable (possibly under assumptions),
+    vec<Lit>   conflict;          // If problem is unsatisfiable (possibly under assumptions),
                                   // this vector represent the final conflict clause expressed in the assumptions.
 
     // Mode of operation:
@@ -172,38 +124,30 @@ public:
     bool      rnd_pol;            // Use random polarities for branching heuristics.
     bool      rnd_init_act;       // Initialize variable activities with a small random value.
     double    garbage_frac;       // The fraction of wasted memory allowed before a garbage collection is triggered.
-    int       min_learnts_lim;    // Minimum number to set the learnts limit to.
-	// added
-	bool print_learnts;
 
     int       restart_first;      // The initial restart limit.                                                                (default 100)
     double    restart_inc;        // The factor with which the restart limit is multiplied in each restart.                    (default 1.5)
     double    learntsize_factor;  // The intitial limit for learnt clauses is a factor of the original clauses.                (default 1 / 3)
     double    learntsize_inc;     // The limit for learnt clauses is multiplied with this factor each restart.                 (default 1.1)
-	
+
     int       learntsize_adjust_start_confl;
     double    learntsize_adjust_inc;
 
     // Statistics: (read-only member variable)
     //
     uint64_t solves, starts, decisions, rnd_decisions, propagations, conflicts;
-    uint64_t dec_vars, num_clauses, num_learnts, clauses_literals, learnts_literals, max_literals, tot_literals;
+    uint64_t dec_vars, clauses_literals, learnts_literals, max_literals, tot_literals;
 
 protected:
 
     // Helper structures:
     //
-    //struct VarData { CRef reason; int level; };
-    //static inline VarData mkVarData(CRef cr, int l){ VarData d = {cr, l}; return d; }
-
-	vec<int> P;
-    struct VarData { CRef reason; int level; int32_t cost;};
-    static inline VarData mkVarData(CRef cr, int l, int32_t c=-1){ VarData d = {cr, l,c}; return d; }
+    struct VarData { CRef reason; int level; };
+    static inline VarData mkVarData(CRef cr, int l){ VarData d = {cr, l}; return d; }
 
     struct Watcher {
         CRef cref;
         Lit  blocker;
-		Watcher(): cref(0), blocker(mkLit(0)) {} // added
         Watcher(CRef cr, Lit p) : cref(cr), blocker(p) {}
         bool operator==(const Watcher& w) const { return cref == w.cref; }
         bool operator!=(const Watcher& w) const { return cref != w.cref; }
@@ -217,71 +161,42 @@ protected:
     };
 
     struct VarOrderLt {
-        const IntMap<Var, double>&  activity;
+        const vec<double>&  activity;
         bool operator () (Var x, Var y) const { return activity[x] > activity[y]; }
-        VarOrderLt(const IntMap<Var, double>&  act) : activity(act) { }
+        VarOrderLt(const vec<double>&  act) : activity(act) { }
     };
 
-   struct ShrinkStackElem {
-        uint32_t i;
-        Lit      l;
-		ShrinkStackElem(): i(0) {}
-        ShrinkStackElem(uint32_t _i, Lit _l) : i(_i), l(_l){}
-    };
-	
-	friend std::ostream& operator<<(std::ostream& out, const VarData& data);
-	friend std::ostream& operator<<(std::ostream& out, const Watcher& watcher);
-	friend std::ostream& operator<<(std::ostream& out, const ShrinkStackElem& elem);
-	
     // Solver state:
     //
+    bool                ok;               // If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
     vec<CRef>           clauses;          // List of problem clauses.
     vec<CRef>           learnts;          // List of learnt clauses.
+    double              cla_inc;          // Amount to bump next clause with.
+    vec<double>         activity;         // A heuristic measurement of the activity of a variable.
+    double              var_inc;          // Amount to bump next variable with.
+    OccLists<Lit, vec<Watcher>, WatcherDeleted>
+                        watches;          // 'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
+    vec<lbool>          assigns;          // The current assignments.
+    vec<char>           polarity;         // The preferred polarity of each variable.
+    vec<char>           decision;         // Declares if a variable is eligible for selection in the decision heuristic.
     vec<Lit>            trail;            // Assignment stack; stores all assigments made in the order they were made.
     vec<int>            trail_lim;        // Separator indices for different decision levels in 'trail'.
-    vec<Lit>            assumptions;      // Current set of assumptions provided to solve by the user.
-
-    VMap<double>        activity;         // A heuristic measurement of the activity of a variable.
-    VMap<lbool>         assigns;          // The current assignments.
-    VMap<char>          polarity;         // The preferred polarity of each variable.
-    VMap<lbool>         user_pol;         // The users preferred polarity of each variable.
-    VMap<char>          decision;         // Declares if a variable is eligible for selection in the decision heuristic.
-    VMap<VarData>       vardata;          // Stores reason and level for each variable.
-    OccLists<Lit, vec<Watcher>, WatcherDeleted, MkIndexLit>
-                        watches;          // 'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
-
-    Heap<Var,VarOrderLt>order_heap;       // A priority queue of variables ordered with respect to the variable activity.
-
-	// added for saving state
-	/*VMap<double>        activity2;         
-    VMap<lbool>         assigns2;      
-    VMap<char>          polarity2;        
-    VMap<lbool>         user_pol2;         
-    VMap<char>          decision2;        
-    VMap<VarData>       vardata2;     
-    OccLists<Lit, vec<Watcher>, WatcherDeleted, MkIndexLit>
-                        watches2;
-	Heap<Var,VarOrderLt>order_heap2;*/
-
-    bool                ok;               // If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
-    double              cla_inc;          // Amount to bump next clause with.
-    double              var_inc;          // Amount to bump next variable with.
+    vec<VarData>        vardata;          // Stores reason and level for each variable.
     int                 qhead;            // Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
     int                 simpDB_assigns;   // Number of top-level assignments since last execution of 'simplify()'.
     int64_t             simpDB_props;     // Remaining number of propagations that must be made before next execution of 'simplify()'.
+    vec<Lit>            assumptions;      // Current set of assumptions provided to solve by the user.
+    Heap<VarOrderLt>    order_heap;       // A priority queue of variables ordered with respect to the variable activity.
     double              progress_estimate;// Set by 'search()'.
     bool                remove_satisfied; // Indicates whether possibly inefficient linear scan for satisfied clauses should be performed in 'simplify'.
-    Var                 next_var;         // Next variable to be created.
-    ClauseAllocator     ca;
 
-    vec<Var>            released_vars;
-    vec<Var>            free_vars;
+    ClauseAllocator     ca;
 
     // Temporaries (to reduce allocation overhead). Each variable is prefixed by the method in which it is
     // used, exept 'seen' wich is used in several places.
     //
-    VMap<char>          seen;
-    vec<ShrinkStackElem>analyze_stack;
+    vec<char>           seen;
+    vec<Lit>            analyze_stack;
     vec<Lit>            analyze_toclear;
     vec<Lit>            add_tmp;
 
@@ -304,9 +219,9 @@ protected:
     bool     enqueue          (Lit p, CRef from = CRef_Undef);                         // Test if fact 'p' contradicts current state, enqueue otherwise.
     CRef     propagate        ();                                                      // Perform unit propagation. Returns possibly conflicting clause.
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
-    U        analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel);    // (bt = backtrack)
-    void     analyzeFinal     (Lit p, LSet& out_conflict);                             // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
-    bool     litRedundant     (Lit p);                                                 // (helper method for 'analyze()')
+    void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel);    // (bt = backtrack)
+    void     analyzeFinal     (Lit p, vec<Lit>& out_conflict);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
+    bool     litRedundant     (Lit p, uint32_t abstract_levels);                       // (helper method for 'analyze()')
     lbool    search           (int nof_conflicts);                                     // Search for a given number of conflicts.
     lbool    solve_           ();                                                      // Main solve method (assumptions given in 'assumptions').
     void     reduceDB         ();                                                      // Reduce the set of learnt clauses.
@@ -326,9 +241,10 @@ protected:
     void     attachClause     (CRef cr);               // Attach a clause to watcher lists.
     void     detachClause     (CRef cr, bool strict = false); // Detach a clause to watcher lists.
     void     removeClause     (CRef cr);               // Detach and free a clause.
-    bool     isRemoved        (CRef cr) const;         // Test if a clause has been removed.
     bool     locked           (const Clause& c) const; // Returns TRUE if a clause is a reason for some implication in the current state.
     bool     satisfied        (const Clause& c) const; // Returns TRUE if a clause is satisfied in the current state.
+
+    void     relocAll         (ClauseAllocator& to);
 
     // Misc:
     //
@@ -338,7 +254,6 @@ protected:
     int      level            (Var x) const;
     double   progressEstimate ()      const; // DELETE THIS ?? IT'S NOT VERY USEFUL ...
     bool     withinBudget     ()      const;
-    void     relocAll         (ClauseAllocator& to);
 
     // Static helpers:
     //
@@ -398,40 +313,6 @@ inline bool     Solver::addEmptyClause  ()                      { add_tmp.clear(
 inline bool     Solver::addClause       (Lit p)                 { add_tmp.clear(); add_tmp.push(p); return addClause_(add_tmp); }
 inline bool     Solver::addClause       (Lit p, Lit q)          { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); return addClause_(add_tmp); }
 inline bool     Solver::addClause       (Lit p, Lit q, Lit r)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp); }
-inline bool     Solver::addClause       (Lit p, Lit q, Lit r, Lit s){ add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); add_tmp.push(s); return addClause_(add_tmp); }
-
-// added
-inline bool     Solver::addProblem      (const Problem& p)
-{
-	for(size_t i = 0; i < p.size(); i++) {
-		// add variables if needed
-		for(int j = 0; j < p[i]->size(); j++) {
-			Lit& lit = (*p[i])[j];
-			while (var(lit) >= nVars()) newVar();
-			//while(var(lit) >= nVars()) (size_actitity ? newVar(temp_activity[var(lit)]) : newVar());
-		}
-		p[i]->copyTo(add_tmp);
-		if(!addClause_(add_tmp))
-			return false;
-	}
-	return true;
-}
-
-inline bool Solver::addProblem_modified(const Problem& p, int num_of_variables)
-{
-	if (num_of_variables > 0){
-		for (int j = 0; j < num_of_variables; j++)
-			newVar();		
-	}
-	for (size_t i = 0; i < p.size(); i++) {		
-		p[i]->copyTo(add_tmp);
-		if (!addClause_(add_tmp))
-			return false;
-	}
-	return true;
-}
-
-inline bool     Solver::isRemoved       (CRef cr)         const { return ca[cr].mark() == 1; }
 inline bool     Solver::locked          (const Clause& c) const { return value(c[0]) == l_True && reason(var(c[0])) != CRef_Undef && ca.lea(reason(var(c[0]))) == &c; }
 inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); }
 
@@ -442,12 +323,11 @@ inline lbool    Solver::value         (Lit p) const   { return assigns[var(p)] ^
 inline lbool    Solver::modelValue    (Var x) const   { return model[x]; }
 inline lbool    Solver::modelValue    (Lit p) const   { return model[var(p)] ^ sign(p); }
 inline int      Solver::nAssigns      ()      const   { return trail.size(); }
-inline int      Solver::nClauses      ()      const   { return num_clauses; }
-inline int      Solver::nLearnts      ()      const   { return num_learnts; }
-inline int      Solver::nVars         ()      const   { return next_var; }
-// TODO: nFreeVars() is not quite correct, try to calculate right instead of adapting it like below:
+inline int      Solver::nClauses      ()      const   { return clauses.size(); }
+inline int      Solver::nLearnts      ()      const   { return learnts.size(); }
+inline int      Solver::nVars         ()      const   { return vardata.size(); }
 inline int      Solver::nFreeVars     ()      const   { return (int)dec_vars - (trail_lim.size() == 0 ? trail.size() : trail_lim[0]); }
-inline void     Solver::setPolarity   (Var v, lbool b){ user_pol[v] = b; }
+inline void     Solver::setPolarity   (Var v, bool b) { polarity[v] = b; }
 inline void     Solver::setDecisionVar(Var v, bool b) 
 { 
     if      ( b && !decision[v]) dec_vars++;
@@ -474,15 +354,8 @@ inline bool     Solver::solve         (Lit p)               { budgetOff(); assum
 inline bool     Solver::solve         (Lit p, Lit q)        { budgetOff(); assumptions.clear(); assumptions.push(p); assumptions.push(q); return solve_() == l_True; }
 inline bool     Solver::solve         (Lit p, Lit q, Lit r) { budgetOff(); assumptions.clear(); assumptions.push(p); assumptions.push(q); assumptions.push(r); return solve_() == l_True; }
 inline bool     Solver::solve         (const vec<Lit>& assumps){ budgetOff(); assumps.copyTo(assumptions); return solve_() == l_True; }
-inline lbool    Solver::solve_lbool   (const vec<Lit>& assumps){ budgetOff(); assumps.copyTo(assumptions); return solve_(); }
 inline lbool    Solver::solveLimited  (const vec<Lit>& assumps){ assumps.copyTo(assumptions); return solve_(); }
 inline bool     Solver::okay          ()      const   { return ok; }
-
-inline ClauseIterator Solver::clausesBegin() const { return ClauseIterator(ca, &clauses[0]); }
-inline ClauseIterator Solver::clausesEnd  () const { return ClauseIterator(ca, &clauses[clauses.size()]); }
-inline TrailIterator  Solver::trailBegin  () const { return TrailIterator(&trail[0]); }
-inline TrailIterator  Solver::trailEnd    () const { 
-    return TrailIterator(&trail[decisionLevel() == 0 ? trail.size() : trail_lim[0]]); }
 
 inline void     Solver::toDimacs     (const char* file){ vec<Lit> as; toDimacs(file, as); }
 inline void     Solver::toDimacs     (const char* file, Lit p){ vec<Lit> as; as.push(p); toDimacs(file, as); }

@@ -18,30 +18,16 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **************************************************************************************************/
 
-#ifdef _MPI
-#include <mpi.h>
-#endif
-
-#pragma warning(disable : 4996)
-
-#ifdef WIN32
-#pragma warning ( disable : 310 )
-#endif
-
 #include <math.h>
 
-#include "minisat/mtl/Alg.h"
-#include "minisat/mtl/Sort.h"
-#include "minisat/utils/System.h"
-#include "minisat/utils/MinisatLogger.h" // added
-#include "minisat/core/Solver.h"
-//#include "minisat/utils/SolverStateAccessor.h" // added
+#include "mtl/Sort.h"
+#include "core/Solver.h"
 
-#include <algorithm>
 using namespace Minisat;
 
 //=================================================================================================
 // Options:
+
 
 static const char* _cat = "CORE";
 
@@ -56,17 +42,11 @@ static BoolOption    opt_luby_restart      (_cat, "luby",        "Use the Luby r
 static IntOption     opt_restart_first     (_cat, "rfirst",      "The base restart interval", 100, IntRange(1, INT32_MAX));
 static DoubleOption  opt_restart_inc       (_cat, "rinc",        "Restart interval increase factor", 2, DoubleRange(1, false, HUGE_VAL, false));
 static DoubleOption  opt_garbage_frac      (_cat, "gc-frac",     "The fraction of wasted memory allowed before a garbage collection is triggered",  0.20, DoubleRange(0, false, HUGE_VAL, false));
-static IntOption     opt_min_learnts_lim   (_cat, "min-learnts", "Minimum learnt clause limit",  0, IntRange(0, INT32_MAX));
 
-static DoubleOption  start_activity        (_cat, "start_activity",   "start_activity",            0,     DoubleRange(0, false, HUGE_VAL, false));
 
 //=================================================================================================
 // Constructor/Destructor:
 
-int32_t s=0,t=0,u,v=0;
-
-BoolOption  D("", "c", "", 0);
-BoolOption  R("", "p", "", 0);
 
 Solver::Solver() :
 
@@ -83,7 +63,6 @@ Solver::Solver() :
   , rnd_pol          (false)
   , rnd_init_act     (opt_rnd_init_act)
   , garbage_frac     (opt_garbage_frac)
-  , min_learnts_lim  (opt_min_learnts_lim)
   , restart_first    (opt_restart_first)
   , restart_inc      (opt_restart_inc)
 
@@ -99,187 +78,54 @@ Solver::Solver() :
     // Statistics: (formerly in 'SolverStats')
     //
   , solves(0), starts(0), decisions(0), rnd_decisions(0), propagations(0), conflicts(0)
-  , dec_vars(0), num_clauses(0), num_learnts(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
+  , dec_vars(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
 
-  , watches            (WatcherDeleted(ca))
-  , order_heap         (VarOrderLt(activity))
   , ok                 (true)
   , cla_inc            (1)
   , var_inc            (1)
+  , watches            (WatcherDeleted(ca))
   , qhead              (0)
   , simpDB_assigns     (-1)
   , simpDB_props       (0)
+  , order_heap         (VarOrderLt(activity))
   , progress_estimate  (0)
   , remove_satisfied   (true)
-  , next_var           (0)
 
     // Resource constraints:
     //
   , conflict_budget    (-1)
   , propagation_budget (-1)
-     
-	// params for pdsat:
-    //
   , asynch_interrupt   (false)
-  , print_learnts      (false)
-  , max_nof_restarts   ( 0 )
-  , start_activity     ( 0 )
-  , core_len           ( 0 )
-  , IsPredict          ( false )
-  , start_solving_time ( 0 )
-  , max_solving_time   ( 0 )
-  , last_time          ( 0 )
-  , rank               ( -1 )
-  , pdsat_verbosity    ( 0 )
-  , cur_hack_type      ( no )
 {}
 
+
 Solver::~Solver()
-{}
+{
+}
+
 
 //=================================================================================================
 // Minor methods:
 
-// added
-bool compare_lits(Lit a, Lit b){
-	return var(a)<var(b);
-}
-
-void Solver::clearDB()
-{
-    for (int i = 0; i < learnts.size(); ++i)
-        removeClause(learnts[i]);
-
-    learnts.clear();
-	conflicts = 0;
-	max_literals = 0;
-	tot_literals = 0;
-
-    checkGarbage();
-}
-
-void Solver::clearPolarity() 
-{
-	for ( int i=0; i < nVars(); i++ )
-		polarity[i] = true;
-	checkGarbage();
-}
-
-void Solver::clearParams()
-{
-	starts = 0;
-    decisions = 0;
-	rnd_decisions = 0;
-    propagations = 0;
-	ok = true;
-	
-	//dec_vars = 0;
-	
-	/*for ( int i=0; i < nVars(); i++ )
-		polarity[i] = true;
-	for (int i=0; i<nVars(); i++){
-		activity[i]=i;
-	}
-	rebuildOrderHeap();
-	for (int i=0; i<nVars(); i++){
-		activity[i]=0;
-	}
-	var_inc=1;
-	for (int i = 0; i < learnts.size(); i++){
-        ca[learnts[i]].activity() =0;
-	}
-    cla_inc = 1;
-	for (int i=0; i<clauses.size(); i++){
-		Clause& c = ca[clauses[i]];
-		if (c.size()>1)
-			detachClause(clauses[i], true);
-		std::sort(&c[0],&c[c.size()-1], compare_lits);
-	}
-
-	for (int i=0; i<clauses.size(); i++){
-		if (ca[clauses[i]].size()>1)
-			attachClause(clauses[i]);
-	}*/
-}
-
-/*void Solver::saveState( const std::string file_blob_name )
-{
-	SolverStateAccessor writer(*this);
-	writer.WriteStateBlob(file_blob_name);
-}*/
-
-void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len )
-{
-	for( unsigned i=0; i < activity_vec_len; ++i )
-		var_activity[i] = activity[full_var_choose_order[i]-1];
-	for( unsigned i=0; i < activity_vec_len; ++i )
-		if( var_activity[i] > 1e10 )
-			for( unsigned j=0; j < activity_vec_len; ++j ) // Rescale:
-				var_activity[j] *= 1e-10;
-}
-
-// added
-void Solver :: resetVarActivity()
-{
-	if ( ( core_len <= nVars() ) && ( start_activity > 0 ) ) {
-		// set default minisat values
-		for( int i=0; i < activity.size(); ++i )
-			activity[i] = 0.0;
-		for (int v = 0; v < core_len; ++v)
-			varBumpActivity(v, start_activity);
-		var_decay = 1;
-		clause_decay = 1;
-	}
-}
-
-/*
-void Solver :: printCoreActivity( std::string &str )
-{
-	str = "";
-	std::stringstream sstream;
-	for( unsigned i=0; i < core_len; ++i )
-		sstream << activity[i] << " ";
-	sstream << std::endl;
-	str = sstream.str();
-}
-*/
 
 // Creates a new SAT variable in the solver. If 'decision' is cleared, variable will not be
 // used as a decision variable (NOTE! This has effects on the meaning of a SATISFIABLE result).
 //
-Var Solver::newVar(lbool upol, bool dvar)
+Var Solver::newVar(bool sign, bool dvar)
 {
-    Var v;
-    if (free_vars.size() > 0){
-        v = free_vars.last();
-        free_vars.pop();
-    }else
-        v = next_var++;
-
+    int v = nVars();
     watches  .init(mkLit(v, false));
     watches  .init(mkLit(v, true ));
-    assigns  .insert(v, l_Undef);
-    vardata  .insert(v, mkVarData(CRef_Undef, 0));
-    activity .insert(v, rnd_init_act ? drand(random_seed) * 0.00001 : 0);
-    seen     .insert(v, 0);
-    polarity .insert(v, true);
-    user_pol .insert(v, upol);
-    decision .reserve(v);
+    assigns  .push(l_Undef);
+    vardata  .push(mkVarData(CRef_Undef, 0));
+    //activity .push(0);
+    activity .push(rnd_init_act ? drand(random_seed) * 0.00001 : 0);
+    seen     .push(0);
+    polarity .push(sign);
+    decision .push();
     trail    .capacity(v+1);
     setDecisionVar(v, dvar);
-    if(D)P.push(-1);
     return v;
-}
-
-
-// Note: at the moment, only unassigned variable will be released (this is to avoid duplicate
-// releases of the same variable).
-void Solver::releaseVar(Lit l)
-{
-    if (value(l) == l_Undef){
-        addClause(l);
-        released_vars.push(var(l));
-    }
 }
 
 
@@ -290,20 +136,7 @@ bool Solver::addClause_(vec<Lit>& ps)
 
     // Check if clause is satisfied and remove false/duplicate literals:
     sort(ps);
-
-	Lit p; int i, j;
-
-	if ( cur_hack_type == hack_minigolf ) {
-	    vec<Lit> oc;
-		oc.clear();
-		int flag = 0;
-		for (i = j = 0, p = lit_Undef; i < ps.size(); i++) {
-			oc.push(ps[i]);
-			if (value(ps[i]) == l_True || ps[i] == ~p || value(ps[i]) == l_False)
-			  flag = 1;
-		}
-	}
-
+    Lit p; int i, j;
     for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
         if (value(ps[i]) == l_True || ps[i] == ~p)
             return true;
@@ -326,32 +159,30 @@ bool Solver::addClause_(vec<Lit>& ps)
 }
 
 
-void Solver::attachClause(CRef cr){
+void Solver::attachClause(CRef cr) {
     const Clause& c = ca[cr];
     assert(c.size() > 1);
     watches[~c[0]].push(Watcher(cr, c[1]));
     watches[~c[1]].push(Watcher(cr, c[0]));
-    if (c.learnt()) num_learnts++, learnts_literals += c.size();
-    else            num_clauses++, clauses_literals += c.size();
-}
+    if (c.learnt()) learnts_literals += c.size();
+    else            clauses_literals += c.size(); }
 
 
-void Solver::detachClause(CRef cr, bool strict){
+void Solver::detachClause(CRef cr, bool strict) {
     const Clause& c = ca[cr];
     assert(c.size() > 1);
     
-    // Strict or lazy detaching:
     if (strict){
         remove(watches[~c[0]], Watcher(cr, c[1]));
         remove(watches[~c[1]], Watcher(cr, c[0]));
     }else{
+        // Lazy detaching: (NOTE! Must clean all watcher lists before garbage collecting this clause)
         watches.smudge(~c[0]);
         watches.smudge(~c[1]);
     }
 
-    if (c.learnt()) num_learnts--, learnts_literals -= c.size();
-    else            num_clauses--, clauses_literals -= c.size();
-}
+    if (c.learnt()) learnts_literals -= c.size();
+    else            clauses_literals -= c.size(); }
 
 
 void Solver::removeClause(CRef cr) {
@@ -362,6 +193,7 @@ void Solver::removeClause(CRef cr) {
     c.mark(1); 
     ca.free(cr);
 }
+
 
 bool Solver::satisfied(const Clause& c) const {
     for (int i = 0; i < c.size(); i++)
@@ -377,7 +209,7 @@ void Solver::cancelUntil(int level) {
         for (int c = trail.size()-1; c >= trail_lim[level]; c--){
             Var      x  = var(trail[c]);
             assigns [x] = l_Undef;
-            if (phase_saving > 1 || (phase_saving == 1 && c > trail_lim.last()))
+            if (phase_saving > 1 || (phase_saving == 1) && c > trail_lim.last())
                 polarity[x] = sign(trail[c]);
             insertVarOrder(x); }
         qhead = trail_lim[level];
@@ -388,6 +220,7 @@ void Solver::cancelUntil(int level) {
 
 //=================================================================================================
 // Major methods:
+
 
 Lit Solver::pickBranchLit()
 {
@@ -407,15 +240,7 @@ Lit Solver::pickBranchLit()
         }else
             next = order_heap.removeMin();
 
-    // Choose polarity based on different polarity modes (global or per-variable):
-    if (next == var_Undef)
-        return lit_Undef;
-    else if (user_pol[next] != l_Undef)
-        return mkLit(next, user_pol[next] == l_True);
-    else if (rnd_pol)
-        return mkLit(next, drand(random_seed) < 0.5);
-    else
-        return mkLit(next, polarity[next]);
+    return next == var_Undef ? lit_Undef : mkLit(next, rnd_pol ? drand(random_seed) < 0.5 : polarity[next]);
 }
 
 
@@ -436,94 +261,44 @@ Lit Solver::pickBranchLit()
 |        rest of literals. There may be others from the same level though.
 |  
 |________________________________________________________________________________________________@*/
-U Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
+void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
 {
     int pathC = 0;
     Lit p     = lit_Undef;
-
-	U x = 0, y = 1;
 
     // Generate conflict clause:
     //
     out_learnt.push();      // (leave room for the asserting literal)
     int index   = trail.size() - 1;
-	
-	if ( cur_hack_type == no ) {
-		do{
-			assert(confl != CRef_Undef); // (otherwise should be UIP)
-			Clause& c = ca[confl];
 
-			if (c.learnt())
-				claBumpActivity(c);
+    do{
+        assert(confl != CRef_Undef); // (otherwise should be UIP)
+        Clause& c = ca[confl];
 
-			for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++){
-				Lit q = c[j];
+        if (c.learnt())
+            claBumpActivity(c);
 
-				if (!seen[var(q)] && level(var(q)) > 0){
-					varBumpActivity(var(q));
-					seen[var(q)] = 1;
-					if (level(var(q)) >= decisionLevel())
-						pathC++;
-					else
-						out_learnt.push(q);
-				}
-			}
+        for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++){
+            Lit q = c[j];
 
-			// Select next clause to look at:
-			while (!seen[var(trail[index--])]);
-			p     = trail[index+1];
-			confl = reason(var(p));
-			seen[var(p)] = 0;
-			pathC--;
-
-		}while (pathC > 0);
-	}
-	else if ( cur_hack_type == hack_minigolf ) {
-		do{
-			assert(confl != CRef_Undef); // (otherwise should be UIP)
-			Clause& c = ca[confl];
-
-			if (c.learnt())
-				claBumpActivity(c);
-
-			for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++){
-				Lit q = c[j];
-
-				if (!seen[var(q)] && level(var(q)) > 0){
-					varBumpActivity(var(q));
-					seen[var(q)] = 1;
-					if (level(var(q)) >= decisionLevel())
-						pathC++;
-					else 
-						out_learnt.push(q),y=0;
-				}
-			}
+            if (!seen[var(q)] && level(var(q)) > 0){
+                varBumpActivity(var(q));
+                seen[var(q)] = 1;
+                if (level(var(q)) >= decisionLevel())
+                    pathC++;
+                else
+                    out_learnt.push(q);
+            }
+        }
         
-			if(!y && x>0)break;
-        
-			// Select next clause to look at:
-			while (!seen[var(trail[index--])]);
-			p     = trail[index+1];
-			confl = reason(var(p));
-			seen[var(p)] = 0;
-			pathC--;
-	
-		if( pathC < 1 && y && O.size()==1+x) {x ++;O.push(~p);}
+        // Select next clause to look at:
+        while (!seen[var(trail[index--])]);
+        p     = trail[index+1];
+        confl = reason(var(p));
+        seen[var(p)] = 0;
+        pathC--;
 
-		}while ( ( pathC  
-						  >0 && !x )
-		  || (y && x>0 && Ca
-		);
-		if(x){ 
-		  for(u=x+1;u<O Ha;) S(O,u++)
-		  O.shrink(O Ha -1-x);
-		  O[0]=O[x];O.pop();
-		  out_btlevel=0;
-		  while (!y && Ca S(trail,index--)
-		  return x;
-		}
-	}
-
+    }while (pathC > 0);
     out_learnt[0] = ~p;
 
     // Simplify conflict clause:
@@ -531,8 +306,12 @@ U Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     int i, j;
     out_learnt.copyTo(analyze_toclear);
     if (ccmin_mode == 2){
+        uint32_t abstract_level = 0;
+        for (i = 1; i < out_learnt.size(); i++)
+            abstract_level |= abstractLevel(var(out_learnt[i])); // (maintain an abstraction of levels involved in conflict)
+
         for (i = j = 1; i < out_learnt.size(); i++)
-            if (reason(var(out_learnt[i])) == CRef_Undef || !litRedundant(out_learnt[i]))
+            if (reason(var(out_learnt[i])) == CRef_Undef || !litRedundant(out_learnt[i], abstract_level))
                 out_learnt[j++] = out_learnt[i];
         
     }else if (ccmin_mode == 1){
@@ -574,64 +353,33 @@ U Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     }
 
     for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0;    // ('seen[]' is now cleared)
-	
-	return 0;
 }
 
 
-// Check if 'p' can be removed from a conflict clause.
-bool Solver::litRedundant(Lit p)
+// Check if 'p' can be removed. 'abstract_levels' is used to abort early if the algorithm is
+// visiting literals at levels that cannot be removed later.
+bool Solver::litRedundant(Lit p, uint32_t abstract_levels)
 {
-    enum { seen_undef = 0, seen_source = 1, seen_removable = 2, seen_failed = 3 };
-    assert(seen[var(p)] == seen_undef || seen[var(p)] == seen_source);
-    assert(reason(var(p)) != CRef_Undef);
+    analyze_stack.clear(); analyze_stack.push(p);
+    int top = analyze_toclear.size();
+    while (analyze_stack.size() > 0){
+        assert(reason(var(analyze_stack.last())) != CRef_Undef);
+        Clause& c = ca[reason(var(analyze_stack.last()))]; analyze_stack.pop();
 
-    Clause*               c     = &ca[reason(var(p))];
-    vec<ShrinkStackElem>& stack = analyze_stack;
-    stack.clear();
-
-    for (uint32_t i = 1; ; i++){
-        if (i < (uint32_t)c->size()){
-            // Checking 'p'-parents 'l':
-            Lit l = (*c)[i];
-            
-            // Variable at level 0 or previously removable:
-            if (level(var(l)) == 0 || seen[var(l)] == seen_source || seen[var(l)] == seen_removable){
-                continue; }
-            
-            // Check variable can not be removed for some local reason:
-            if (reason(var(l)) == CRef_Undef || seen[var(l)] == seen_failed){
-                stack.push(ShrinkStackElem(0, p));
-                for (int i = 0; i < stack.size(); i++)
-                    if (seen[var(stack[i].l)] == seen_undef){
-                        seen[var(stack[i].l)] = seen_failed;
-                        analyze_toclear.push(stack[i].l);
-                    }
-                    
-                return false;
+        for (int i = 1; i < c.size(); i++){
+            Lit p  = c[i];
+            if (!seen[var(p)] && level(var(p)) > 0){
+                if (reason(var(p)) != CRef_Undef && (abstractLevel(var(p)) & abstract_levels) != 0){
+                    seen[var(p)] = 1;
+                    analyze_stack.push(p);
+                    analyze_toclear.push(p);
+                }else{
+                    for (int j = top; j < analyze_toclear.size(); j++)
+                        seen[var(analyze_toclear[j])] = 0;
+                    analyze_toclear.shrink(analyze_toclear.size() - top);
+                    return false;
+                }
             }
-
-            // Recursively check 'l':
-            stack.push(ShrinkStackElem(i, p));
-            i  = 0;
-            p  = l;
-            c  = &ca[reason(var(p))];
-        }else{
-            // Finished with current element 'p' and reason 'c':
-            if (seen[var(p)] == seen_undef){
-                seen[var(p)] = seen_removable;
-                analyze_toclear.push(p);
-            }
-
-            // Terminate with success if stack is empty:
-            if (stack.size() == 0) break;
-            
-            // Continue with top element on stack:
-            i  = stack.last().i;
-            p  = stack.last().l;
-            c  = &ca[reason(var(p))];
-
-            stack.pop();
         }
     }
 
@@ -648,10 +396,10 @@ bool Solver::litRedundant(Lit p)
 |    Calculates the (possibly empty) set of assumptions that led to the assignment of 'p', and
 |    stores the result in 'out_conflict'.
 |________________________________________________________________________________________________@*/
-void Solver::analyzeFinal(Lit p, LSet& out_conflict)
+void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
 {
     out_conflict.clear();
-    out_conflict.insert(p);
+    out_conflict.push(p);
 
     if (decisionLevel() == 0)
         return;
@@ -663,7 +411,7 @@ void Solver::analyzeFinal(Lit p, LSet& out_conflict)
         if (seen[x]){
             if (reason(x) == CRef_Undef){
                 assert(level(x) > 0);
-                out_conflict.insert(~trail[i]);
+                out_conflict.push(~trail[i]);
             }else{
                 Clause& c = ca[reason(x)];
                 for (int j = 1; j < c.size(); j++)
@@ -683,12 +431,9 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assert(value(p) == l_Undef);
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
-    trail.push(p);
-	if ( cur_hack_type == hack_minigolf )
-		if(D)P[var(p)] = trail.size();
     trail.push_(p);
-    //if(R) __builtin_prefetch( & watches[p] );
 }
+
 
 /*_________________________________________________________________________________________________
 |
@@ -705,10 +450,11 @@ CRef Solver::propagate()
 {
     CRef    confl     = CRef_Undef;
     int     num_props = 0;
+    watches.cleanAll();
 
     while (qhead < trail.size()){
         Lit            p   = trail[qhead++];     // 'p' is enqueued fact to propagate.
-        vec<Watcher>&  ws  = watches.lookup(p);
+        vec<Watcher>&  ws  = watches[p];
         Watcher        *i, *j, *end;
         num_props++;
 
@@ -731,14 +477,6 @@ CRef Solver::propagate()
             Lit     first = c[0];
             Watcher w     = Watcher(cr, first);
             if (first != blocker && value(first) == l_True){
-				if ( cur_hack_type == hack_minigolf ) {
-					if(D){U t = var(first);
-					if( reason(t) != CRef_Undef) {
-					U p = P[ t ],f = 0;
-					for( U i = 1; i < c Ha; ++ i ) if( value( c[i] ) != l_False || P[ var(c[i]) ] > p ) {f = 1; break;}
-					if( !f && Ta.cost > c Ha )  Ta.reason = cr,Ta.cost = c Ha;
-					}}
-				}
                 *j++ = w; continue; }
 
             // Look for new watch:
@@ -811,16 +549,8 @@ void Solver::removeSatisfied(vec<CRef>& cs)
         Clause& c = ca[cs[i]];
         if (satisfied(c))
             removeClause(cs[i]);
-        else{
-            // Trim clause:
-            assert(value(c[0]) == l_Undef && value(c[1]) == l_Undef);
-            for (int k = 2; k < c.size(); k++)
-                if (value(c[k]) == l_False){
-                    c[k--] = c[c.size()-1];
-                    c.pop();
-                }
+        else
             cs[j++] = cs[i];
-        }
     }
     cs.shrink(i - j);
 }
@@ -856,32 +586,8 @@ bool Solver::simplify()
 
     // Remove satisfied clauses:
     removeSatisfied(learnts);
-    if (remove_satisfied){       // Can be turned off.
+    if (remove_satisfied)        // Can be turned off.
         removeSatisfied(clauses);
-
-        // TODO: what todo in if 'remove_satisfied' is false?
-
-        // Remove all released variables from the trail:
-        for (int i = 0; i < released_vars.size(); i++){
-            assert(seen[released_vars[i]] == 0);
-            seen[released_vars[i]] = 1;
-        }
-
-        int i, j;
-        for (i = j = 0; i < trail.size(); i++)
-            if (seen[var(trail[i])] == 0)
-                trail[j++] = trail[i];
-        trail.shrink(i - j);
-        //printf("trail.size()= %d, qhead = %d\n", trail.size(), qhead);
-        qhead = trail.size();
-
-        for (int i = 0; i < released_vars.size(); i++)
-            seen[released_vars[i]] = 0;
-
-        // Released variables are now ready to be reused:
-        append(released_vars, free_vars);
-        released_vars.clear();
-    }
     checkGarbage();
     rebuildOrderHeap();
 
@@ -913,36 +619,20 @@ lbool Solver::search(int nof_conflicts)
     vec<Lit>    learnt_clause;
     starts++;
 
-	// BOINC mode - added to speedup solving Latin square problems
-	//if ( ( max_nof_restarts ) && ( !core_len ) ) 
-	//	reduceDB();
-	
     for (;;){
         CRef confl = propagate();
-
         if (confl != CRef_Undef){
             // CONFLICT
             conflicts++; conflictC++;
             if (decisionLevel() == 0) return l_False;
-			
-			if ( ( max_solving_time > 0 ) && ( cpuTime() - start_solving_time > max_solving_time ) ) {
-				cancelUntil(0);
-				return l_Undef;
-			}
 
             learnt_clause.clear();
-            v = analyze(confl, learnt_clause, backtrack_level);
+            analyze(confl, learnt_clause, backtrack_level);
             cancelUntil(backtrack_level);
-			if ( ( cur_hack_type == hack_minigolf ) && ( v ) )
-				for(u=0;u<v;) uncheckedEnqueue(learnt_clause[u++]);
-			else if (learnt_clause.size() == 1){
+
+            if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
             }else{
-				if ( print_learnts ) {
-					for ( unsigned i = 0; i < learnt_clause.size(); i++ )
-						printf( "%d ", learnt_clause[i].x );
-					printf("\n");
-				}
                 CRef cr = ca.alloc(learnt_clause, true);
                 learnts.push(cr);
                 attachClause(cr);
@@ -958,16 +648,16 @@ lbool Solver::search(int nof_conflicts)
                 learntsize_adjust_cnt    = (int)learntsize_adjust_confl;
                 max_learnts             *= learntsize_inc;
 
-				if (verbosity >= 1)
+                if (verbosity >= 1)
                     printf("| %9d | %7d %8d %8d | %8d %8d %6.0f | %6.3f %% |\n", 
                            (int)conflicts, 
                            (int)dec_vars - (trail_lim.size() == 0 ? trail.size() : trail_lim[0]), nClauses(), (int)clauses_literals, 
                            (int)max_learnts, nLearnts(), (double)learnts_literals/nLearnts(), progressEstimate()*100);
-			}
+            }
 
         }else{
             // NO CONFLICT
-            if ((nof_conflicts >= 0 && conflictC >= nof_conflicts) || !withinBudget()){
+            if (nof_conflicts >= 0 && conflictC >= nof_conflicts || !withinBudget()){
                 // Reached bound on number of conflicts:
                 progress_estimate = progressEstimate();
                 cancelUntil(0);
@@ -976,12 +666,10 @@ lbool Solver::search(int nof_conflicts)
             // Simplify the set of problem clauses:
             if (decisionLevel() == 0 && !simplify())
                 return l_False;
-			
-			if (learnts.size()-nAssigns() >= max_learnts)
-			{
+
+            if (learnts.size()-nAssigns() >= max_learnts)
                 // Reduce the set of learnt clauses:
                 reduceDB();
-			}
 
             Lit next = lit_Undef;
             while (decisionLevel() < assumptions.size()){
@@ -1062,18 +750,13 @@ static double luby(double y, int x){
 // NOTE: assumptions passed in member-variable 'assumptions'.
 lbool Solver::solve_()
 {
-	last_time = cpuTime();
-	
-	model.clear();
+    model.clear();
     conflict.clear();
     if (!ok) return l_False;
 
     solves++;
 
-    max_learnts = nClauses() * learntsize_factor;
-    if (max_learnts < min_learnts_lim)
-        max_learnts = min_learnts_lim;
-
+    max_learnts               = nClauses() * learntsize_factor;
     learntsize_adjust_confl   = learntsize_adjust_start_confl;
     learntsize_adjust_cnt     = (int)learntsize_adjust_confl;
     lbool   status            = l_Undef;
@@ -1085,102 +768,28 @@ lbool Solver::solve_()
         printf("===============================================================================\n");
     }
 
-#ifdef _MPI
-	MPI_Status mpi_status;
-	MPI_Request mpi_request;
-	int iprobe_message,
-		test_message,
-		irecv_message;
-#endif
-
-	start_solving_time = cpuTime();
-
     // Search:
     int curr_restarts = 0;
     while (status == l_Undef){
-		if ( ( ( max_nof_restarts ) && ( curr_restarts == max_nof_restarts ) ) ||
-		     ( ( max_solving_time > 0 ) && ( cpuTime() - start_solving_time > max_solving_time ) )
-			 )
-		{ // added to interrupt
-			 cancelUntil(0);
-			 return l_Undef;
-		}
-		
-#ifdef _MPI
-#ifndef _DEBUG
-		if ( IsPredict ) {
-			if ( ( pdsat_verbosity > 0 ) && ( rank == 1 ) ) {
-				std::cout << "try to MPI_Iprobe()" << std::endl;
-				std::cout << "rank " << rank << std::endl;
-			}
-			int size;
-			MPI_Iprobe( 0, 0, MPI_COMM_WORLD, &iprobe_message, &mpi_status );
-			if ( pdsat_verbosity > 0 )
-				std::cout << "iprobe_message " << iprobe_message << std::endl;
-			if ( iprobe_message ) {
-				MPI_Get_count(&mpi_status, MPI_UNSIGNED, &size);
-				if ( size == 1 ) {
-					MPI_Irecv( &irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request );
-					MPI_Test( &mpi_request, &test_message, &mpi_status );
-					if ( test_message ) {
-						if ( pdsat_verbosity > 0 )
-							std::cout << "m2.2 interrupted after " << conflicts << " conflicts" << std::endl;
-						return l_Undef;
-					}
-				}
-				else
-					std::cerr << "In Solver() MPI_Get_count(&status, MPI_UNSIGNED, &size); " << size << std::endl;
-			}
-		}
-#endif
-#endif
-		
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
         status = search(rest_base * restart_first);
-		
         if (!withinBudget()) break;
         curr_restarts++;
     }
-	
+
     if (verbosity >= 1)
         printf("===============================================================================\n");
-	
+
+
     if (status == l_True){
         // Extend & copy model:
         model.growTo(nVars());
         for (int i = 0; i < nVars(); i++) model[i] = value(i);
     }else if (status == l_False && conflict.size() == 0)
         ok = false;
-	
+
     cancelUntil(0);
     return status;
-}
-
-
-bool Solver::implies(const vec<Lit>& assumps, vec<Lit>& out)
-{
-    trail_lim.push(trail.size());
-    for (int i = 0; i < assumps.size(); i++){
-        Lit a = assumps[i];
-
-        if (value(a) == l_False){
-            cancelUntil(0);
-            return false;
-        }else if (value(a) == l_Undef)
-            uncheckedEnqueue(a);
-    }
-
-    unsigned trail_before = trail.size();
-    bool     ret          = true;
-    if (propagate() == CRef_Undef){
-        out.clear();
-        for (int j = trail_before; j < trail.size(); j++)
-            out.push(trail[j]);
-    }else
-        ret = false;
-    
-    cancelUntil(0);
-    return ret;
 }
 
 //=================================================================================================
@@ -1244,35 +853,22 @@ void Solver::toDimacs(FILE* f, const vec<Lit>& assumps)
         }
 
     // Assumptions are added as unit clauses:
-    cnt += assumps.size();
+    cnt += assumptions.size();
 
     fprintf(f, "p cnf %d %d\n", max, cnt);
 
-    for (int i = 0; i < assumps.size(); i++){
-        assert(value(assumps[i]) != l_False);
-        fprintf(f, "%s%d 0\n", sign(assumps[i]) ? "-" : "", mapVar(var(assumps[i]), map, max)+1);
+    for (int i = 0; i < assumptions.size(); i++){
+        assert(value(assumptions[i]) != l_False);
+        fprintf(f, "%s%d 0\n", sign(assumptions[i]) ? "-" : "", mapVar(var(assumptions[i]), map, max)+1);
     }
 
     for (int i = 0; i < clauses.size(); i++)
         toDimacs(f, ca[clauses[i]], map, max);
 
     if (verbosity > 0)
-        printf("Wrote DIMACS with %d variables and %d clauses.\n", max, cnt);
+        printf("Wrote %d clauses with %d variables.\n", cnt, max);
 }
 
-void Solver::printStats() const
-{
-	// double cpu_time = cpuTime(); // unmodified version
-    double cpu_time = cpuTime() - last_time; // in conseq mode last_time == 0
-    double mem_used = memUsedPeak();
-    printf("restarts              : %-12lld\n", starts);
-    printf("conflicts             : %-12lld   (%.0f /sec)\n", conflicts   , conflicts   /cpu_time);
-    printf("decisions             : %-12lld   (%4.2f %% random) (%.0f /sec)\n", decisions, (float)rnd_decisions*100 / (float)decisions, decisions   /cpu_time);
-    printf("propagations          : %-12lld   (%.0f /sec)\n", propagations, propagations/cpu_time);
-    printf("conflict literals     : %-12lld   (%4.2f %% deleted)\n", tot_literals, (max_literals - tot_literals)*100 / (double)max_literals);
-    if (mem_used != 0) printf("used           : %.2f MB\n", mem_used);
-	printf("CPU time              : %g s\n", cpu_time);
-}
 
 //=================================================================================================
 // Garbage Collection methods:
@@ -1281,10 +877,12 @@ void Solver::relocAll(ClauseAllocator& to)
 {
     // All watchers:
     //
+    // for (int i = 0; i < watches.size(); i++)
     watches.cleanAll();
     for (int v = 0; v < nVars(); v++)
         for (int s = 0; s < 2; s++){
             Lit p = mkLit(v, s);
+            // printf(" >>> RELOCING: %s%d\n", sign(p)?"-":"", var(p)+1);
             vec<Watcher>& ws = watches[p];
             for (int j = 0; j < ws.size(); j++)
                 ca.reloc(ws[j].cref, to);
@@ -1295,32 +893,19 @@ void Solver::relocAll(ClauseAllocator& to)
     for (int i = 0; i < trail.size(); i++){
         Var v = var(trail[i]);
 
-        // Note: it is not safe to call 'locked()' on a relocated clause. This is why we keep
-        // 'dangling' reasons here. It is safe and does not hurt.
-        if (reason(v) != CRef_Undef && (ca[reason(v)].reloced() || locked(ca[reason(v)]))){
-            assert(!isRemoved(reason(v)));
+        if (reason(v) != CRef_Undef && (ca[reason(v)].reloced() || locked(ca[reason(v)])))
             ca.reloc(vardata[v].reason, to);
-        }
     }
 
     // All learnt:
     //
-    int i, j;
-    for (i = j = 0; i < learnts.size(); i++)
-        if (!isRemoved(learnts[i])){
-            ca.reloc(learnts[i], to);
-            learnts[j++] = learnts[i];
-        }
-    learnts.shrink(i - j);
+    for (int i = 0; i < learnts.size(); i++)
+        ca.reloc(learnts[i], to);
 
     // All original:
     //
-    for (i = j = 0; i < clauses.size(); i++)
-        if (!isRemoved(clauses[i])){
-            ca.reloc(clauses[i], to);
-            clauses[j++] = clauses[i];
-        }
-    clauses.shrink(i - j);
+    for (int i = 0; i < clauses.size(); i++)
+        ca.reloc(clauses[i], to);
 }
 
 

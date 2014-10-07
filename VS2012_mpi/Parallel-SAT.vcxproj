@@ -16,7 +16,6 @@
     <ClCompile Include="..\src_common\minisat22_wrapper.cpp" />
     <ClCompile Include="..\src_common\minisat\core\Solver.cc" />
     <ClCompile Include="..\src_common\minisat\utils\Options.cc" />
-    <ClCompile Include="..\src_common\minisat\utils\SolverStateAccessor.cpp" />
     <ClCompile Include="..\src_common\minisat\utils\System.cc" />
     <ClCompile Include="..\src_mpi\mpi_base.cpp" />
     <ClCompile Include="..\src_mpi\mpi_predicter.cpp" />
@@ -34,7 +33,6 @@
     <ClInclude Include="..\src_common\minisat\mtl\Vec.h" />
     <ClInclude Include="..\src_common\minisat\utils\Options.h" />
     <ClInclude Include="..\src_common\minisat\utils\ParseUtils.h" />
-    <ClInclude Include="..\src_common\minisat\utils\SolverStateAccessor.h" />
     <ClInclude Include="..\src_common\minisat\utils\System.h" />
     <ClInclude Include="..\src_mpi\mpi_base.h" />
     <ClInclude Include="..\src_mpi\mpi_predicter.h" />
