@@ -2,13 +2,13 @@
 
 using namespace Addit_func;
 
-double Addit_func :: cpuTime(void) { 
+double Addit_func :: cpu_time(void) { 
 	return (double)clock() / CLOCKS_PER_SEC;
 }
 
-int Addit_func :: strtoint( string str )
+int Addit_func :: strtoint( std::string str )
 {
-	stringstream sstream;
+	std::stringstream sstream;
 	sstream << str;
 	int val;
 	sstream >> val;
@@ -61,11 +61,11 @@ int Addit_func :: ConseqMultip( int low_bound, int high_bound )
 	return final_val;
 }
 
-void Addit_func :: MakeCombinations( int n, int k, vector< vector<int> > &combinations )
+void Addit_func :: MakeCombinations( int n, int k, std::vector< std::vector<int> > &combinations )
 {
 // Generation of set of all k-combinations of a set n
 	int val;
-	vector<int> index_arr;
+	std::vector<int> index_arr;
 	index_arr.resize(k);
 	unsigned comb_index = 0;
 	combinations.resize( ConseqMultip(n-k+1,n) / ConseqMultip(1, k) );
@@ -95,10 +95,10 @@ void Addit_func :: MakeCombinations( int n, int k, vector< vector<int> > &combin
 	index_arr.resize(0);
 }
 
-void Addit_func :: MakePermutations( int n, int k, vector< vector<int> > &permutations )
+void Addit_func :: MakePermutations( int n, int k, std::vector< std::vector<int> > &permutations )
 {
-	vector< vector<int> > combinations;
-	vector<int> cur_permutation;
+	std::vector< std::vector<int> > combinations;
+	std::vector<int> cur_permutation;
 	permutations.reserve( ConseqMultip(n-k+1,n) ); // reserve count of permutations
 	MakeCombinations(n,k,combinations);
 	for( unsigned i=0; i<combinations.size(); ++i ){
@@ -108,17 +108,17 @@ void Addit_func :: MakePermutations( int n, int k, vector< vector<int> > &permut
 	}
 }
 
-bool Addit_func :: getdir( string dir, vector<string> &files )
+bool Addit_func :: getdir( std::string dir, std::vector<std::string> &files )
 {
     DIR *dp;
-	string cur_name;
+	std::string cur_name;
     struct dirent *dirp;
     if((dp  = opendir(dir.c_str())) == NULL) {
         std::cout << std::endl << "Error in opening " << dir << std::endl;
         return false;
     }
     while ((dirp = readdir(dp)) != NULL) { 
-		cur_name = string(dirp->d_name);
+		cur_name = std::string(dirp->d_name);
 		if ( cur_name[0] != '.' ) files.push_back(cur_name); 
 	}
     closedir(dp);

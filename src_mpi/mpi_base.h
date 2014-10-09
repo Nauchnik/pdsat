@@ -27,7 +27,6 @@
 #include "minisat22_wrapper.h"
 #include "addit_func.h"
 using namespace Addit_func;
-using namespace std;
 
 const int      MAX_CORE_LEN = 800;
 const double   MIN_SOLVE_TIME = 0.000001;
@@ -46,11 +45,11 @@ enum ProblemStates{Solved, SolvedOnPreprocessing, Interrupted};
 class MPI_Base
 {
 protected:
-	vector< vector<int> > clause_array;
-	vector<int> clause_lengths;
-	vector<int> b_SAT_set_array;
-	vector< vector<unsigned> > values_arr;
-	map<int, unsigned> core_var_indexes; // indeces of variables in core set
+	std::vector< std::vector<int> > clause_array;
+	std::vector<int> clause_lengths;
+	std::vector<int> b_SAT_set_array;
+	std::vector< std::vector<unsigned> > values_arr;
+	std::map<int, unsigned> core_var_indexes; // indeces of variables in core set
 	boost::random::mt19937 gen;
 public:
     MPI_Base();
@@ -58,9 +57,9 @@ public:
 	
 	int rank;
 	int corecount;
-	string solver_name;
+	std::string solver_name;
 	unsigned koef_val;
-	string schema_type;
+	std::string schema_type;
 	unsigned core_len;
 	double start_activity;
 	bool IsConseq;
@@ -73,9 +72,9 @@ public:
 	unsigned *mask_value; // particular value of bits which set in part_mask
 	
 	unsigned activity_vec_len;
-	string known_point_file_name;
-	string base_known_assumptions_file_name;
-	string known_assumptions_file_name;
+	std::string known_point_file_name;
+	std::string base_known_assumptions_file_name;
+	std::string known_assumptions_file_name;
 	bool isSolverSystemCalling; // calling of solver file by system command
 	
 	bool IsPB; //  pseudo Bool mode. if 0 then common CNF mode
@@ -112,13 +111,13 @@ public:
 	double max_solving_time; // max time in seconds for solving particular SAT subproblem
 	unsigned keybit_count;
 	unsigned long long assumptions_count;
-	string rslos_table_name;
+	std::string rslos_table_name;
 	int max_nof_restarts;
 	char *input_cnf_name;
-	vector<int> var_choose_order;
-	vector<int> full_var_choose_order; // all variables that can be chosen to decomp set
-	vector<int> all_vars_set;
-	vector<int> rslos_lengths;
+	std::vector<int> var_choose_order;
+	std::vector<int> full_var_choose_order; // all variables that can be chosen to decomp set
+	std::vector<int> all_vars_set;
+	std::vector<int> rslos_lengths;
 	double *all_var_activity;
 
 	// Read header "p cnf [var_count] [clause_count]" from DIMACS file
@@ -129,21 +128,21 @@ public:
 	// Make array var_choose_order with vars sorted by given rule
 	bool MakeVarChoose( );
 	bool MakeStandardMasks( unsigned &part_var_power );
-	bool GetMainMasksFromVarChoose( vector<int> &var_choose_order );
+	bool GetMainMasksFromVarChoose( std::vector<int> &var_choose_order );
 	bool GetValuesFromVarChoose( unsigned &part_var_power );
 
-	void MakeSatSample( vector< vector<bool> > &state_vec_vec, vector< vector<bool> > &stream_vec_vec );
+	void MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec, std::vector< std::vector<bool> > &stream_vec_vec );
 	
 	bool AnalyzeSATset( );
-	bool CheckSATset( vector<int> &lit_SAT_set_array );
+	bool CheckSATset( std::vector<int> &lit_SAT_set_array );
 	bool MakeAssignsFromMasks( unsigned *full_mask, 
 							   unsigned *part_mask, 
 						       unsigned *value, 
-							   vec< vec<Lit> > &dummy_vec );
-	bool MakeAssignsFromFile( int current_task_index, unsigned long long before_binary_length, vec< vec<Lit> > &dummy_vec );
+							   Minisat::vec< Minisat::vec<Minisat::Lit> > &dummy_vec );
+	bool MakeAssignsFromFile( int current_task_index, unsigned long long before_binary_length, Minisat::vec< Minisat::vec<Minisat::Lit> > &dummy_vec );
 	
-	void MakeRandArr( vector< vector<unsigned> > &rand_arr, unsigned shortcnf_count, unsigned rnd_uint32_count );
-	void MakeUniqueRandArr( vector<unsigned> &rand_arr, unsigned rand_arr_len, unsigned max_rand_val );
+	void MakeRandArr( std::vector< std::vector<unsigned> > &rand_arr, unsigned shortcnf_count, unsigned rnd_uint32_count );
+	void MakeUniqueRandArr( std::vector<unsigned> &rand_arr, unsigned rand_arr_len, unsigned max_rand_val );
 	std::string make_solver_launch_str( std::string solver_name, std::string cnf_name, double maxtime_seconds_str );
 };
 

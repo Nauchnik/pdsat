@@ -6,9 +6,6 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
-using std::vector;
-using std::string;
-using std::stringstream;
 
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
@@ -22,18 +19,18 @@ using std::stringstream;
 
 namespace Addit_func {
 
-double cpuTime(void);
-extern int strtoint( string str );
+double cpu_time(void);
+extern int strtoint( std::string str );
 //extern string inttostr( int num );
 //extern string doubletostr( double num );
 extern bool isNumber( char num );
 extern bool isNumberOrMinus( char num );
 extern void cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, int &real_seconds );
-extern void MakeCombinations( int n, int k, vector< vector<int> > &combinations );
-extern void MakePermutations( int n, int k, vector< vector<int> > &permutations );
+extern void MakeCombinations( int n, int k, std::vector< std::vector<int> > &combinations );
+extern void MakePermutations( int n, int k, std::vector< std::vector<int> > &permutations );
 extern int ConseqMultip( int low_bound, int high_bound );
 extern int BitCount( unsigned u );
-extern bool getdir( string dir, vector<string> &files );
+extern bool getdir( std::string dir, std::vector<std::string> &files );
 //extern boost::dynamic_bitset<> IntVecToBitset( unsigned bitset_len, vector<int> &vec_int );
 //extern vector<int> BitsetToIntVec( boost::dynamic_bitset<> &bs );
 extern void shl64( unsigned long long int &val_for_left_shift, unsigned int bit_count );
@@ -44,13 +41,13 @@ extern bool bool_rand( boost::random::mt19937 &gen );
 extern std::string exec( std::string cmd_str );
 
 template< typename T > 
-bool next_cartesian( vector<T> &vii, vector<int> &index_arr, T &cur_vi )
+bool next_cartesian( std::vector<T> &vii, std::vector<int> &index_arr, T &cur_vi )
 {
 	if( index_arr.size() == 0 ) { // init
 		index_arr.resize( vii.size() );
 		//for( auto &x : index_arr )
 		//	x = 0;
-		for( vector<int> :: iterator it = index_arr.begin(); it != index_arr.end(); ++it )
+		for( std::vector<int> :: iterator it = index_arr.begin(); it != index_arr.end(); ++it )
 			*it = 0;
 	}
 	if( index_arr[0] == -1 )

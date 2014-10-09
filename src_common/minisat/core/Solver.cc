@@ -18,16 +18,19 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **************************************************************************************************/
 
-#include <math.h>
+#ifdef _MPI
+#include <mpi.h>
+#endif
 
+#include <math.h>
 #include "mtl/Sort.h"
 #include "core/Solver.h"
+#include "utils/System.h"
 
 using namespace Minisat;
 
 //=================================================================================================
 // Options:
-
 
 static const char* _cat = "CORE";
 
@@ -43,10 +46,8 @@ static IntOption     opt_restart_first     (_cat, "rfirst",      "The base resta
 static DoubleOption  opt_restart_inc       (_cat, "rinc",        "Restart interval increase factor", 2, DoubleRange(1, false, HUGE_VAL, false));
 static DoubleOption  opt_garbage_frac      (_cat, "gc-frac",     "The fraction of wasted memory allowed before a garbage collection is triggered",  0.20, DoubleRange(0, false, HUGE_VAL, false));
 
-
 //=================================================================================================
 // Constructor/Destructor:
-
 
 Solver::Solver() :
 
@@ -96,17 +97,126 @@ Solver::Solver() :
   , conflict_budget    (-1)
   , propagation_budget (-1)
   , asynch_interrupt   (false)
-{}
 
+  // added pdsat:
+  //
+  , print_learnts      (false)
+  , max_nof_restarts   ( 0 )
+  , start_activity     ( 0 )
+  , core_len           ( 0 )
+  , IsPredict          ( false )
+  , start_solving_time ( 0 )
+  , max_solving_time   ( 0 )
+  , rank               ( -1 )
+  , pdsat_verbosity    ( 0 )
+{}
 
 Solver::~Solver()
 {
 }
 
-
 //=================================================================================================
 // Minor methods:
 
+// added pdsat
+bool compare_lits(Lit a, Lit b){
+	return var(a)<var(b);
+}
+
+// remove all learnt clauses and set initial values of some parameters
+void Solver::clearDB()
+{
+    for (int i = 0; i < learnts.size(); ++i)
+        removeClause(learnts[i]);
+
+    learnts.clear();
+	conflicts = 0;
+	max_literals = 0;
+	tot_literals = 0;
+
+    checkGarbage();
+}
+
+
+void Solver::clearPolarity() 
+{
+	for ( int i=0; i < nVars(); i++ )
+		polarity[i] = true;
+	checkGarbage();
+}
+
+void Solver::clearParams()
+{
+	starts = 0;
+    decisions = 0;
+	rnd_decisions = 0;
+    propagations = 0;
+	ok = true;
+	
+	//dec_vars = 0;
+	
+	/*for ( int i=0; i < nVars(); i++ )
+		polarity[i] = true;
+	for (int i=0; i<nVars(); i++){
+		activity[i]=i;
+	}
+	rebuildOrderHeap();
+	for (int i=0; i<nVars(); i++){
+		activity[i]=0;
+	}
+	var_inc=1;
+	for (int i = 0; i < learnts.size(); i++){
+        ca[learnts[i]].activity() =0;
+	}
+    cla_inc = 1;
+	for (int i=0; i<clauses.size(); i++){
+		Clause& c = ca[clauses[i]];
+		if (c.size()>1)
+			detachClause(clauses[i], true);
+		std::sort(&c[0],&c[c.size()-1], compare_lits);
+	}
+
+	for (int i=0; i<clauses.size(); i++){
+		if (ca[clauses[i]].size()>1)
+			attachClause(clauses[i]);
+	}*/
+}
+
+void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len )
+{
+	for( unsigned i=0; i < activity_vec_len; ++i )
+		var_activity[i] = activity[full_var_choose_order[i]-1];
+	for( unsigned i=0; i < activity_vec_len; ++i )
+		if( var_activity[i] > 1e10 )
+			for( unsigned j=0; j < activity_vec_len; ++j ) // Rescale:
+				var_activity[j] *= 1e-10;
+}
+
+// added
+void Solver :: resetVarActivity()
+{
+	if ( ( core_len <= nVars() ) && ( start_activity > 0 ) ) {
+		// set default minisat values
+		for( int i=0; i < activity.size(); ++i )
+			activity[i] = 0.0;
+		for (int v = 0; v < core_len; ++v)
+			varBumpActivity(v, start_activity);
+		var_decay = 1;
+		clause_decay = 1;
+	}
+}
+
+/*
+void Solver :: printCoreActivity( std::string &str )
+{
+	str = "";
+	std::stringstream sstream;
+	for( unsigned i=0; i < core_len; ++i )
+		sstream << activity[i] << " ";
+	sstream << std::endl;
+	str = sstream.str();
+}
+*/
 
 // Creates a new SAT variable in the solver. If 'decision' is cleared, variable will not be
 // used as a decision variable (NOTE! This has effects on the meaning of a SATISFIABLE result).
@@ -704,7 +814,6 @@ lbool Solver::search(int nof_conflicts)
     }
 }
 
-
 double Solver::progressEstimate() const
 {
     double  progress = 0;
@@ -750,6 +859,12 @@ static double luby(double y, int x){
 // NOTE: assumptions passed in member-variable 'assumptions'.
 lbool Solver::solve_()
 {
+#ifdef _MPI
+	start_solving_time = MPI_Wtime();
+#else
+	start_solving_time = cpuTime();
+#endif
+	
     model.clear();
     conflict.clear();
     if (!ok) return l_False;
@@ -768,9 +883,24 @@ lbool Solver::solve_()
         printf("===============================================================================\n");
     }
 
+	double cur_time = 0.0;
+
     // Search:
     int curr_restarts = 0;
     while (status == l_Undef){
+		// added pdsat
+#ifdef _MPI
+		cur_time = MPI_Wtime() - start_solving_time;
+#else
+		cur_time = cpuTime() - start_solving_time;
+#endif
+		if ( ( ( max_nof_restarts ) && ( curr_restarts >= max_nof_restarts ) ) ||
+		     ( ( max_solving_time > 0.0 ) && ( cur_time > max_solving_time ) )
+			 )
+		{
+			 cancelUntil(0);
+			 return l_Undef;
+		}
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
         status = search(rest_base * restart_first);
         if (!withinBudget()) break;
@@ -779,7 +909,6 @@ lbool Solver::solve_()
 
     if (verbosity >= 1)
         printf("===============================================================================\n");
-
 
     if (status == l_True){
         // Extend & copy model:

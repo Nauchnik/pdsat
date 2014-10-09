@@ -13,10 +13,10 @@
 
 struct Flags
 {
-	string solver_name;
+	std::string solver_name;
 	int sort_type;
 	int koef_val;
-	string schema_type; 
+	std::string schema_type; 
 	int predict_from; 	
 	int predict_to;
 	int proc_count; 
@@ -45,8 +45,8 @@ struct Flags
 	double max_solving_time;
 	int max_nof_restarts;
 	int skip_tasks;
-	string rslos_table_name;
-	string evaluation_type;
+	std::string rslos_table_name;
+	std::string evaluation_type;
 	double max_solving_time_koef;
 	bool no_increm;
 	double te; // for (ro es te) predict strategy
@@ -58,7 +58,7 @@ struct Flags
 //---------------------------------------------------------
 bool GetInputFlags( int &argc, char **&argv, Flags &myflags );
 const char* hasPrefix( const char* str, const char* prefix );
-string hasPrefix_String( string str, string prefix );
+std::string hasPrefix_String( std::string str, std::string prefix );
 void WriteUsage( );
 void TestPredict( );
 void TestDeepPredict( );
@@ -93,14 +93,14 @@ int main( int argc, char** argv )
 			mpi_s.core_len = myflags.core_len;
 		mpi_s.verbosity = myflags.verbosity;
 		mpi_s.MPI_ConseqSolve( argc, argv );
-		cout << endl << "Correct end of MPI_ConseqSolve";
+		std::cout << std::endl << "Correct end of MPI_ConseqSolve";
 		return 0;
 	}
 
 	if ( !(myflags.IsConseq) ) {
 		// check count of input parameters
 		if ( argc < 2 ) {
-			std :: cout << "\n argc must be >= 2" << endl;
+			std::cout << "\n argc must be >= 2" << std::endl;
 			WriteUsage( );
 			return 1;
 		}
@@ -289,7 +289,7 @@ void WriteUsage( )
 }
 
 //---------------------------------------------------------
-bool hasPrefix_String( string str, string prefix, string &value )
+bool hasPrefix_String( std::string str, std::string prefix, std::string &value )
 {
 	int found = str.find( prefix );
 	if ( found != -1 ) {
@@ -305,9 +305,8 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 // Get input keys if such exists 
 	int i, k;
 	bool IsSchemaFixed = false;
-	stringstream sstream;
-	string argv_string,
-		   value;
+	std::stringstream sstream;
+	std::string argv_string, value;
 	// default values
 	myflags.solver_name		    = "";
 	myflags.koef_val			= -1,
@@ -427,7 +426,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 					myflags.max_var_deep_predict = 1; // Hamming distance == 2
 					break;
 				default :
-					cout << "***Warning. Incorrect myflags.deep_predict";
+					std::cout << "***Warning. Incorrect myflags.deep_predict";
 					myflags.max_var_deep_predict = 2;
 					break;
 			}
@@ -523,10 +522,10 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	   )
 	{
 		myflags.IsPredict = true;
-		/*cout << "myflags.IsPredict " << myflags.IsPredict << endl;
-		cout << "myflags.start_temperature_koef " << myflags.start_temperature_koef << endl;
-		cout << "myflags.point_admission_koef " << myflags.point_admission_koef << endl;
-		cout << endl;*/
+		/*cout << "myflags.IsPredict " << myflags.IsPredict << std::endl;
+		cout << "myflags.start_temperature_koef " << myflags.start_temperature_koef << std::endl;
+		cout << "myflags.point_admission_koef " << myflags.point_admission_koef << std::endl;
+		cout << std::endl;*/
 		if ( ( myflags.predict_to > MAX_CORE_LEN ) || ( myflags.predict_from > myflags.predict_to ) )
 		{
 			std::cerr << "\n Error. predict_to > MAX_CORE_LEN || predict_from > predict_to" << std::endl;
@@ -553,7 +552,7 @@ void TestSolve()
 	Solver S;
 
 	char *input_cnf_name = "../src_common/tresh72_0.cnf";	
-	string rslos_table_name = "../src_common/bits_4_1/1010.txt";
+	std::string rslos_table_name = "../src_common/bits_4_1/1010.txt";
 	int process_sat_count = 0;
 	unsigned int full_mask[FULL_MASK_LEN];
 	unsigned int part_mask[FULL_MASK_LEN];
@@ -583,10 +582,10 @@ void TestSolve()
 //---------------------------------------------------------
 void TestDeepPredict( )
 {
-	cout << "*** DEBUG MODE" << endl;
+	std::cout << "*** DEBUG MODE" << std::endl;
 	MPI_Predicter mpi_p;
 
-	vector<unsigned> rand_arr; 
+	std::vector<unsigned> rand_arr; 
 	unsigned rand_arr_len = 192; 
 	unsigned max_rand_val = 56;
 
@@ -603,7 +602,7 @@ void TestDeepPredict( )
 	mpi_p.part_mask[0] = 3;
 	mpi_p.part_mask[1] = 4846842;
 	mpi_p.part_mask[2] = 315856;
-	vector< vector<unsigned> > values_arr;
+	std::vector< std::vector<unsigned> > values_arr;
 
 	mpi_p.GetInitPoint();
 	values_arr.resize(10);
@@ -620,7 +619,7 @@ void TestDeepPredict( )
 		ua.center.set(i);
 	mpi_p.L2.push_back( ua );
 	//boost::dynamic_bitset<> bs = IntVecToBitset( mpi_p.core_len, mpi_p.var_choose_order );
-	stringstream sstream;
+	std::stringstream sstream;
 	//mpi_p.AddNewUncheckedArea( bs, sstream );
 	//mpi_p.current_unchecked_area.center = bs;
 	mpi_p.cur_vars_changing = 1;

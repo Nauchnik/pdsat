@@ -5,7 +5,6 @@
 
 #include <signal.h>
 #include <iostream>
-#include <fstream>
 #include <vector>
 
 #include "utils/System.h"
@@ -14,6 +13,8 @@
 #include "core/Dimacs.h"
 #include "core/Solver.h"
 //#include "simp/SimpSolver.h"
+
+using namespace Minisat;
 
 class minisat22_wrapper
 {

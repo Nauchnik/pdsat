@@ -48,27 +48,27 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	IsPredict = false;
 	double iteration_start_time, iteration_final_time;
 	double whole_final_time;
-	stringstream sstream;
+	std::stringstream sstream;
 	int break_message = -1;
 	int stop_message  = -2;
 	
 	if ( corecount < 2 ) { 
-		cerr << "corecount < 2"; MPI_Abort( MPI_COMM_WORLD, 0 );
+		std::cerr << "corecount < 2"; MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 	
 	if ( rank != 0 ) {
 		if ( !ComputeProcessSolve() ) {
-			cerr << "in ComputeProcessSovle" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+			std::cerr << "in ComputeProcessSovle" << std::endl; MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 	}
 	else { // rank == 0
-		cout << "*** MPI_Solve is running ***" << endl;
+		std::cout << "*** MPI_Solve is running ***" << std::endl;
 		total_start_time = MPI_Wtime();
 		for (;;) {
 			sstream << base_solving_info_file_name << "_" << solving_iteration_count;
 			solving_info_file_name = sstream.str();
 			sstream.clear(); sstream.str("");
-			cout << "solving_info_file_name " << solving_info_file_name << endl; 
+			std::cout << "solving_info_file_name " << solving_info_file_name << std::endl; 
 			
 			iteration_start_time = Minisat::cpuTime();
 
@@ -80,7 +80,7 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 			max_solving_time *= max_solving_time_koef; // increase time limit
 			
 			if ( !CollectAssumptionsFiles() ) { // no files
-				cout << "stopping" << endl;
+				std::cout << "stopping" << std::endl;
 				for ( int i = 1; i < corecount; i++ )
 					MPI_Send( &stop_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
 				MPI_Finalize( );
@@ -91,7 +91,7 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 			
 			// send messages for breaking low loop on compute processes
 			if ( interrupted_count ) {
-				cout << "sending break messages to all computing processes" << endl;
+				std::cout << "sending break messages to all computing processes" << std::endl;
 				for ( int i = 1; i < corecount; i++ )
 					MPI_Send( &break_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
 			}
@@ -116,30 +116,30 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 bool MPI_Solver :: CollectAssumptionsFiles( )
 {
 // write info from all known assumptions files to 1 new file
-	string dir = string(".");
-	string str;
-	vector<string> files = vector<string>();
-	vector<string> :: iterator it;
-	stringstream sstream;
+	std::string dir = std::string(".");
+	std::string str;
+	std::vector<std::string> files = std::vector<std::string>();
+	std::vector<std::string> :: iterator it;
+	std::stringstream sstream;
 	getdir( dir, files ); // get all files in current dir
-	cout << "all files inf folder " << files.size() << endl;
+	std::cout << "all files inf folder " << files.size() << std::endl;
 
 	if ( files.size() == 0 ) {
-		cout << "no assumption file" << endl;
+		std::cout << "no assumption file" << std::endl;
 		return false;
 	}
 	
 	sstream << base_known_assumptions_file_name << "_" << (solving_iteration_count-1) << "_rank";
-	string old_known_assumptions_file_mask = sstream.str();
+	std::string old_known_assumptions_file_mask = sstream.str();
 	sstream.clear(); sstream.str("");
 	sstream << base_known_assumptions_file_name << "_" << solving_iteration_count;
 	known_assumptions_file_name = sstream.str();
 	sstream.clear(); sstream.str("");
-	cout << "known_assumptions_file_name " << known_assumptions_file_name << endl;
+	std::cout << "known_assumptions_file_name " << known_assumptions_file_name << std::endl;
 
 	interrupted_count = 0;
 	
-	ofstream known_assumptions_file;
+	std::ofstream known_assumptions_file;
 	unsigned attempt_count = 0;
 	while ( !known_assumptions_file.is_open() ) {
 		// wait for ending of other file operations 
@@ -148,20 +148,20 @@ bool MPI_Solver :: CollectAssumptionsFiles( )
 #else
 		sleep(30);
 #endif
-		cout << "attempt to open # " << attempt_count << endl;
-		known_assumptions_file.open( known_assumptions_file_name.c_str(), ios_base::out | ios_base :: binary );
+		std::cout << "attempt to open # " << attempt_count << std::endl;
+		known_assumptions_file.open( known_assumptions_file_name.c_str(), std::ios_base::out | std::ios_base :: binary );
 		attempt_count++;
 	}
-	cout << "known_assumptions_file_name opened" << endl;
+	std::cout << "known_assumptions_file_name opened" << std::endl;
 	
 	unsigned old_known_assumptions_file_count = 0;
 	double collecting_files_time = Minisat::cpuTime();
 	short int si;
 	unsigned long long ul;
 	for ( it = files.begin(); it != files.end(); ++it ) {
-		if ( (*it).find( old_known_assumptions_file_mask ) != string::npos ) {
+		if ( (*it).find( old_known_assumptions_file_mask ) != std::string::npos ) {
 			old_known_assumptions_file_count++;
-			ifstream ifile( (*it).c_str(), ios_base :: in | ios_base :: binary );
+			std::ifstream ifile( (*it).c_str(), std::ios_base :: in | std::ios_base :: binary );
 			ifile.read( (char*)&si, sizeof(si) ); // read header
 			if ( !interrupted_count ) // write header once - before reading 1st file
 				known_assumptions_file.write( (char*)&si, sizeof(si) );
@@ -174,12 +174,12 @@ bool MPI_Solver :: CollectAssumptionsFiles( )
 		}
 	}
 	collecting_files_time = Minisat::cpuTime() - collecting_files_time;
-	cout << "collecting_files_time " << collecting_files_time << endl;
-	cout << "old_known_assumptions_file count " << old_known_assumptions_file_count << endl;
+	std::cout << "collecting_files_time " << collecting_files_time << std::endl;
+	std::cout << "old_known_assumptions_file count " << old_known_assumptions_file_count << std::endl;
 	str = "rm " + old_known_assumptions_file_mask + "*";
 	system( str.c_str() ); // remove old files
-	cout << "system " << str << endl;
-	cout << "interrupted_count " << interrupted_count << endl;
+	std::cout << "system " << str << std::endl;
+	std::cout << "interrupted_count " << interrupted_count << std::endl;
 	
 	known_assumptions_file.close();
 	return true;
@@ -194,7 +194,7 @@ void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, doubl
 	// solving_times[3]  == sat
 	if( cur_problem_state != Interrupted ){
 		if ( cnf_time_from_node < 0 ) {
-			cerr << "cnf_time_from_node " << cnf_time_from_node << " < 0" << endl;
+			std::cerr << "cnf_time_from_node " << cnf_time_from_node << " < 0" << std::endl;
 			exit(1);
 		}
 		if ( cnf_time_from_node < solving_times[0] )
@@ -227,7 +227,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 							  double &cnf_time_from_node, int current_task_index )
 {
 	if ( verbosity > 1 )
-		cout << "start SolverRun()" << endl;
+		std::cout << "start SolverRun()" << std::endl;
 	
 	process_sat_count = 0;
 	vec< vec<Lit> > dummy_vec;
@@ -235,12 +235,12 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 	double total_time = 0;
 	unsigned current_tasks_solved = 0;
 	ProblemStates cur_problem_state;
-	stringstream sstream;
-	ofstream ofile;
+	std::stringstream sstream;
+	std::ofstream ofile;
 	unsigned batch_interrupted_count = 0;
 
 	sstream << base_known_assumptions_file_name << "_" << solving_iteration_count << "_rank" << rank;
-	string new_assumptions_file_name = sstream.str();
+	std::string new_assumptions_file_name = sstream.str();
 	sstream.clear(); sstream.str("");
 
 	solving_times[0] = 1 << 30; // start min len
@@ -249,7 +249,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 
 	//vector< boost::dynamic_bitset<> > vec_bitset;
 	//boost::dynamic_bitset<> cur_bitset;
-	vector< boost::dynamic_bitset<> > vec_bitset;
+	std::vector< boost::dynamic_bitset<> > vec_bitset;
 	boost::dynamic_bitset<> cur_bitset;
 	
 	unsigned long long before_binary_length = 0;
@@ -327,7 +327,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 			// check res file for SAT set existing
 			if ( !AnalyzeSATset( ) ) {
 				// is't needed to deallocate memory - MPI_Abort will do it	
-				std::cout << "Error in Analyzer" << endl;
+				std::cout << "Error in Analyzer" << std::endl;
 				MPI_Abort( MPI_COMM_WORLD, 0 );
 				return false;
 			}
@@ -337,16 +337,16 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 	}
 
 	if ( batch_interrupted_count ) {
-		fstream file( new_assumptions_file_name.c_str(), ios_base::in );
-		if ( file.peek() == fstream::traits_type::eof() ) { // if file is empty
+		std::fstream file( new_assumptions_file_name.c_str(), std::ios_base::in );
+		if ( file.peek() == std::fstream::traits_type::eof() ) { // if file is empty
 			file.close();
-			file.open( new_assumptions_file_name.c_str(), ios_base::out );
+			file.open( new_assumptions_file_name.c_str(), std::ios_base::out );
 			file << var_choose_order.size();  // write length of boolean vectors
 			file.close();
 		}
 		else file.close();
 			
-		ofile.open( new_assumptions_file_name.c_str(), ios_base::out | ios_base::app | ios_base::binary );
+		ofile.open( new_assumptions_file_name.c_str(), std::ios_base::out | std::ios_base::app | std::ios_base::binary );
 		unsigned long long ul;
 		for( unsigned i=0; i < vec_bitset.size(); ++i ) {
 			//ul = vec_bitset[i].to_ullong();
@@ -366,7 +366,7 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_
 	int time_sec, time_minutes, time_hours;
 	
 	if ( solving_times[0] < 0 ) {
-		cerr << "solving_times[0] < 0" << endl;
+		std::cerr << "solving_times[0] < 0" << std::endl;
 		exit(1);
 	}
 	if ( solving_times[0] < total_solving_times[0] ) // update min time
@@ -385,63 +385,63 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_
 		solved_problems_count  += (unsigned long long)total_solving_times[i];
 	}
 
-	stringstream sstream;
-	sstream << "assumptions_count " << assumptions_count << endl;
-	sstream << "no_increm " << no_increm << endl;
-	sstream << "var_choose_order size " << var_choose_order.size() << endl;
+	std::stringstream sstream;
+	sstream << "assumptions_count " << assumptions_count << std::endl;
+	sstream << "no_increm " << no_increm << std::endl;
+	sstream << "var_choose_order size " << var_choose_order.size() << std::endl;
 	for ( unsigned i=0; i < var_choose_order.size(); i++ )
 		sstream << var_choose_order[i] << " ";
 
-	sstream << endl;
-	sstream << "solved_tasks_count     " << solved_tasks_count    << " / " << all_tasks_count << endl;
-	sstream << "solved_problems_count  " << solved_problems_count << endl;
-	sstream << "*** total_solving_times" << endl;
-	sstream << "min                    " << total_solving_times[0] << endl;
-	sstream << "max                    " << total_solving_times[1] << endl;
-	sstream << "med                    " << total_solving_times[2] << endl;
-	sstream << "sat                    " << total_solving_times[3] << endl;
+	sstream << std::endl;
+	sstream << "solved_tasks_count     " << solved_tasks_count    << " / " << all_tasks_count << std::endl;
+	sstream << "solved_problems_count  " << solved_problems_count << std::endl;
+	sstream << "*** total_solving_times" << std::endl;
+	sstream << "min                    " << total_solving_times[0] << std::endl;
+	sstream << "max                    " << total_solving_times[1] << std::endl;
+	sstream << "med                    " << total_solving_times[2] << std::endl;
+	sstream << "sat                    " << total_solving_times[3] << std::endl;
 	sstream << "finding_first_sat_time ";
 	cpuTimeInHours( finding_first_sat_time, time_hours, time_minutes, time_sec );
-	sstream << time_hours << " h " << time_minutes << " m " << time_sec << " s" << endl;
-	sstream << "sat_count              " << sat_count << endl;
+	sstream << time_hours << " h " << time_minutes << " m " << time_sec << " s" << std::endl;
+	sstream << "sat_count              " << sat_count << std::endl;
 	if ( solved_problems_count > 0 ) {
 		sstream << "SOLVED BY PREPROCESSING, count ";
 		sstream.width( 12 ); 
-		sstream << left << fixed << (unsigned)total_solving_times[4]  << " " << total_solving_times[4] * 100 / solved_problems_count << " %" << endl;
+		sstream << std::left << std::fixed << (unsigned)total_solving_times[4]  << " " << total_solving_times[4] * 100 / solved_problems_count << " %" << std::endl;
 		sstream << "(0,   0.0001)   count ";
 		sstream.width( 12 ); 
-		sstream << left << fixed << (unsigned)total_solving_times[5]  << " " << total_solving_times[5] * 100 / solved_problems_count << " %" << endl;
+		sstream << std::left << std::fixed << (unsigned)total_solving_times[5]  << " " << total_solving_times[5] * 100 / solved_problems_count << " %" << std::endl;
 		sstream << "(0.0001, 0.001) count ";
 		sstream.width( 12 ); 
-		sstream << left << fixed << (unsigned)total_solving_times[6]  << " " << total_solving_times[6] * 100 / solved_problems_count << " %" << endl;
+		sstream << std::left << std::fixed << (unsigned)total_solving_times[6]  << " " << total_solving_times[6] * 100 / solved_problems_count << " %" << std::endl;
 		sstream << "(0.001, 0.01)   count ";
 		sstream.width( 12 );
-		sstream << left << fixed << (unsigned)total_solving_times[7]  << " " << total_solving_times[7] * 100 / solved_problems_count << " %" << endl;		
+		sstream << std::left << std::fixed << (unsigned)total_solving_times[7]  << " " << total_solving_times[7] * 100 / solved_problems_count << " %" << std::endl;		
 		sstream << "(0.01, 0.1)     count ";
 		sstream.width( 12 ); 
-		sstream << left << fixed << (unsigned)total_solving_times[8]  << " " << total_solving_times[8] * 100 / solved_problems_count << " %" << endl;
+		sstream << std::left << std::fixed << (unsigned)total_solving_times[8]  << " " << total_solving_times[8] * 100 / solved_problems_count << " %" << std::endl;
 		sstream << "(0.1,    1)     count ";
 		sstream.width( 12 ); 
-		sstream << left << fixed << (unsigned)total_solving_times[9]  << " " << total_solving_times[9] * 100 / solved_problems_count << " %" << endl;
+		sstream << std::left << std::fixed << (unsigned)total_solving_times[9]  << " " << total_solving_times[9] * 100 / solved_problems_count << " %" << std::endl;
 		sstream << "(1,     10)     count "; 
 		sstream.width( 12 ); 
-		sstream << left << fixed << (unsigned)total_solving_times[10] << " " << total_solving_times[10] * 100 / solved_problems_count << " %" << endl;
+		sstream << std::left << std::fixed << (unsigned)total_solving_times[10] << " " << total_solving_times[10] * 100 / solved_problems_count << " %" << std::endl;
 		sstream << "(10,   100)     count "; 
 		sstream.width( 12 ); 
-		sstream << left << fixed << (unsigned)total_solving_times[11] << " " << total_solving_times[11] * 100 / solved_problems_count << " %" << endl;
+		sstream << std::left << std::fixed << (unsigned)total_solving_times[11] << " " << total_solving_times[11] * 100 / solved_problems_count << " %" << std::endl;
 		sstream << "(100, 1000)     count ";
 		sstream.width( 12 );
-		sstream << left << fixed << (unsigned)total_solving_times[12] << " " << total_solving_times[12] * 100 / solved_problems_count << " %" << endl;
+		sstream << std::left << std::fixed << (unsigned)total_solving_times[12] << " " << total_solving_times[12] * 100 / solved_problems_count << " %" << std::endl;
 		sstream << "(1000, inf)     count "; 
 		sstream.width( 12 );
-		sstream << left << fixed << (unsigned)total_solving_times[13] << " " << total_solving_times[13] * 100 / solved_problems_count << " %" << endl;
+		sstream << std::left << std::fixed << (unsigned)total_solving_times[13] << " " << total_solving_times[13] * 100 / solved_problems_count << " %" << std::endl;
 		sstream << "INTERRUPTED, solving time > " << max_solving_time << " ";
 		sstream.width( 12 );
-		sstream << left << fixed << (unsigned)total_solving_times[14] << " " << total_solving_times[14] * 100 / solved_problems_count << " %" << endl;		
+		sstream << std::left << std::fixed << (unsigned)total_solving_times[14] << " " << total_solving_times[14] * 100 / solved_problems_count << " %" << std::endl;		
 	}
 	if ( verbosity > 0 )
-		cout << sstream.str();
-	ofstream solving_info_file( solving_info_file_name.c_str() );
+		std::cout << sstream.str();
+	std::ofstream solving_info_file( solving_info_file_name.c_str() );
 	solving_info_file << sstream.str();
 	solving_info_file.close();
 	sstream.clear(); sstream.str("");
@@ -449,35 +449,35 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_
 
 bool MPI_Solver :: ControlProcessSolve( )
 {
-	cout << endl << "ControlProcessSolve is running" << endl;
-	cout << "solving_iteration_count " << solving_iteration_count << endl;
+	std::cout << std::endl << "ControlProcessSolve is running" << std::endl;
+	std::cout << "solving_iteration_count " << solving_iteration_count << std::endl;
 	
 	if ( solving_iteration_count == 0 ) {
 		if ( !ReadIntCNF() ) { // Read original CNF
-			cerr << "Error in ReadIntCNF" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+			std::cerr << "Error in ReadIntCNF" << std::endl; MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 		if ( !MakeVarChoose() ) { 
-			cerr << "Error in MakeVarChoose" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+			std::cerr << "Error in MakeVarChoose" << std::endl; MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 	}
 	
-	ifstream known_assumptions_file( known_assumptions_file_name.c_str(), ios_base :: in | ios_base :: binary );
+	std::ifstream known_assumptions_file( known_assumptions_file_name.c_str(), std::ios_base :: in | std::ios_base :: binary );
 	if ( known_assumptions_file.is_open() ) {
 		char *cc = new char[3];
 		cc[2] = '\0';
 		known_assumptions_file.read(cc,2);
-		stringstream sstream;
+		std::stringstream sstream;
 		unsigned header_value;
 		sstream << cc;
 		sstream >> header_value;
 		delete[] cc;
 
 		if ( header_value != var_choose_order.size() ) {
-			cerr << "header_value != var_choose_order.size()" << endl;
-			cerr << header_value << " != " << var_choose_order.size() << endl;
+			std::cerr << "header_value != var_choose_order.size()" << std::endl;
+			std::cerr << header_value << " != " << var_choose_order.size() << std::endl;
 			return false;
 		}
-		cout << "reading of known_assumptions_file_name " << known_assumptions_file_name << endl;
+		std::cout << "reading of known_assumptions_file_name " << known_assumptions_file_name << std::endl;
 		assumptions_count = 0;
 		/*while ( known_assumptions_file.read( (char*)&ul, sizeof(ul) ) )
 			assumptions_count++;*/
@@ -487,14 +487,14 @@ bool MPI_Solver :: ControlProcessSolve( )
 		unsigned long long ul = 0;
 		assumptions_count = (byte_length - 2)/sizeof(ul); // 2 is prefix length
 		known_assumptions_file.close();
-		cout << "assumptions_count " << assumptions_count << endl;
+		std::cout << "assumptions_count " << assumptions_count << std::endl;
 	}
 	else 
-		cout << "could not open known_assumptions_file " << known_assumptions_file_name << endl;
+		std::cout << "could not open known_assumptions_file " << known_assumptions_file_name << std::endl;
 	
 	unsigned max_possible_tasks_count = (unsigned)(pow( 2, ceil( log(corecount - 1)/log(2) ))) * (1<<koef_val);
-	cout << "max_possible_tasks_count " << max_possible_tasks_count << endl;
-	cout << "current part_mask_var_count " << part_mask_var_count << endl; 
+	std::cout << "max_possible_tasks_count " << max_possible_tasks_count << std::endl;
+	std::cout << "current part_mask_var_count " << part_mask_var_count << std::endl; 
 	part_mask_var_count = (unsigned)(log(max_possible_tasks_count)/log(2));
 	if ( part_mask_var_count > var_choose_order.size() )
 		part_mask_var_count = var_choose_order.size();
@@ -502,42 +502,42 @@ bool MPI_Solver :: ControlProcessSolve( )
 	// change batch size to treshold value if needed
 	if ( var_choose_order.size() - part_mask_var_count > RECOMMEND_BATCH_VAR_COUNT ) {
 		part_mask_var_count = var_choose_order.size() - RECOMMEND_BATCH_VAR_COUNT;
-		cout << "part_mask_var_count changed to " << part_mask_var_count << endl;
+		std::cout << "part_mask_var_count changed to " << part_mask_var_count << std::endl;
 	}
 	if ( part_mask_var_count > MAX_PART_MASK_VAR_COUNT )
 		part_mask_var_count = MAX_PART_MASK_VAR_COUNT;
 	if ( var_choose_order.size() - part_mask_var_count > MAX_BATCH_VAR_COUNT ) {
-		cerr << "Error. var_choose_order.size() - part_mask_var_count > MAX_BATCH_VAR_COUNT" << endl;
-		cerr << var_choose_order.size() - part_mask_var_count << " < " << MAX_BATCH_VAR_COUNT << endl;
+		std::cerr << "Error. var_choose_order.size() - part_mask_var_count > MAX_BATCH_VAR_COUNT" << std::endl;
+		std::cerr << var_choose_order.size() - part_mask_var_count << " < " << MAX_BATCH_VAR_COUNT << std::endl;
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
-	cout << "part_mask_var_count " << part_mask_var_count << endl;
+	std::cout << "part_mask_var_count " << part_mask_var_count << std::endl;
 
 	// get default count of tasks = power of part_mask_var_count
 	unsigned part_var_power = ( 1 << part_mask_var_count );
-	cout << "part_var_power " << part_var_power << endl;
+	std::cout << "part_var_power " << part_var_power << std::endl;
 	// TODO add extended tasks counting
 	all_tasks_count = part_var_power;
-	cout << "all_tasks_count " << all_tasks_count << endl;
+	std::cout << "all_tasks_count " << all_tasks_count << std::endl;
 	
 	if ( (int)all_tasks_count < corecount-1 ) {
-		cerr << "Error. all_tasks_count < corecount-1" << endl; 
-		cerr << all_tasks_count << " < " << corecount-1 << endl;
+		std::cerr << "Error. all_tasks_count < corecount-1" << std::endl; 
+		std::cerr << all_tasks_count << " < " << corecount-1 << std::endl;
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 
 	if ( ( assumptions_count ) && ( (unsigned long long)all_tasks_count > assumptions_count ) ) {
-		cout << "solving_iteration_count < all_tasks_count" << endl;
+		std::cout << "solving_iteration_count < all_tasks_count" << std::endl;
 		all_tasks_count = (unsigned)assumptions_count;
-		cout << "all_tasks_count changed to " << assumptions_count << endl;
+		std::cout << "all_tasks_count changed to " << assumptions_count << std::endl;
 	}
 	
 	if ( solving_iteration_count == 0 )
 		PrintParams( );
 	
 	if ( skip_tasks >= all_tasks_count ) {
-		cerr << "skip_tasks >= all_tasks_count " << endl;
-		cerr << skip_tasks << " >= " << all_tasks_count << endl;
+		std::cerr << "skip_tasks >= all_tasks_count " << std::endl;
+		std::cerr << skip_tasks << " >= " << all_tasks_count << std::endl;
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 	
@@ -547,9 +547,9 @@ bool MPI_Solver :: ControlProcessSolve( )
 	
 	if ( !assumptions_count ) {
 		if ( !MakeStandardMasks( part_var_power ) ) {
-			cerr << "Error in MakeStandartMasks" << endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+			std::cerr << "Error in MakeStandartMasks" << std::endl; MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
-		cout << "Correct end of MakeStandartMasks" << endl;
+		std::cout << "Correct end of MakeStandartMasks" << std::endl;
 	}
 	
 	unsigned solved_tasks_count = 0;
@@ -563,7 +563,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 			var_choose_order_int[i] = -1;
 	}
 	
-	cout << "before sending configuration info" << endl;
+	std::cout << "before sending configuration info" << std::endl;
 	// send core_len once to every compute process
 	for ( int i=0; i < corecount-1; ++i ) {
 		MPI_Send( &core_len,                1, MPI_INT,                 i + 1, 0, MPI_COMM_WORLD );
@@ -578,15 +578,17 @@ bool MPI_Solver :: ControlProcessSolve( )
 	
 	int next_task_index = 0;
 	
-	unsigned start_tasks_count = min( corecount - 1, (int)all_tasks_count );
-	cout << "start_tasks_count " << start_tasks_count << endl;
+	//unsigned start_tasks_count = min( corecount - 1, (int)all_tasks_count );
+	unsigned start_tasks_count = ((corecount - 1) < (int)all_tasks_count) ? (unsigned)(corecount - 1) : all_tasks_count;
+	
+	std::cout << "start_tasks_count " << start_tasks_count << std::endl;
 	// send to all cores (except # 0) tasks from 1st range
 	for ( int i = 0; i < (int)start_tasks_count; ++i ) {
 		// send new index of task for reading tasks from file
 		MPI_Send( &next_task_index, 1, MPI_INT, i + 1, 0, MPI_COMM_WORLD );
 
 		if ( ( verbosity > 1 ) && ( i == 0 ) )
-			cout << "sended next_task_index " << next_task_index << endl;
+			std::cout << "sended next_task_index " << next_task_index << std::endl;
 		
 		if ( assumptions_count == 0 ) { // don't send values when we have file with assimptions
 			copy( values_arr[i].begin(), values_arr[i].end(), mask_value );
@@ -596,7 +598,7 @@ bool MPI_Solver :: ControlProcessSolve( )
 		}
 		next_task_index++;
 	}
-	cout << "after sending start_tasks_count" << endl;
+	std::cout << "after sending start_tasks_count" << std::endl;
 	
 	total_solving_times[0] = 1 << 30; // start min len
 	for ( unsigned i = 1; i < total_solving_times.size(); ++i )
@@ -611,11 +613,11 @@ bool MPI_Solver :: ControlProcessSolve( )
 		MPI_Recv( solving_times, SOLVING_TIME_LEN, MPI_DOUBLE, current_status.MPI_SOURCE, 0, MPI_COMM_WORLD, &status );
 		solved_tasks_count++;
 		if ( verbosity > 0 )
-			cout << "solved_tasks_count " << solved_tasks_count << endl;
+			std::cout << "solved_tasks_count " << solved_tasks_count << std::endl;
 		
 		if ( process_sat_count ) {
 			sat_count += process_sat_count;
-			cout << "sat_count " << sat_count << endl;
+			std::cout << "sat_count " << sat_count << std::endl;
 			if ( finding_first_sat_time == 0 ) // first time only
 				finding_first_sat_time = Minisat::cpuTime() - total_start_time;
 		}
@@ -646,18 +648,18 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	Problem cnf;
 	Solver *S;
 	MPI_Status status;
-	stringstream sstream;
+	std::stringstream sstream;
 	int current_task_index;
 	unsigned long long process_sat_count = 0;
 	double cnf_time_from_node = 0.0;
 	bool IsFirstTaskRecieved;
-	string solving_info_file_name;
-	string str;
-	ifstream infile;
+	std::string solving_info_file_name;
+	std::string str;
+	std::ifstream infile;
 	int *var_choose_order_int;
 	
 	if ( !isSolverSystemCalling) { // last version of minisat
-		ifstream in( input_cnf_name );
+		std::ifstream in( input_cnf_name );
 		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
 		in.close();
 		S = new Solver();
@@ -668,7 +670,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	
 	for (;;) {
 		if ( rank == 1 )
-			cout << "new compute high level iteration" << endl;
+			std::cout << "new compute high level iteration" << std::endl;
 		IsFirstTaskRecieved = false;
 		assumptions_count = 0;
 		var_choose_order_int = new int[MAX_ASSIGNS_COUNT];
@@ -685,35 +687,35 @@ bool MPI_Solver :: ComputeProcessSolve( )
 			if ( var_choose_order_int[i] == -1 )
 				break;
 			if ( var_choose_order_int[i] <= 0 ) {
-				cerr << "var_choose_order_int[i] <= 0" << endl;
-				cerr << var_choose_order_int[i] << endl;
+				std::cerr << "var_choose_order_int[i] <= 0" << std::endl;
+				std::cerr << var_choose_order_int[i] << std::endl;
 				return false;
 			}
 			var_choose_order.push_back( var_choose_order_int[i] );
 		}
 		delete[] var_choose_order_int;
 		if ( rank == 1 ) {
-			cout << "Received core_len "                << core_len                 << endl;
-			cout << "Received all_tasks_count "         << all_tasks_count          << endl;
-			cout << "Received assumptions_count "       << assumptions_count        << endl;
-			cout << "Received solving_iteration_count " << solving_iteration_count  << endl;
-			cout << "Received max_solving_time "        << max_solving_time         << endl;
-			cout << "Received start_activity "          << start_activity           << endl;
-			cout << "Received var_choose_order.size() " << var_choose_order.size()  << endl;
+			std::cout << "Received core_len "                << core_len                 << std::endl;
+			std::cout << "Received all_tasks_count "         << all_tasks_count          << std::endl;
+			std::cout << "Received assumptions_count "       << assumptions_count        << std::endl;
+			std::cout << "Received solving_iteration_count " << solving_iteration_count  << std::endl;
+			std::cout << "Received max_solving_time "        << max_solving_time         << std::endl;
+			std::cout << "Received start_activity "          << start_activity           << std::endl;
+			std::cout << "Received var_choose_order.size() " << var_choose_order.size()  << std::endl;
 			for ( unsigned i=0; i < var_choose_order.size(); ++i )
-				cout << var_choose_order[i] << " ";
-			cout << endl;
+				std::cout << var_choose_order[i] << " ";
+			std::cout << std::endl;
 		}
 		if ( ( assumptions_count == 0 ) && ( solving_iteration_count > 0 ) ) {
-			cerr << "( ( assumptions_count <= 0 ) && ( solving_iteration_count > 0 ) )" << endl;
+			std::cerr << "( ( assumptions_count <= 0 ) && ( solving_iteration_count > 0 ) )" << std::endl;
 			return false;
 		}
 		S->core_len         = core_len;
 		S->max_solving_time = max_solving_time;
 		S->start_activity   = start_activity;
 		S->resetVarActivity();
-		if ( solver_name.find("minigolf") != std::string::npos )
-			S->cur_hack_type = hack_minigolf;
+		//if ( solver_name.find("minigolf") != std::string::npos )
+		//	S->cur_hack_type = hack_minigolf;
 		
 		sstream << base_known_assumptions_file_name << "_" << solving_iteration_count;
 		known_assumptions_file_name = sstream.str();
@@ -723,17 +725,17 @@ bool MPI_Solver :: ComputeProcessSolve( )
 			solving_info_file_name = base_solving_info_file_name + "_0";
 		
 		if ( rank == 1 )
-			cout << "before loop of recv tasks" << endl;
+			std::cout << "before loop of recv tasks" << std::endl;
 		for (;;) {
 			// get index of current task
 			MPI_Recv( &current_task_index, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
 			
 			if ( ( rank == 1 ) && ( verbosity > 2 ) )
-				cout << "recv current_task_index " << current_task_index << endl;
+				std::cout << "recv current_task_index " << current_task_index << std::endl;
 			
 			if ( current_task_index == -1 ) {
 				if ( rank == 1 )
-					cout << "breaking low level loop while computing" << endl;
+					std::cout << "breaking low level loop while computing" << std::endl;
 				break; // stop and get new init values for solving iteration
 			}
 			else if ( current_task_index == -2 )
@@ -750,26 +752,26 @@ bool MPI_Solver :: ComputeProcessSolve( )
 			}
 			
 			if ( verbosity > 2 ){
-				cout << "full_mask" << endl;
+				std::cout << "full_mask" << std::endl;
 				for( unsigned i=0; i<FULL_MASK_LEN; ++i )
-					cout << full_mask[i] << " ";
-				cout << endl;
-				cout << "part_mask" << endl;
+					std::cout << full_mask[i] << " ";
+				std::cout << std::endl;
+				std::cout << "part_mask" << std::endl;
 				for( unsigned i=0; i<FULL_MASK_LEN; ++i )
-					cout << part_mask[i] << " ";
-				cout << endl;
-				cout << "mask_value" << endl;
+					std::cout << part_mask[i] << " ";
+				std::cout << std::endl;
+				std::cout << "mask_value" << std::endl;
 				for( unsigned i=0; i<FULL_MASK_LEN; ++i )
-					cout << mask_value[i] << " ";
-				cout << endl;
+					std::cout << mask_value[i] << " ";
+				std::cout << std::endl;
 			}
 
 			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index ) ) { 
-				cout << endl << "Error in SolverRun"; return false; 
+				std::cout << std::endl << "Error in SolverRun"; return false; 
 			}
 			
 			if ( verbosity > 0 )
-				cout << "process_sat_count is " << process_sat_count << endl;
+				std::cout << "process_sat_count is " << process_sat_count << std::endl;
 		
 			MPI_Send( &process_sat_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD );
 			MPI_Send( solving_times, SOLVING_TIME_LEN, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD );
@@ -786,16 +788,16 @@ bool MPI_Solver :: ComputeProcessSolve( )
 bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 {
 // read all cnf in current dir and start then in conseq mode
-	string dir = string(".");
+	std::string dir = std::string(".");
 	int cnf_count = 0;
-	vector<string> files;
-	vector<string> cnf_files;
-	fstream out_file;
+	std::vector<std::string> files;
+	std::vector<std::string> cnf_files;
+	std::fstream out_file;
 	int current_obj_val = -1;
 	unsigned long long process_sat_count= 0;
 	double cnf_time_from_node;
 	//PBSolver_cut pbs_cut;
-	stringstream solve_sstream;
+	std::stringstream solve_sstream;
 	double start_sec;
 	double final_sec;
 	Solver *S;
@@ -807,62 +809,64 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 	MPI_Comm_size( MPI_COMM_WORLD, &corecount );
 	MPI_Comm_rank( MPI_COMM_WORLD, &rank );*/
 
-	files     = vector<string>( );
-	cnf_files = vector<string>( );
+	files     = std::vector<std::string>( );
+	cnf_files = std::vector<std::string>( );
 	// get all files in current dir
 	getdir( dir, files );
 
 	for ( unsigned i = 0; i < files.size( ); i++ ) {
-		if ( files[i].find( ".cnf" ) != string::npos ) {
+		if ( files[i].find( ".cnf" ) != std::string::npos ) {
 			cnf_count++;
 			cnf_files.push_back( files[i] );
 			if ( rank == 0 ) 
-				cout << endl << "founded cnf " << files[i].c_str( );
+				std::cout << std::endl << "founded cnf " << files[i].c_str( );
 		}
 	}
 
 	if ( cnf_count > corecount ) {
 		if ( rank == 0 ) {
-			cout << endl << "Warning. Count of cnf-file > corecount";
-			cout << endl << "Only first " << corecount << " cnf will be processed";
-			cout << endl << "cnf_count changed to corecount";
+			std::cout << std::endl << "Warning. Count of cnf-file > corecount";
+			std::cout << std::endl << "Only first " << corecount << " cnf will be processed";
+			std::cout << std::endl << "cnf_count changed to corecount";
 		}
 		cnf_count = corecount;
 	}
 	else if ( cnf_count == 0 ) {
-		if ( rank == 0 ) cout << endl << "Error. No cnf-files in dir";
+		if ( rank == 0 ) std::cout << std::endl << "Error. No cnf-files in dir";
 		return false;
 	}
 
 	if ( rank > cnf_count - 1 ) 
-		cout << endl << "core # " << rank << " with no job";
+		std::cout << std::endl << "core # " << rank << " with no job";
 	else {// do job
-		stringstream sstream;
+		std::stringstream sstream;
 		sstream << "answer_" << rank + 1;
-		string out_file_name = sstream.str( );
+		std::string out_file_name = sstream.str( );
 		sstream.str( "" );
 		sstream.clear();
 		
 		start_sec = MPI_Wtime( ); // get init time
 		input_cnf_name = &cnf_files[rank][0]; // set current name of file
-		cout << endl << "input_cnf_name is " << input_cnf_name;
+		std::cout << std::endl << "input_cnf_name is " << input_cnf_name;
 		unsigned int zero_mask[FULL_MASK_LEN];
 		for ( int i = 0; i < FULL_MASK_LEN; i++ )
 			zero_mask[i] = 0;
-		if ( !ReadIntCNF( ) ) // Read original CNF
-		{ cout << "\n Error in ReadIntCNF" << endl; return 1; }
-		cout << endl << "end of ReadIntCNF";
+		if ( !ReadIntCNF( ) ) { // Read original CNF 
+			std::cout << "\n Error in ReadIntCNF" << std::endl; return 1;
+		}
+		std::cout << std::endl << "end of ReadIntCNF";
 		if ( rank == 0 ) 
 			PrintParams( );
 		if ( !IsPB ) {
 			int current_task_index = 0;
-			cout << endl << endl << "Standart mode of SAT solving";
-			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index ) )
-			{ cout << endl << "Error in SolverRun"; return false; }
+			std::cout << std::endl << std::endl << "Standart mode of SAT solving";
+			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index ) ) {
+				std::cout << std::endl << "Error in SolverRun"; return false;
+			}
 			if ( process_sat_count ) {
 				if ( !AnalyzeSATset( ) ) {
 					// is't needed to deallocate memory - MPI_Abort will do it	
-					cout << "\n Error in Analyzer" << endl;
+					std::cout << "\n Error in Analyzer" << std::endl;
 					MPI_Abort( MPI_COMM_WORLD, 0 );
 					return false;
 				}
@@ -871,48 +875,48 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 		
 		final_sec = MPI_Wtime( ) - start_sec;
 		
-		sstream << input_cnf_name << " " << final_sec << " sec" << endl;
-		out_file.open( out_file_name.c_str( ), ios_base :: out ); // open and clear out file
+		sstream << input_cnf_name << " " << final_sec << " sec" << std::endl;
+		out_file.open( out_file_name.c_str( ), std::ios_base :: out ); // open and clear out file
 		out_file << sstream.rdbuf( );
 		out_file << solve_sstream.rdbuf( );
-		cout << endl << "*** sstream " << sstream.str( );
-		cout << endl << "*** solve_sstream " << solve_sstream.str( );
+		std::cout << std::endl << "*** sstream " << sstream.str( );
+		std::cout << std::endl << "*** solve_sstream " << solve_sstream.str( );
 		out_file.close( ); 		
 	}
 
 	MPI_Finalize( ); // MPI end
 
-	cout << endl << "End of ControlConseqProcessSolve";
+	std::cout << std::endl << "End of ControlConseqProcessSolve";
 	return true;
 }
 
 void MPI_Solver :: PrintParams( )
 {
-	cout << endl << "solver_name is "           << solver_name;                         
-	cout << endl << "koef_val is "              << koef_val;             		
-	cout << endl << "schema_type is "		    << schema_type;           
-	cout << endl << "full_mask_var_count is "   << full_mask_var_count;  
-	cout << endl << "proc_count is "            << corecount;            
-	cout << endl << "core_len is "              << core_len;                 
-	cout << endl << "start_activity is "        << start_activity;
-	cout << endl << "IsConseq is "              << IsConseq;         
-	cout << endl << "IsPB is "                  << IsPB;                     
-	cout << endl << "best_lower_bound is "      << best_lower_bound;        
-	cout << endl << "upper_bound is "	        << upper_bound;			  
-	cout << endl << "PB_mode is "               << PB_mode;
-	cout << endl << "exch_activ is "            << exch_activ;
-	cout << endl << "IsSolveAll exch_activ is " << IsSolveAll;
-	cout << endl << "max_solving_time "         << max_solving_time;
-	cout << endl << "max_nof_restarts "         << max_nof_restarts;
-	cout << endl << "max_solving_time_koef "    << max_solving_time_koef;
-	cout << endl;
+	std::cout << std::endl << "solver_name is "           << solver_name;                         
+	std::cout << std::endl << "koef_val is "              << koef_val;             		
+	std::cout << std::endl << "schema_type is "		      << schema_type;           
+	std::cout << std::endl << "full_mask_var_count is "   << full_mask_var_count;  
+	std::cout << std::endl << "proc_count is "            << corecount;            
+	std::cout << std::endl << "core_len is "              << core_len;                 
+	std::cout << std::endl << "start_activity is "        << start_activity;
+	std::cout << std::endl << "IsConseq is "              << IsConseq;         
+	std::cout << std::endl << "IsPB is "                  << IsPB;                     
+	std::cout << std::endl << "best_lower_bound is "      << best_lower_bound;        
+	std::cout << std::endl << "upper_bound is "	          << upper_bound;			  
+	std::cout << std::endl << "PB_mode is "               << PB_mode;
+	std::cout << std::endl << "exch_activ is "            << exch_activ;
+	std::cout << std::endl << "IsSolveAll exch_activ is " << IsSolveAll;
+	std::cout << std::endl << "max_solving_time "         << max_solving_time;
+	std::cout << std::endl << "max_nof_restarts "         << max_nof_restarts;
+	std::cout << std::endl << "max_solving_time_koef "    << max_solving_time_koef;
+	std::cout << std::endl;
 }
 
 //---------------------------------------------------------
 bool MPI_Solver :: WriteTimeToFile( double time_sec )
 {
 // Write time of solving to output file
-	string line_buffer,
+	std::string line_buffer,
 		   TimeIs_char = "\n Time: ",
 		   new_line_char = "\n",
 		   hour_char = " h ",
@@ -922,17 +926,17 @@ bool MPI_Solver :: WriteTimeToFile( double time_sec )
 		real_minutes = -1,
 		real_seconds = -1;
 
-	cout << endl << "That took %f seconds " << time_sec << endl;
+	std::cout << std::endl << "That took %f seconds " << time_sec << std::endl;
 	
 	cpuTimeInHours( time_sec, real_hours, real_minutes, real_seconds );
-	stringstream sstream;
+	std::stringstream sstream;
 	sstream << TimeIs_char << real_hours << hour_char 
 		    << real_minutes << minute_char << real_seconds << second_char;
 	
-	ofstream solving_info_file;
-	solving_info_file.open( solving_info_file_name.c_str( ), ios :: app );
+	std::ofstream solving_info_file;
+	solving_info_file.open( solving_info_file_name.c_str( ), std::ios::app );
 	if ( !solving_info_file.is_open( ) ) {
-		std :: cout << "Error in opening of output file " << solving_info_file_name <<  endl;
+		std :: cout << "Error in opening of output file " << solving_info_file_name << std::endl;
 		return false;
 	}
 	solving_info_file << sstream.rdbuf( );

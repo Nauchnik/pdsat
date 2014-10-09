@@ -26,12 +26,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "mtl/Alg.h"
 #include "utils/Options.h"
 #include "core/SolverTypes.h"
-
+#include <vector>
 
 namespace Minisat {
 
-// added pdsat
-typedef vec<Lit> Disjunct;
+typedef Minisat::vec<Minisat::Lit> Disjunct;
 typedef std::vector< Disjunct* > Problem;
 
 //=================================================================================================
@@ -44,6 +43,24 @@ public:
     //
     Solver();
     virtual ~Solver();
+
+	// added pdsat
+	int max_nof_restarts; // restarts limit
+	double max_solving_time; // limit CPU time
+	double start_solving_time;
+	double start_activity;
+	int core_len;
+	bool IsPredict;
+	int rank;
+	int pdsat_verbosity;
+	bool print_learnts;
+	void clearDB();
+	void clearPolarity();
+	void clearParams();
+	void getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len );
+	void resetVarActivity();
+	bool addProblem(const Problem& p);
+    bool addProblem_modified(const Problem& p, int num_of_variables);
 
     // Problem specification:
     //
@@ -366,6 +383,36 @@ inline void     Solver::toDimacs     (const char* file, Lit p){ vec<Lit> as; as.
 inline void     Solver::toDimacs     (const char* file, Lit p, Lit q){ vec<Lit> as; as.push(p); as.push(q); toDimacs(file, as); }
 inline void     Solver::toDimacs     (const char* file, Lit p, Lit q, Lit r){ vec<Lit> as; as.push(p); as.push(q); as.push(r); toDimacs(file, as); }
 
+// added
+inline bool Solver::addProblem (const Problem& p)
+{
+	for(size_t i = 0; i < p.size(); i++) {
+		// add variables if needed
+		for(int j = 0; j < p[i]->size(); j++) {
+			Lit& lit = (*p[i])[j];
+			while (var(lit) >= nVars()) newVar();
+			//while(var(lit) >= nVars()) (size_actitity ? newVar(temp_activity[var(lit)]) : newVar());
+		}
+		p[i]->copyTo(add_tmp);
+		if(!addClause_(add_tmp))
+			return false;
+	}
+	return true;
+}
+
+inline bool Solver::addProblem_modified(const Problem& p, int num_of_variables)
+{
+	if (num_of_variables > 0){
+		for (int j = 0; j < num_of_variables; j++)
+			newVar();		
+	}
+	for (size_t i = 0; i < p.size(); i++) {		
+		p[i]->copyTo(add_tmp);
+		if (!addClause_(add_tmp))
+			return false;
+	}
+	return true;
+}
 
 //=================================================================================================
 // Debug etc:

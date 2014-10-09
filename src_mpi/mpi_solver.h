@@ -9,11 +9,11 @@ class MPI_Solver : public MPI_Base
 {
 private:
 	double *solving_times;
-	vector<double> total_solving_times;
+	std::vector<double> total_solving_times;
 	int solving_iteration_count;
 	unsigned interrupted_count;
-	string base_solving_info_file_name;
-	string solving_info_file_name;
+	std::string base_solving_info_file_name;
+	std::string solving_info_file_name;
 	double finding_first_sat_time;
 	double total_start_time;
 public:
@@ -41,7 +41,7 @@ public:
 	void WriteSolvingTimeInfo( double *solving_times, unsigned solved_tasks_count );
 	void AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
    	                            double *solving_times );
-	bool SolverRun( Solver *&S, unsigned long long &process_sat_count, double &cnf_time_from_node, 
+	bool SolverRun( Minisat::Solver *&S, unsigned long long &process_sat_count, double &cnf_time_from_node, 
 				    int current_task_index );
 };
 

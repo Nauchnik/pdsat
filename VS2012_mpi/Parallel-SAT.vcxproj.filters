@@ -13,9 +13,6 @@
     <ClCompile Include="..\src_common\addit_func.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="..\src_common\minisat22_wrapper.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
     <ClCompile Include="..\src_mpi\mpi_base.cpp">
       <Filter>sources</Filter>
     </ClCompile>
@@ -29,6 +26,9 @@
       <Filter>sources</Filter>
     </ClCompile>
     <ClCompile Include="..\src_common\Bivium.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_common\minisat22_wrapper.cpp">
       <Filter>sources</Filter>
     </ClCompile>
   </ItemGroup>
@@ -57,9 +57,6 @@
     <ClInclude Include="..\src_common\addit_func.h">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="..\src_common\minisat22_wrapper.h">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="..\src_mpi\mpi_predicter.h">
       <Filter>headers</Filter>
     </ClInclude>
@@ -73,6 +70,9 @@
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="..\src_mpi\mpi_solver.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_common\minisat22_wrapper.h">
       <Filter>headers</Filter>
     </ClInclude>
   </ItemGroup>
