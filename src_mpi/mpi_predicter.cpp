@@ -675,8 +675,8 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		unsigned stream_vec_len, state_vec_len;
 		MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		MPI_Get_count( &status, MPI_CHAR, &stream_char_len );
-		//if ( rank == 1 )
-		//	cout << "stream_char_len " << stream_char_len << std::endl;
+		if ( rank == 1 )
+			std::cout << "stream_char_len " << stream_char_len << std::endl;
 		char *stream_arr = new char[stream_char_len];
 		MPI_Recv( stream_arr, stream_char_len, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		stream_vec_len = stream_char_len / cnf_in_set_count;

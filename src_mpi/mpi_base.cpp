@@ -1000,7 +1000,7 @@ void MPI_Base :: MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec,
 		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
 		in.close();
 		S = new Solver();
-		//S->addProblem(cnf);
+		S->addProblem(cnf);
 		vec<Lit> dummy;
 		int cur_var_ind;
 		int state_vec_len = state_vec_vec[0].size();
