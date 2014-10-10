@@ -1820,7 +1820,7 @@ double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_
 			continue;
 		else {
 			cur_probability = (double)cur_solved_in_time / (double)cur_cnf_in_set_count;
-			//point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
+			point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
 			if ( point_cur_predict_time < point_best_predict_time ) {
 				point_best_predict_time   = point_cur_predict_time;
 				point_best_solved_in_time = cur_solved_in_time;
