@@ -1,4 +1,5 @@
-SRC_COMMON = ../src_common/
+SRC_MINISAT = ../src_common/minisat/
+SRC_COMMON = ../src_common
 SRC_MPI = ../src_mpi/
 BOINC_DIR = ../../..
 BOOST_DIR = ../..
@@ -17,6 +18,7 @@ CPPFLAGS = -O2 \
     -I$(BOINC_API_DIR) \
     -I$(BOINC_ZIP_DIR) \
     -I$(FREETYPE_DIR) \
+	-I$(SRC_MINISAT) \
     -I$(SRC_COMMON) \
     -I$(SRC_MPI) \
     -L /usr/X11R6/lib \

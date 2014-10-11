@@ -22,7 +22,7 @@
 #include <fstream>
 #include "minisat22_wrapper.h"
 #include "mpi_base.h"
-#include "dminisat/dminisat.h"
+//#include "dminisat/dminisat.h"
 
 using namespace std;
 
@@ -294,6 +294,7 @@ bool do_work( string &input_path, string &current_result_str )
 	unsigned dummy_size = mpi_b.var_choose_order.size() + known_var_values_vec.size();
 	dummy.resize( dummy_size );
 	unsigned dummy_index;
+	unsigned long long total_solved;
 
 	for ( unsigned long long i = last_iteration_done; i < total_problems_count; ++i ) {
 		// make vector of assignments
@@ -313,10 +314,10 @@ bool do_work( string &input_path, string &current_result_str )
 			dummy[dummy_index++] = known_var_values_vec[j] > 0 ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind );
 		}
 		
-		S->last_time = Minisat :: cpuTime();
+		one_solving_time = Minisat :: cpuTime();
 		ret = S->solveLimited( dummy );
 		//fprintf( stderr, "\n S->solveLimited() done " );
-		one_solving_time = Minisat :: cpuTime() - S->last_time;
+		one_solving_time = Minisat :: cpuTime() - one_solving_time;
 		if ( max_solved_time < one_solving_time )
 			max_solved_time = one_solving_time;
 		current_launch_problems_solved++;
@@ -329,12 +330,13 @@ bool do_work( string &input_path, string &current_result_str )
 			isSAT = true;
 		}
 		
+		total_solved = current_launch_problems_solved + last_iteration_done;
 		current_time = Minisat :: cpuTime();
 		// skip some time in case of fast checkpoint to make it correct
 		if ( current_time >= time_last_checkpoint + MIN_CHECKPOINT_INTERVAL_SEC ) {
 			// checkpoint current position and results
 			//if ( ( boinc_is_standalone() ) || ( boinc_time_to_checkpoint() ) ) {
-				retval = do_checkpoint( current_launch_problems_solved + last_iteration_done, total_problems_count, max_solved_time, current_result_str );
+				retval = do_checkpoint( total_solved, total_problems_count, max_solved_time, current_result_str );
 				if ( retval ) {
 					fprintf(stderr, "APP: checkpoint failed %d\n", retval );
 					exit( retval );
@@ -343,12 +345,18 @@ bool do_work( string &input_path, string &current_result_str )
 			//}
 			time_last_checkpoint = Minisat :: cpuTime();
 		}
+		if ( total_solved > total_problems_count ) {
+			sstream << "total_solved > total_problems_count" << std::endl;
+			sstream << total_solved << " " << total_problems_count << std::endl;
+			break;
+		}
+		if ( total_solved == total_problems_count )
+			break;
 	}
 	delete S;
 
 	total_solving_time = Minisat :: cpuTime() - total_solving_time;
 	
-	unsigned long long total_solved = current_launch_problems_solved + last_iteration_done;
 	sstream << total_solved;
 	current_result_str += "solved " + sstream.str() + " ";
 	sstream.clear(); sstream.str("");

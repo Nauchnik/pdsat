@@ -30,8 +30,14 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <fstream>
 #include <iostream>
 
-// added pdsat
-class IStream
+namespace Minisat {
+
+//-------------------------------------------------------------------------------------------------
+// A simple buffered character stream class:
+
+static const int buffer_size = 1048576;
+
+class IStream // added pdsat
 {
 	std::istream& in;
 	char c;
@@ -42,15 +48,7 @@ public:
 	bool eof() const {return in.eof();}
 };
 
-// added pdsat
-typedef IStream StreamBuffer;
-
-namespace Minisat {
-
-//-------------------------------------------------------------------------------------------------
-// A simple buffered character stream class:
-
-static const int buffer_size = 1048576;
+typedef IStream StreamBuffer; // added pdsat
 
 /*
 class StreamBuffer {
