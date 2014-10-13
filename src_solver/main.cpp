@@ -13,8 +13,6 @@
 #include "./minisat/core/Dimacs.h"
 #include "./minisat/core/Solver.h"
 
-#include "latin_squares.h"
-
 using namespace Minisat;
 
 static Solver* solver;
@@ -26,7 +24,7 @@ static Solver* solver;
 ///////////////////////////////////////////////////////////////////////////////
 // реализация возможности добавления в решатель уже прочитанной КНФ
 
-#ifdef USE_PROBLEM
+//#ifdef USE_PROBLEM
 
 static void readClause(StreamBuffer& in, vec<Lit>& lits) {
     int     parsed_lit, var;
@@ -79,8 +77,11 @@ static void printProblem(const Problem& p, std::ostream& out)
 
 int main(int argc, char* argv[])
 {
-	//argc = 2;
-	//argv[1] = "diag7_2.cnf";
+#ifdef _DEBUG
+	argc = 3;
+	argv[1] = "bivium_template.cnf";
+	argv[2] = "out";
+#endif
 	std::ifstream in(argv[1], std::ios::in);
 	if (!in.is_open())
         printf("ERROR! Could not open file: %s\n", argc == 1 ? "<stdin>" : argv[1]), exit(1);
@@ -95,7 +96,7 @@ int main(int argc, char* argv[])
 
 	// передача КНФ решателю, можно делать в цикле
 	Solver S;    
-	//S.verbosity = 1;
+	S.verbosity = 2;
 	S.addProblem(cnf);
 	
     FILE* res = (argc >= 3) ? fopen(argv[2], "wb") : NULL;
@@ -118,7 +119,11 @@ int main(int argc, char* argv[])
         printf("UNSATISFIABLE\n");
         exit(20);
     }
-        
+
+	//S.start_activity = 1;
+	//S.resetIntervalVarActivity( 578, 777 );
+	S.print_learnts = true;
+    
     vec<Lit> dummy;
     lbool ret = S.solveLimited(dummy);
     if (S.verbosity > 0){
@@ -145,14 +150,13 @@ int main(int argc, char* argv[])
         return (ret == l_True ? 10 : ret == l_False ? 20 : 0);
 #endif
 
-
 	//debug
 	//std::ofstream out("out.cnf", std::ios::out);
 	//printProblem(cnf, out);
 	//out.close();
 	return 0;
 }
-
+/*
 #else
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -160,10 +164,10 @@ int main(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
-	// debug
-	/*argc = 2;
-	argv[1] = "lsndiag9_2.cnf";
-	*/
+#ifdef _DEBUG
+	argc = 2;
+	argv[1] = "bivium_template.cnf";
+#endif
 	try
 	{
 		setUsageHelp("USAGE: %s [options] <input-file-cnf> <input-file-assigns> <result-output-file>\n\n  where input may be either in plain or gzipped DIMACS.\n");
@@ -235,36 +239,8 @@ int main(int argc, char* argv[])
  
 		vec<Lit> dummy;
 
-		// added 06.08.2012 by Oleg Zaikin
-		// known data - 3 rows of 1st square
-		int val;
-		const int known_variables_size = 23;
-		int known_variables[known_variables_size] = 
-		{1, 11, 21, 31, 41, 51, 61, 71, 81, 85, 95, 105, 115, 125, 135, 136, 169, 179, 189, 190, 200, 210, 220};
-		cout << "known_variables " << endl;
-		for ( int i = 0; i < known_variables_size; i++ ) {
-			val = known_variables[i];
-			cout << val << " "; 
-			dummy.push( mkLit(known_variables[i] - 1) );
-		}
-		
-		// added 20.08.2012 by Oleg Zaikin
-		/*latin_square ls;
-		string cnf_head_str;
-		string tmp_str = argv[1];
-		ls.ReadLiteralsFromFile( tmp_str );
-		if ( ls.positive_literals.size() > 0 ) {
-			cout << "diag mode, known oneliteral clauses " << endl;
-			for ( int i = 0; i < ls.positive_literals[0].size(); i++ ) {
-				cout << ls.positive_literals[0][i] << " "; 
-				//dummy.push( mkLit(ls.positive_literals[0][i] - 1) );
-			}
-			cout << endl;
-		}*/
-
         lbool ret = S.solveLimited(dummy);
         if (S.verbosity > 0){
-            //printStats(S);
             printf("\n"); }
         printf(ret == l_True ? "SATISFIABLE\n" : ret == l_False ? "UNSATISFIABLE\n" : "INDETERMINATE\n");
         if (res != NULL){
@@ -298,4 +274,4 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-#endif
+#endif*/

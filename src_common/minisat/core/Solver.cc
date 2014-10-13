@@ -112,8 +112,7 @@ Solver::Solver() :
 {}
 
 Solver::~Solver()
-{
-}
+{}
 
 //=================================================================================================
 // Minor methods:
@@ -203,6 +202,17 @@ void Solver :: resetVarActivity()
 			varBumpActivity(v, start_activity);
 		var_decay = 1;
 		clause_decay = 1;
+	}
+}
+
+void Solver :: resetIntervalVarActivity( unsigned var_from, unsigned var_to )
+{
+	if ( ( var_to <= nVars() ) && ( start_activity > 0 ) ) {
+		// set default minisat values
+		for( int i=0; i < activity.size(); ++i )
+			activity[i] = 0.0;
+		for (int v = var_from; v < var_to; ++v)
+			varBumpActivity(v, start_activity);
 	}
 }
 
@@ -743,13 +753,18 @@ lbool Solver::search(int nof_conflicts)
             if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
             }else{
+				if ( print_learnts ) {
+					for ( unsigned i = 0; i < learnt_clause.size(); i++ )
+						printf( "%d ", learnt_clause[i].x );
+					printf("\n");
+				}
                 CRef cr = ca.alloc(learnt_clause, true);
                 learnts.push(cr);
                 attachClause(cr);
                 claBumpActivity(ca[cr]);
                 uncheckedEnqueue(learnt_clause[0], cr);
             }
-
+			
             varDecayActivity();
             claDecayActivity();
 
