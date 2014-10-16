@@ -110,7 +110,8 @@ public:
 	double start_sample_variance_limit;
 	double prev_area_best_predict_time;
 	double predict_time_limit_step;
-
+	double solver_progress_estimation;
+	
 	Problem cnf;
 	//unsigned prev_best_decomp_set_power;
 	//unsigned prev_best_sum;

@@ -62,6 +62,7 @@ public:
 	void resetIntervalVarActivity( unsigned var_from, unsigned var_to );
 	bool addProblem(const Problem& p);
     bool addProblem_modified(const Problem& p, int num_of_variables);
+	double getEstimation();
 
     // Problem specification:
     //
@@ -298,6 +299,9 @@ protected:
 
 inline CRef Solver::reason(Var x) const { return vardata[x].reason; }
 inline int  Solver::level (Var x) const { return vardata[x].level; }
+
+// added pdsat
+inline double Solver::getEstimation() {	return progress_estimate; }
 
 inline void Solver::insertVarOrder(Var x) {
     if (!order_heap.inHeap(x) && decision[x]) order_heap.insert(x); }

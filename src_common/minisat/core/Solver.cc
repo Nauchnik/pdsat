@@ -913,6 +913,7 @@ lbool Solver::solve_()
 		     ( ( max_solving_time > 0.0 ) && ( cur_time > max_solving_time ) )
 			 )
 		{
+			 progress_estimate = progressEstimate();
 			 cancelUntil(0);
 			 return l_Undef;
 		}
