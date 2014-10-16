@@ -1,5 +1,5 @@
 CPP = mpiicpc
-INC1 = ../../boost/
+INC1 = ../../
 INC2 = ../src_common/
 INC3 = ../src_common/minisat/
 INCDIRS = -I${INC1} -I${INC2} -I${INC3}
