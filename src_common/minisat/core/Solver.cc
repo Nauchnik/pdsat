@@ -216,18 +216,6 @@ void Solver :: resetIntervalVarActivity( unsigned var_from, unsigned var_to )
 	}
 }
 
-/*
-void Solver :: printCoreActivity( std::string &str )
-{
-	str = "";
-	std::stringstream sstream;
-	for( unsigned i=0; i < core_len; ++i )
-		sstream << activity[i] << " ";
-	sstream << std::endl;
-	str = sstream.str();
-}
-*/
-
 // Creates a new SAT variable in the solver. If 'decision' is cleared, variable will not be
 // used as a decision variable (NOTE! This has effects on the meaning of a SATISFIABLE result).
 //
