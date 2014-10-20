@@ -63,7 +63,9 @@ public:
 	bool addProblem(const Problem& p);
     bool addProblem_modified(const Problem& p, int num_of_variables);
 	double getEstimation();
-
+	unsigned nullLevelVarsCountDuringSolve(); // added pdsat
+	unsigned startNullLevelVarsCount;
+	
     // Problem specification:
     //
     Var     newVar    (bool polarity = true, bool dvar = true); // Add a new variable with parameters specifying variable mode.
@@ -81,7 +83,7 @@ public:
     bool    simplify     ();                        // Removes already satisfied clauses.
     bool    solve        (const vec<Lit>& assumps); // Search for a model that respects a given set of assumptions.
     lbool   solveLimited (const vec<Lit>& assumps); // Search for a model that respects a given set of assumptions (With resource constraints).
-    bool    solve        ();                        // Search without assumptions.
+    lbool   solve        ();                        // Search without assumptions.
     bool    solve        (Lit p);                   // Search for a model that respects a single assumption.
     bool    solve        (Lit p, Lit q);            // Search for a model that respects two assumptions.
     bool    solve        (Lit p, Lit q, Lit r);     // Search for a model that respects three assumptions.
@@ -375,7 +377,7 @@ inline bool     Solver::withinBudget() const {
 // FIXME: after the introduction of asynchronous interrruptions the solve-versions that return a
 // pure bool do not give a safe interface. Either interrupts must be possible to turn off here, or
 // all calls to solve must return an 'lbool'. I'm not yet sure which I prefer.
-inline bool     Solver::solve         ()                    { budgetOff(); assumptions.clear(); return solve_() == l_True; }
+inline lbool    Solver::solve         ()                    { budgetOff(); assumptions.clear(); return solve_(); }
 inline bool     Solver::solve         (Lit p)               { budgetOff(); assumptions.clear(); assumptions.push(p); return solve_() == l_True; }
 inline bool     Solver::solve         (Lit p, Lit q)        { budgetOff(); assumptions.clear(); assumptions.push(p); assumptions.push(q); return solve_() == l_True; }
 inline bool     Solver::solve         (Lit p, Lit q, Lit r) { budgetOff(); assumptions.clear(); assumptions.push(p); assumptions.push(q); assumptions.push(r); return solve_() == l_True; }
@@ -388,8 +390,8 @@ inline void     Solver::toDimacs     (const char* file, Lit p){ vec<Lit> as; as.
 inline void     Solver::toDimacs     (const char* file, Lit p, Lit q){ vec<Lit> as; as.push(p); as.push(q); toDimacs(file, as); }
 inline void     Solver::toDimacs     (const char* file, Lit p, Lit q, Lit r){ vec<Lit> as; as.push(p); as.push(q); as.push(r); toDimacs(file, as); }
 
-// added
-inline bool Solver::addProblem (const Problem& p)
+// added pdsat
+inline bool Solver::addProblem(const Problem& p)
 {
 	for(size_t i = 0; i < p.size(); i++) {
 		// add variables if needed

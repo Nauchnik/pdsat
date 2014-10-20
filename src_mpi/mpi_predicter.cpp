@@ -341,13 +341,16 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 
 	double min_solver_estimation, max_solver_estimation, med_solver_estimation, sum_solver_estimation = 0.0;
 	min_solver_estimation = max_solver_estimation = solver_progress_estimation_vec[0];
+	unsigned not_null_estimation_count = 0; 
 	for ( auto &x : solver_progress_estimation_vec ) {
 		sum_solver_estimation += x;
 		min_solver_estimation = min_solver_estimation > x ? x : min_solver_estimation;
 		max_solver_estimation = max_solver_estimation < x ? x : max_solver_estimation;
+		if ( x > 0.0 ) not_null_estimation_count++;
 	}
 	med_solver_estimation = sum_solver_estimation / solver_progress_estimation_vec.size();
 	std::cout << "solver_progress_estimation_vec.size() " << solver_progress_estimation_vec.size() << std::endl;
+	std::cout << "not_null_estimation_count " << not_null_estimation_count << std::endl;
 	std::cout << "min_solver_estimation " << min_solver_estimation << std::endl;
 	std::cout << "max_solver_estimation " << max_solver_estimation << std::endl;
 	std::cout << "med_solver_estimation " << med_solver_estimation << std::endl;
@@ -486,22 +489,23 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	lbool ret;
 	std::stringstream sstream;
 	std::string cur_state_file_name;
-			
+	
 	if ( ( verbosity > 2 ) && ( rank == 1 ) )
 		std::cout << "Before getting prev stats from Solver" << std::endl;
 	
 	// make Solver for every problem to make them independent from each other
 	Solver *S;
 	S = new Solver();
-	S->addProblem(cnf);
+	S->addProblem(cnf); // add clauses of template CNF
+	for( int i=0; i < dummy.size(); i++ ) // add oneliteral clauses
+		S->addClause( dummy[i] );
+	
 	S->pdsat_verbosity  = verbosity;
 	S->IsPredict        = IsPredict;
 	S->max_solving_time = max_solving_time;
 	S->rank             = rank;
 	S->core_len         = core_len;
 	S->start_activity   = start_activity;
-	//if ( solver_name.find("minigolf") != std::string::npos )
-	//	S->cur_hack_type = hack_minigolf;
 	
 	prev_starts    = S->starts;
 	prev_conflicts = S->conflicts;
@@ -512,8 +516,9 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	cnf_time_from_node = MPI_Wtime( );
 	if ( ( verbosity > 2 ) && ( rank == 1 ) )
 		std::cout << "Before S->solveLimited( dummy )" << std::endl;
-	ret = S->solveLimited( dummy );
-	solver_progress_estimation = S->getEstimation();
+	//ret = S->solveLimited( dummy );
+	ret = S->solve();
+	solver_progress_estimation = ret == l_Undef ? (double)S->nullLevelVarsCountDuringSolve() : 0; // skip solved problems
 	if ( ( verbosity > 2 ) && ( rank == 1 ) )
 		std::cout << "After S->solveLimited( dummy )" << std::endl;
 	if ( evaluation_type == "time" )

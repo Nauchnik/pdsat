@@ -109,6 +109,7 @@ Solver::Solver() :
   , max_solving_time   ( 0 )
   , rank               ( -1 )
   , pdsat_verbosity    ( 0 )
+  , startNullLevelVarsCount ( 0 )
 {}
 
 Solver::~Solver()
@@ -831,6 +832,8 @@ double Solver::progressEstimate() const
     return progress / nVars();
 }
 
+unsigned Solver::nullLevelVarsCountDuringSolve() { return trail_lim[0] - startNullLevelVarsCount; }
+
 /*
   Finite subsequences of the Luby-sequence:
 
@@ -867,6 +870,7 @@ lbool Solver::solve_()
 #else
 	start_solving_time = cpuTime();
 #endif
+	startNullLevelVarsCount = trail_lim[0];
 	
     model.clear();
     conflict.clear();
