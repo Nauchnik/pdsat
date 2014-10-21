@@ -338,22 +338,30 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 	sstream_control << "solved_tasks_count " << solved_tasks_count << std::endl;
 	sstream_control << "global_deep_point_index " << global_deep_point_index << std::endl;
 	sstream_control << "total_decomp_set_count " << global_deep_point_index << std::endl;
-
-	double min_solver_estimation, max_solver_estimation, med_solver_estimation, sum_solver_estimation = 0.0;
-	min_solver_estimation = max_solver_estimation = solver_progress_estimation_vec[0];
-	unsigned not_null_estimation_count = 0; 
+	
+	double min_not_null_solver_estimation = 0.0, max_not_null_solver_estimation = 0.0, med_not_null_solver_estimation = 0.0, sum_not_null_solver_estimation = 0.0;
+	unsigned not_null_estimation_count = 0;
 	for ( auto &x : solver_progress_estimation_vec ) {
-		sum_solver_estimation += x;
-		min_solver_estimation = min_solver_estimation > x ? x : min_solver_estimation;
-		max_solver_estimation = max_solver_estimation < x ? x : max_solver_estimation;
-		if ( x > 0.0 ) not_null_estimation_count++;
+		if ( x > 0.0 ) {
+			not_null_estimation_count++;
+			sum_not_null_solver_estimation += x;
+		}
+		else continue;
+		if ( min_not_null_solver_estimation == 0.0 )
+			min_not_null_solver_estimation = x;
+		else
+			min_not_null_solver_estimation = min_not_null_solver_estimation > x ? x : min_not_null_solver_estimation;
+		if ( max_not_null_solver_estimation == 0.0 )
+			max_not_null_solver_estimation = x;
+		else
+			max_not_null_solver_estimation = max_not_null_solver_estimation < x ? x : max_not_null_solver_estimation;
 	}
-	med_solver_estimation = sum_solver_estimation / solver_progress_estimation_vec.size();
+	med_not_null_solver_estimation = not_null_estimation_count > 0 ? sum_not_null_solver_estimation / not_null_estimation_count : 0.0;
 	std::cout << "solver_progress_estimation_vec.size() " << solver_progress_estimation_vec.size() << std::endl;
 	std::cout << "not_null_estimation_count " << not_null_estimation_count << std::endl;
-	std::cout << "min_solver_estimation " << min_solver_estimation << std::endl;
-	std::cout << "max_solver_estimation " << max_solver_estimation << std::endl;
-	std::cout << "med_solver_estimation " << med_solver_estimation << std::endl;
+	std::cout << "min_not_null_solver_estimation " << min_not_null_solver_estimation << std::endl;
+	std::cout << "max_not_null_solver_estimation " << max_not_null_solver_estimation << std::endl;
+	std::cout << "med_not_null_solver_estimation " << med_not_null_solver_estimation << std::endl;
 	
 	if ( verbosity > 2 )
 		std::cout << sstream_control.str() << std::endl;
@@ -518,7 +526,9 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 		std::cout << "Before S->solveLimited( dummy )" << std::endl;
 	//ret = S->solveLimited( dummy );
 	ret = S->solve();
-	solver_progress_estimation = ret == l_Undef ? (double)S->nullLevelVarsCountDuringSolve() : 0; // skip solved problems
+	solver_progress_estimation = ret == l_Undef ? (double)S->getNullLevelVarsCount() - (double)known_vars_count : 0; // skip solved problems
+	if ( solver_progress_estimation < 0.0 )
+		solver_progress_estimation = 0.0;
 	if ( ( verbosity > 2 ) && ( rank == 1 ) )
 		std::cout << "After S->solveLimited( dummy )" << std::endl;
 	if ( evaluation_type == "time" )
@@ -593,6 +603,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	MPI_Recv( &core_len,         1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &activity_vec_len, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &known_last_bits,  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &known_vars_count, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &input_var_num,    1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &start_activity,   1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	if ( input_var_num == 0 ) {
@@ -612,6 +623,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		std::cerr << "core_len == 0" << std::endl;
 		return false;
 	}
+	bool isFirstSolving = true;
 
 	int *full_local_decomp_set = new int[core_len];
 	MPI_Recv( full_local_decomp_set, core_len, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
@@ -897,6 +909,11 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		
 		cnf_time_from_node = 0.0;
 		process_sat_count = 0;
+		known_vars_count += dummy.size();
+		if ( isFirstSolving ) {
+			std::cout << "known_vars_count " << known_vars_count << std::endl;
+			isFirstSolving = false;
+		}
 		if ( !isSolverSystemCalling ) {
 			if ( !solverProgramCalling( dummy ) )
 				MPI_Abort( MPI_COMM_WORLD, 0 );
@@ -1434,6 +1451,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			MPI_Send( &core_len,         1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &activity_vec_len, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &known_last_bits,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &known_vars_count,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &input_var_num,    1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &start_activity,   1, MPI_DOUBLE, i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( full_local_decomp_set, core_len, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );

@@ -56,7 +56,8 @@ MPI_Base :: MPI_Base( ) :
 	isMakeSatSampleAnyWay ( false ),
 	input_var_num ( 0 ),
 	isSolverSystemCalling ( false ),
-	process_sat_count ( 0 )
+	process_sat_count ( 0 ),
+	known_vars_count ( 0 )
 {
 	full_mask  = new unsigned[FULL_MASK_LEN];
 	part_mask  = new unsigned[FULL_MASK_LEN];
@@ -721,7 +722,7 @@ bool MPI_Base :: ReadIntCNF()
 		else // if ( ( line_str[0] != 'p' ) && ( line_str[0] != 'c' ) )
 		{
 			// try to read line with clause
-			current_lit_count = 0; // cuttenr count of lits in current clause
+			current_lit_count = 0; // current count of lits in current clause
 			line_str = " " + line_str;
 			for ( unsigned i = 0; i < line_str.length( ) - 1; i++ ) {
 				IncorrectLine = false;
@@ -767,6 +768,9 @@ bool MPI_Base :: ReadIntCNF()
 				std::cerr << "( te > 0 ) && ( current_lit_count == 1 ). change CNF file to template one" << std::endl;
 				exit(1);
 			}
+
+			if ( current_lit_count == 1 )
+				known_vars_count++;
 			
 			if ( current_lit_count )
 				current_clause_count++;

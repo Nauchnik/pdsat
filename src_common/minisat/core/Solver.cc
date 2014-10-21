@@ -109,7 +109,7 @@ Solver::Solver() :
   , max_solving_time   ( 0 )
   , rank               ( -1 )
   , pdsat_verbosity    ( 0 )
-  , startNullLevelVarsCount ( 0 )
+  , nullLevelVarsCount ( 0 )
 {}
 
 Solver::~Solver()
@@ -738,11 +738,11 @@ lbool Solver::search(int nof_conflicts)
             learnt_clause.clear();
             analyze(confl, learnt_clause, backtrack_level);
             cancelUntil(backtrack_level);
-
+			
             if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
             }else{
-				if ( print_learnts ) {
+				if ( print_learnts ) { // added pdsat
 					for ( unsigned i = 0; i < learnt_clause.size(); i++ )
 						printf( "%d ", learnt_clause[i].x );
 					printf("\n");
@@ -774,9 +774,10 @@ lbool Solver::search(int nof_conflicts)
             if (nof_conflicts >= 0 && conflictC >= nof_conflicts || !withinBudget()){
                 // Reached bound on number of conflicts:
                 progress_estimate = progressEstimate();
+				nullLevelVarsCount = trail_lim[0];
                 cancelUntil(0);
                 return l_Undef; }
-
+			
             // Simplify the set of problem clauses:
             if (decisionLevel() == 0 && !simplify())
                 return l_False;
@@ -832,8 +833,6 @@ double Solver::progressEstimate() const
     return progress / nVars();
 }
 
-unsigned Solver::nullLevelVarsCountDuringSolve() { return trail_lim[0] - startNullLevelVarsCount; }
-
 /*
   Finite subsequences of the Luby-sequence:
 
@@ -870,7 +869,6 @@ lbool Solver::solve_()
 #else
 	start_solving_time = cpuTime();
 #endif
-	startNullLevelVarsCount = trail_lim[0];
 	
     model.clear();
     conflict.clear();
@@ -906,6 +904,7 @@ lbool Solver::solve_()
 			 )
 		{
 			 progress_estimate = progressEstimate();
+			 nullLevelVarsCount = trail_lim[0];
 			 cancelUntil(0);
 			 return l_Undef;
 		}
@@ -914,7 +913,7 @@ lbool Solver::solve_()
         if (!withinBudget()) break;
         curr_restarts++;
     }
-
+	
     if (verbosity >= 1)
         printf("===============================================================================\n");
 

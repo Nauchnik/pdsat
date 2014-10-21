@@ -51,6 +51,7 @@ protected:
 	std::vector< std::vector<unsigned> > values_arr;
 	std::map<int, unsigned> core_var_indexes; // indeces of variables in core set
 	boost::random::mt19937 gen;
+	unsigned known_vars_count;
 public:
     MPI_Base();
     ~MPI_Base();
