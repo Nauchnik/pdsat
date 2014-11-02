@@ -120,7 +120,7 @@ public:
 	int isSolvedOnPreprocessing;
 	std::string tmp_cnf_process_name;
 	std::string current_cnf_out_name;
-	int template_cnf_size;
+	long long template_cnf_size;
 	std::stringstream template_sstream;
 	
 	std::vector< std::vector<bool> > stream_vec_vec;
