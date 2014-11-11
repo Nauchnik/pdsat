@@ -618,7 +618,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		std::cout << "var_count "        << var_count << std::endl;
 		std::cout << "core_len "         << core_len << std::endl;
 		std::cout << "activity_vec_len " << activity_vec_len << std::endl;
-		std::cout << "known_last_bits "  << activity_vec_len << std::endl;
+		std::cout << "known_last_bits "  << known_last_bits << std::endl;
 		std::cout << "input_var_num "    << input_var_num << std::endl;
 		std::cout << "start_activity "   << start_activity << std::endl;
 	}
@@ -1341,7 +1341,7 @@ bool MPI_Predicter :: DeepPredictMain( )
 	} // while
 
 	if ( ( deep_predict <= 2 ) && ( best_predict_time == real_best_predict_time ) ) {
-		best_var_num = real_best_var_num ;
+		best_var_num = real_best_var_num;
 		var_choose_order = real_var_choose_order;
 		sstream << "***best point changed to real point " << std::endl;
 	}
