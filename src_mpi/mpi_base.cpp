@@ -354,6 +354,12 @@ bool MPI_Base :: MakeVarChoose( )
 	std::string str;
 	std::stringstream sstream;
 	int val;
+
+	std::cout << "start MakeVarChoose()" << std::endl;
+	std::cout << "var_choose_order" << std::endl;
+	for ( unsigned i = 0; i < var_choose_order.size(); i++ )
+		std::cout << var_choose_order[i] << " ";
+	std::cout << std::endl;
 	
 	// if file with decomposition set exists
 	std::ifstream known_point_file( known_point_file_name.c_str() );
@@ -794,14 +800,14 @@ bool MPI_Base :: ReadIntCNF()
 	main_cnf.close( );
 	
 	// fill indexes of core variables
-	k=0;
+	/*k=0;
 	for ( vec_it = full_var_choose_order.begin(); vec_it != full_var_choose_order.end(); ++vec_it )
 		core_var_indexes.insert(std::pair<int,unsigned>( *vec_it, k++ ));
 	if ( verbosity > 0 ) {
 		std::cout << "core_var_indexes" << std::endl;
 		for ( std::map<int,unsigned> :: iterator map_it = core_var_indexes.begin(); map_it != core_var_indexes.end(); ++map_it )
 			std::cout << map_it->first << " " << map_it->second << std::endl;
-	}
+	}*/
 
 	if ( known_last_bits ) {
 		if ( core_len != input_var_num ) {

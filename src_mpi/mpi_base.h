@@ -49,7 +49,7 @@ protected:
 	std::vector<int> clause_lengths;
 	std::vector<int> b_SAT_set_array;
 	std::vector< std::vector<unsigned> > values_arr;
-	std::map<int, unsigned> core_var_indexes; // indeces of variables in core set
+	std::map<int, unsigned> core_var_indexes; // indexes of variables in core set
 	boost::random::mt19937 gen;
 	unsigned known_vars_count;
 public:

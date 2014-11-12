@@ -945,8 +945,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 void MPI_Predicter :: GetInitPoint( )
 {
 // read point from previous launches
-	if ( verbosity > 0 )
-		std::cout << "GetInitPoint() started" << std::endl;
+	std::cout << "GetInitPoint() started" << std::endl;
 	std::fstream deep_predict_file;
 	std::ifstream known_point_file;
 	std::stringstream temp_sstream, sstream;
@@ -1429,8 +1428,9 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			std::cout << "predict_to changed to core_len" << std::endl;
 			std::cout << predict_to << " changed to " << core_len << std::endl;
 			predict_to = core_len;
+			var_choose_order = full_var_choose_order;
 		}
-
+		
 		activity_vec_len = core_len;
 		var_activity = new double[activity_vec_len];
 		for ( unsigned i=0; i < activity_vec_len; i++ )
@@ -1443,6 +1443,10 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		int *full_local_decomp_set = new int[core_len];
 		for( unsigned i=0; i < core_len; ++i )
 			full_local_decomp_set[i] = full_var_choose_order[i];
+
+		unsigned k=0;
+		for ( auto &x : full_var_choose_order )
+			core_var_indexes.insert( std::pair<int,unsigned>(x,k++) );
 		
 		// send core_len once to every compute process
 		for( int i=0; i < corecount-1; ++i ) {
