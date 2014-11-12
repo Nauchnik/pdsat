@@ -1664,9 +1664,10 @@ bool MPI_Predicter :: PrepareForPredict()
 	return true;
 }
 
+// --- //
+// new point with best known value
 void MPI_Predicter :: NewRecordPoint( int set_index )
 {
-// New record point in deep mode
 	std::fstream deep_predict_file;
 	std::stringstream sstream;
 	deep_predict_file.open( deep_predict_file_name.c_str(), std::ios_base::out | std::ios_base::app );
@@ -1681,6 +1682,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	current_predict_time += last_predict_record_time;
 	current_predict_start_time = MPI_Wtime(); // update time
 	
+	sstream << "NewRecordPoint()" << std::endl;
 	sstream << "best_predict_time " << best_predict_time << " s" << std::endl;
 
 	if ( deep_predict == 5 ) { // Simulated annealing
@@ -1714,14 +1716,12 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		sstream << i + 1 << ":" << global_count_var_changing[i] << " ";
 	sstream << std::endl << std::endl;
 
-	if ( IsDecDecomp ) {
-		sstream << "real best predict time " << real_best_predict_time << " s" << std::endl;
-		sstream << "real best var num " << real_best_var_num << std::endl;
-		sstream << "real var choose order " << std::endl;
-		for ( int j = 0; j < real_best_var_num; j++ )
-			sstream << real_var_choose_order[j] << " ";
-		sstream << std::endl;
-	}
+	sstream << "real_best_predict_time " << real_best_predict_time << " s" << std::endl;
+	sstream << "real_best_var_num " << real_best_var_num << std::endl;
+	sstream << "real_var_choose_order " << std::endl;
+	for ( int j = 0; j < real_best_var_num; j++ )
+		sstream << real_var_choose_order[j] << " ";
+	sstream << std::endl;
 	
 	/*if ( 
 		( ( deep_predict == 3 ) || ( deep_predict == 5 ) || ( deep_predict == 6 ) )
