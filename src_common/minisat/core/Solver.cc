@@ -953,7 +953,6 @@ void Solver::toDimacs(FILE* f, Clause& c, vec<Var>& map, Var& max)
     fprintf(f, "0\n");
 }
 
-
 void Solver::toDimacs(const char *file, const vec<Lit>& assumps)
 {
     FILE* f = fopen(file, "wr");
@@ -962,7 +961,6 @@ void Solver::toDimacs(const char *file, const vec<Lit>& assumps)
     toDimacs(f, assumps);
     fclose(f);
 }
-
 
 void Solver::toDimacs(FILE* f, const vec<Lit>& assumps)
 {

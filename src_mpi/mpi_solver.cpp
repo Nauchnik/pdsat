@@ -40,7 +40,7 @@ MPI_Solver :: ~MPI_Solver( )
 //---------------------------------------------------------
 bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 {
-// Solve with MPI
+// Solve subproblems with MPI
 	MPI_Init( &argc, &argv );
 	MPI_Comm_size( MPI_COMM_WORLD, &corecount );
 	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
@@ -56,12 +56,13 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 		std::cerr << "corecount < 2"; MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 	
-	if ( rank != 0 ) {
+	if ( rank != 0 ) { // computing processes
 		if ( !ComputeProcessSolve() ) {
-			std::cerr << "in ComputeProcessSovle" << std::endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+			std::cerr << "in ComputeProcessSovle" << std::endl; 
+			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 	}
-	else { // rank == 0
+	else { // rank == 0, control process
 		std::cout << "*** MPI_Solve is running ***" << std::endl;
 		total_start_time = MPI_Wtime();
 		for (;;) {
@@ -70,11 +71,11 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 			sstream.clear(); sstream.str("");
 			std::cout << "solving_info_file_name " << solving_info_file_name << std::endl; 
 			
-			iteration_start_time = Minisat::cpuTime();
+			iteration_start_time = MPI_Wtime();
 
 			ControlProcessSolve();
-
-			iteration_final_time = Minisat::cpuTime() - iteration_start_time;
+			
+			iteration_final_time = MPI_Wtime() - iteration_start_time;
 			WriteTimeToFile( iteration_final_time );
 			solving_iteration_count++;
 			max_solving_time *= max_solving_time_koef; // increase time limit
@@ -658,15 +659,15 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	std::ifstream infile;
 	int *var_choose_order_int;
 	
-	if ( !isSolverSystemCalling) { // last version of minisat
-		std::ifstream in( input_cnf_name );
-		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
-		in.close();
-		S = new Solver();
-		S->addProblem(cnf);
-		S->verbosity = 0;
-		S->IsPredict = false;
-	}
+	//if ( !isSolverSystemCalling) { // last version of minisat
+	std::ifstream in( input_cnf_name );
+	m22_wrapper.parse_DIMACS_to_problem(in, cnf);
+	in.close();
+	S = new Solver();
+	S->addProblem(cnf);
+	S->verbosity = 0;
+	S->IsPredict = false;
+	//}
 	
 	for (;;) {
 		if ( rank == 1 )
@@ -778,8 +779,8 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		}
 	}
 	
-	if ( !isSolverSystemCalling )
-		delete S;
+	//if ( !isSolverSystemCalling )
+	delete S;
 	
 	return true;
 }
