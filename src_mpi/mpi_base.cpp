@@ -17,7 +17,7 @@ MPI_Base :: MPI_Base( ) :
 	corecount			 ( 0 ),
 	solver_name          ( "" ),
 	core_len             ( 0 ),
-	koef_val             ( 8 ),
+	koef_val             ( 2 ),
 	schema_type          ( "" ),
 	var_count            ( 0 ),
 	clause_count         ( 0 ),

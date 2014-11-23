@@ -10,10 +10,8 @@ class MPI_Solver : public MPI_Base
 private:
 	double *solving_times;
 	std::vector<double> total_solving_times;
-	int solving_iteration_count;
 	unsigned interrupted_count;
 	std::string base_solving_info_file_name;
-	std::string solving_info_file_name;
 	double finding_first_sat_time;
 	double total_start_time;
 public:
@@ -21,6 +19,8 @@ public:
     MPI_Solver( );
     ~MPI_Solver( );
 	
+	unsigned solving_iteration_count;
+	std::string solving_info_file_name;
 	int orig_tasks_count;
 	int full_mask_tasks_count;
 	int exch_activ;

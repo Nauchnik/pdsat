@@ -53,7 +53,8 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	int stop_message  = -2;
 	
 	if ( corecount < 2 ) { 
-		std::cerr << "corecount < 2"; MPI_Abort( MPI_COMM_WORLD, 0 );
+		std::cerr << "corecount < 2"; 
+		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 	
 	if ( rank != 0 ) { // computing processes
@@ -77,27 +78,29 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 			
 			iteration_final_time = MPI_Wtime() - iteration_start_time;
 			WriteTimeToFile( iteration_final_time );
+
+			if ( max_solving_time_koef > 0.0 ) { // if increasing time limit for same subproblems
+				if ( !CollectAssumptionsFiles() ) { // no files
+					std::cout << "stopping" << std::endl;
+					for ( int i = 1; i < corecount; i++ )
+						MPI_Send( &stop_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
+					MPI_Finalize( );
+				}
 			
-			if ( !CollectAssumptionsFiles() ) { // no files
-				std::cout << "stopping" << std::endl;
-				for ( int i = 1; i < corecount; i++ )
-					MPI_Send( &stop_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
-				MPI_Finalize( );
-			}
+				if ( ( sat_count && !IsSolveAll ) || ( max_solving_time_koef == 0.0 ) )
+					break; // exit if SAT set found or iterative solving is not needed
 			
-			if ( ( sat_count && !IsSolveAll ) || ( max_solving_time_koef == 0.0 ) )
-				break; // exit if SAT set found or iterative solving is not needed
+				// send messages for breaking low loop on compute processes
+				if ( interrupted_count ) {
+					std::cout << "sending break messages to all computing processes" << std::endl;
+					for ( int i = 1; i < corecount; i++ )
+						MPI_Send( &break_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
+				}
+				else break;
 			
-			// send messages for breaking low loop on compute processes
-			if ( interrupted_count ) {
-				std::cout << "sending break messages to all computing processes" << std::endl;
-				for ( int i = 1; i < corecount; i++ )
-					MPI_Send( &break_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
+				max_solving_time *= max_solving_time_koef; // increase time limit
 			}
 			else break;
-			
-			max_solving_time *= max_solving_time_koef; // increase time limit
-			solving_iteration_count++;
 		}
 		
 		whole_final_time = MPI_Wtime() - total_start_time;
@@ -145,9 +148,9 @@ bool MPI_Solver :: CollectAssumptionsFiles( )
 	while ( !known_assumptions_file.is_open() ) {
 		// wait for ending of other file operations 
 #ifdef _WIN32
-		Sleep(30000);
+		Sleep(1000);
 #else
-		sleep(30);
+		sleep(1); // 1 second
 #endif
 		std::cout << "attempt to open # " << attempt_count << std::endl;
 		known_assumptions_file.open( known_assumptions_file_name.c_str(), std::ios_base::out | std::ios_base :: binary );
@@ -642,6 +645,8 @@ bool MPI_Solver :: ControlProcessSolve( )
 			next_task_index++;
 		}
 	} // while ( solved_tasks_count < all_tasks_count )
+
+	solving_iteration_count++;
 	
 	return true;
 }
@@ -649,7 +654,6 @@ bool MPI_Solver :: ControlProcessSolve( )
 bool MPI_Solver :: ComputeProcessSolve( )
 {
 	minisat22_wrapper m22_wrapper;
-	Problem cnf;
 	Solver *S;
 	MPI_Status status;
 	std::stringstream sstream;
@@ -661,18 +665,21 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	std::string str;
 	std::ifstream infile;
 	int *var_choose_order_int;
-	
-	std::ifstream in( input_cnf_name );
-	m22_wrapper.parse_DIMACS_to_problem(in, cnf);
-	in.close();
-	S = new Solver();
-	S->addProblem(cnf);
-	S->verbosity = 0;
-	S->IsPredict = false;
+	std::ifstream in;
 	
 	for (;;) {
 		if ( rank == 1 )
 			std::cout << "new compute high level iteration" << std::endl;
+		
+		in.open( input_cnf_name );
+		Problem cnf; // loval variable
+		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
+		in.close();
+		S = new Solver();
+		S->addProblem(cnf);
+		S->verbosity = 0;
+		S->IsPredict = false;
+		
 		IsFirstTaskRecieved = false;
 		assumptions_count = 0;
 		var_choose_order_int = new int[MAX_ASSIGNS_COUNT];
@@ -708,10 +715,10 @@ bool MPI_Solver :: ComputeProcessSolve( )
 				std::cout << var_choose_order[i] << " ";
 			std::cout << std::endl;
 		}
-		if ( ( assumptions_count == 0 ) && ( solving_iteration_count > 0 ) ) {
+		/*if ( ( assumptions_count == 0 ) && ( solving_iteration_count > 0 ) ) {
 			std::cerr << "( ( assumptions_count <= 0 ) && ( solving_iteration_count > 0 ) )" << std::endl;
 			return false;
-		}
+		}*/
 		S->core_len         = core_len;
 		S->max_solving_time = max_solving_time;
 		S->start_activity   = start_activity;
@@ -776,9 +783,9 @@ bool MPI_Solver :: ComputeProcessSolve( )
 			MPI_Send( &process_sat_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD );
 			MPI_Send( solving_times, SOLVING_TIME_LEN, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD );
 		}
+
+		delete S;
 	}
-	
-	delete S;
 	
 	return true;
 }
