@@ -21,7 +21,7 @@ MPI_Solver :: MPI_Solver( ) :
 	prev_med_time_sum           ( 0 ),
 	solving_iteration_count     ( 0 ),
 	interrupted_count           ( 0 ),
-	max_solving_time_koef       ( 2 ),
+	max_solving_time_koef       ( 0 ),
 	finding_first_sat_time      ( 0 ),
 	total_start_time            ( 0 ),
 	no_increm                   ( false )
@@ -77,8 +77,6 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 			
 			iteration_final_time = MPI_Wtime() - iteration_start_time;
 			WriteTimeToFile( iteration_final_time );
-			solving_iteration_count++;
-			max_solving_time *= max_solving_time_koef; // increase time limit
 			
 			if ( !CollectAssumptionsFiles() ) { // no files
 				std::cout << "stopping" << std::endl;
@@ -87,8 +85,8 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 				MPI_Finalize( );
 			}
 			
-			if ( sat_count && !IsSolveAll )
-				break; // exit if SAT set found
+			if ( ( sat_count && !IsSolveAll ) || ( max_solving_time_koef == 0.0 ) )
+				break; // exit if SAT set found or iterative solving is not needed
 			
 			// send messages for breaking low loop on compute processes
 			if ( interrupted_count ) {
@@ -96,8 +94,10 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 				for ( int i = 1; i < corecount; i++ )
 					MPI_Send( &break_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
 			}
-			else
-				break;
+			else break;
+			
+			max_solving_time *= max_solving_time_koef; // increase time limit
+			solving_iteration_count++;
 		}
 		
 		whole_final_time = MPI_Wtime() - total_start_time;
@@ -455,14 +455,17 @@ bool MPI_Solver :: ControlProcessSolve( )
 	
 	if ( solving_iteration_count == 0 ) {
 		if ( !ReadIntCNF() ) { // Read original CNF
-			std::cerr << "Error in ReadIntCNF" << std::endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+			std::cerr << "Error in ReadIntCNF" << std::endl; 
+			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 		if ( !MakeVarChoose() ) { 
-			std::cerr << "Error in MakeVarChoose" << std::endl; MPI_Abort( MPI_COMM_WORLD, 0 );
+			std::cerr << "Error in MakeVarChoose" << std::endl; 
+			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 	}
 	
-	std::ifstream known_assumptions_file( known_assumptions_file_name.c_str(), std::ios_base :: in | std::ios_base :: binary );
+	std::ifstream known_assumptions_file( known_assumptions_file_name.c_str(), 
+		                                  std::ios_base :: in | std::ios_base :: binary );
 	if ( known_assumptions_file.is_open() ) {
 		char *cc = new char[3];
 		cc[2] = '\0';
@@ -659,7 +662,6 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	std::ifstream infile;
 	int *var_choose_order_int;
 	
-	//if ( !isSolverSystemCalling) { // last version of minisat
 	std::ifstream in( input_cnf_name );
 	m22_wrapper.parse_DIMACS_to_problem(in, cnf);
 	in.close();
@@ -667,7 +669,6 @@ bool MPI_Solver :: ComputeProcessSolve( )
 	S->addProblem(cnf);
 	S->verbosity = 0;
 	S->IsPredict = false;
-	//}
 	
 	for (;;) {
 		if ( rank == 1 )
@@ -715,8 +716,6 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		S->max_solving_time = max_solving_time;
 		S->start_activity   = start_activity;
 		S->resetVarActivity();
-		//if ( solver_name.find("minigolf") != std::string::npos )
-		//	S->cur_hack_type = hack_minigolf;
 		
 		sstream << base_known_assumptions_file_name << "_" << solving_iteration_count;
 		known_assumptions_file_name = sstream.str();
@@ -779,7 +778,6 @@ bool MPI_Solver :: ComputeProcessSolve( )
 		}
 	}
 	
-	//if ( !isSolverSystemCalling )
 	delete S;
 	
 	return true;
