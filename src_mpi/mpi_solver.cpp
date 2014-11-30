@@ -783,7 +783,7 @@ bool MPI_Solver :: ComputeProcessSolve( )
 			MPI_Send( &process_sat_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD );
 			MPI_Send( solving_times, SOLVING_TIME_LEN, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD );
 		}
-
+		
 		delete S;
 	}
 	
