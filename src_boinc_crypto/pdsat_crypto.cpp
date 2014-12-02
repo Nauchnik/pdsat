@@ -22,7 +22,6 @@
 #include <fstream>
 #include "minisat22_wrapper.h"
 #include "mpi_base.h"
-//#include "dminisat/dminisat.h"
 
 using namespace std;
 
@@ -31,7 +30,7 @@ using namespace std;
 #define OUTPUT_FILENAME "out"
 
 const int MAX_NOF_RESTARTS            = 5000;
-const double MAX_SOLVING_TIME         = 360.0;
+const double MAX_SOLVING_TIME         = 10.0;
 const int MIN_CHECKPOINT_INTERVAL_SEC = 10;
 
 unsigned long long last_iteration_done = 0;
@@ -197,63 +196,6 @@ bool do_work( string &input_path, string &current_result_str )
 	for( unsigned i = 0; i < cnf.size(); ++i )
 		delete cnf[i];
 	cnf.clear();
-	//vec< vec<Lit> > dummy_vec;
-
-	/*if ( !isRangeMode  ) {
-		// find size of text block before bynary block
-		ifile.open( input_path.c_str(), ios_base :: in | ios_base :: binary );
-		ifile.seekg (0, ifile.end);
-		int length = ifile.tellg();
-		if ( length <= 0 ) {
-			fprintf( stderr, " length of buffer is %d ", length );
-			return false;
-		}
-		ifile.seekg (0, ifile.beg);
-		char *buffer = new char[length + 1];
-		buffer[length] = '\0';
-		ifile.read( buffer, length ); // read text data as a block:
-		char *result = strstr( buffer, "before_assignments" );
-		int before_binary_length = -1;
-		if ( result ) {
-			while ( !isNumber( result[0] ) )
-				result++;
-			before_binary_length = result - buffer;
-		}
-		delete[] buffer;
-		if ( before_binary_length <= 0 ) {
-			fprintf( stderr, "before_binary_length <= 0");
-			return false;
-		}
-		ifile.close();
-		fprintf( stderr, " size of before_binary_length %d", before_binary_length );
-		// make vector of assunptions basing on bunary data
-		ifile.open( input_path.c_str(), ios_base :: in | ios_base :: binary );
-		buffer = new char[before_binary_length + 1];
-		buffer[before_binary_length] = '\0';
-		ifile.read( buffer, before_binary_length );
-		delete[] buffer;
-		short int si;
-		unsigned long long ul;
-		ifile.read( (char*)&si, sizeof(si) ); // read header
-		fprintf( stderr, " binary prefix %d", si );
-		mpi_b.assumptions_count = 0;
-		//while ( ifile.read( (char*)&ul, sizeof(ul) ) )
-		//	mpi_b.assumptions_count++;
-		ifile.clear();
-		ifile.seekg( 0, ifile.end );
-		long long int total_byte_length = ifile.tellg();
-		ifile.close();
-		mpi_b.assumptions_count = (total_byte_length - before_binary_length - 2) / sizeof(ul);
-		fprintf( stderr, " mpi_b.assumptions_count %d", mpi_b.assumptions_count );
-		mpi_b.known_assumptions_file_name = input_path;
-		mpi_b.all_tasks_count = 1;
-		int current_task_index = 0;
-		if ( !mpi_b.MakeAssignsFromFile( current_task_index, before_binary_length, dummy_vec ) ) {
-			cerr << "MakeAssignsFromFile()";
-			return false;
-		}
-		fprintf( stderr, " vector of assumptions was made " );
-	}*/
 	
 	double time_last_checkpoint = Minisat :: cpuTime();
 	double current_time = 0;
@@ -281,9 +223,6 @@ bool do_work( string &input_path, string &current_result_str )
 	fprintf( stderr, "start of range mode " );
 	fprintf( stderr, " before loop of solving " );
 	double total_solving_time = Minisat :: cpuTime();
-	
-	//string core_activity_str;
-	//sstream << "core_activity " << endl;
 
 	int cur_var_ind;
 	// read range of values and made assumptions
@@ -291,16 +230,16 @@ bool do_work( string &input_path, string &current_result_str )
 	boost::dynamic_bitset<> d_b;
 	d_b.resize( mpi_b.var_choose_order.size() );
 	vec<Lit> dummy;
-	unsigned dummy_size = mpi_b.var_choose_order.size() + known_var_values_vec.size();
-	dummy.resize( dummy_size );
+	dummy.resize( mpi_b.var_choose_order.size() + known_var_values_vec.size() );
 	unsigned dummy_index;
 	unsigned long long total_solved;
-
-	for ( unsigned long long i = last_iteration_done; i < total_problems_count; ++i ) {
+	
+	//for ( unsigned long long i = last_iteration_done; i < total_problems_count; ++i ) {
+	for ( unsigned long long i = range1 + last_iteration_done; i <= range2; ++i ) {
 		// make vector of assignments
 		UllongToBitset( i, d_b );
 		if ( d_b.size() > mpi_b.var_choose_order.size() ) {
-			fprintf( stderr, "d_b.size() > mpi_b.var_choose_order.size()" );
+			fprintf( stderr, "\n *** d_b.size() > mpi_b.var_choose_order.size()" );
 			return false;
 		}
 		dummy_index = 0;
@@ -311,7 +250,7 @@ bool do_work( string &input_path, string &current_result_str )
 		// add known data to assumptions (initially in oneliteral clauses)
 		for ( unsigned j=0; j < known_var_values_vec.size(); ++j ) {
 			cur_var_ind = abs( known_var_values_vec[j] ) - 1;
-			dummy[dummy_index++] = known_var_values_vec[j] > 0 ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind );
+			dummy[dummy_index++] = ( known_var_values_vec[j] > 0 ) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind );
 		}
 		
 		one_solving_time = Minisat :: cpuTime();
@@ -354,7 +293,7 @@ bool do_work( string &input_path, string &current_result_str )
 			break;
 	}
 	delete S;
-
+	
 	total_solving_time = Minisat :: cpuTime() - total_solving_time;
 	
 	sstream << total_solved;

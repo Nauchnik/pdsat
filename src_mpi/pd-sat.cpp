@@ -70,7 +70,7 @@ int main( int argc, char** argv )
 // main procedure
 	int full_mask_var_count;
 	char *input_cnf_name;
-
+	
 #ifdef _DEBUG
 	//TestSolve( );
 	TestDeepPredict( );
