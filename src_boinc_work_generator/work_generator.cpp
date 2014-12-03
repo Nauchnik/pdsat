@@ -20,7 +20,6 @@
 #include "../src_common/common.h"
 #include "../src_common/addit_func.h"
 
-using namespace std;
 using namespace Addit_func;
 
 const long long MIN_WUS_FOR_CREATION = 100;
@@ -33,7 +32,7 @@ static long long running_wus;
 
 char *pass_file_name = NULL;
 bool IsTasksFile;
-string prev_path;
+std::string prev_path;
 
 unsigned long long assumptions_count = 0;
 bool isRangeMode = false;
@@ -41,9 +40,9 @@ bool isRangeMode = false;
 // Command line options
 
 struct config_params_crypto {
-	string problem_type;
-	string settings_file;
-	string data_file;
+	std::string problem_type;
+	std::string settings_file;
+	std::string data_file;
 	unsigned long long cnf_variables;
 	unsigned long long cnf_clauses;
 	unsigned long long problems_in_wu;
@@ -53,13 +52,13 @@ struct config_params_crypto {
 };
 
 static void print_help(const char *prog);
-bool do_work( string master_config_file_name, vector<long long> &wu_id_vec );
-void ParseConfigFile( string &cnf_head, string master_config_file_name, stringstream &config_sstream );
-static void create_wus( string master_config_file_name, stringstream &config_sstream, config_params_crypto &config_p, 
-					    string cnf_head, long long wus_for_creation_count, vector<long long> &wu_id_vec, bool &IsLastGenerating );
+bool do_work( std::string master_config_file_name, std::vector<long long> &wu_id_vec );
+void ParseConfigFile( std::string &cnf_head, std::string master_config_file_name, std::stringstream &config_sstream );
+static void create_wus( std::string master_config_file_name, std::stringstream &config_sstream, config_params_crypto &config_p, 
+					    std::string cnf_head, long long wus_for_creation_count, std::vector<long long> &wu_id_vec, bool &IsLastGenerating );
 #ifndef _WIN32
 void GetCountOfUnsentWUs( long long &unsent_count );
-bool ProcessQuery( MYSQL *conn, string str, vector< vector<stringstream *> > &result_vec );
+bool ProcessQuery( MYSQL *conn, std::string str, std::vector< std::vector<std::stringstream *> > &result_vec );
 #endif
 //bool find_sat( int cnf_index );
 //double cpuTime( void ) { return ( double )clock( ) / CLOCKS_PER_SEC; }
@@ -67,24 +66,24 @@ bool ProcessQuery( MYSQL *conn, string str, vector< vector<stringstream *> > &re
 int main( int argc, char *argv[] )
 {
 	//double start_time = cpuTime();
-	vector<long long> wu_id_vec;
-	string str;
+	std::vector<long long> wu_id_vec;
+	std::string str;
 	IsTasksFile= false;
 	
 	// find full path to file
-	string master_config_file_name = argv[1];
+	std::string master_config_file_name = argv[1];
 	std::cout << "master_config_file_name " << master_config_file_name << std::endl;
 	int pos = -1, last_pos = 0;
 	for(;;){
 		pos = master_config_file_name.find("/", pos+1);
-		if ( pos != string::npos )
+		if ( pos != std::string::npos )
 			last_pos = pos;
 		else
 			break;
 	}
 	prev_path = master_config_file_name.substr(0, last_pos+1);
-	cout << "prev_path " << prev_path << endl;
-	cout << "master_config_file_name " << master_config_file_name << endl;
+	std::cout << "prev_path " << prev_path << std::endl;
+	std::cout << "master_config_file_name " << master_config_file_name << std::endl;
 	
 	do_work( master_config_file_name, wu_id_vec );
 	//double total_time = cpuTime() - start_time;
@@ -93,66 +92,66 @@ int main( int argc, char *argv[] )
 	return 0;
 }
 
-void ParseConfigFile( config_params_crypto &config_p, string master_config_file_name, string &cnf_head, stringstream &config_sstream )
+void ParseConfigFile( config_params_crypto &config_p, std::string master_config_file_name, std::string &cnf_head, 
+					  std::stringstream &config_sstream )
 {
-	fstream master_config_file;
-	string input_str, str1, str2, str3;
-	stringstream sstream;
-;
+	std::fstream master_config_file;
+	std::string input_str, str1, str2, str3;
+	std::stringstream sstream;
 	master_config_file.open( master_config_file_name.c_str() );
 	
-	cout << "In ParseConfigFile() master_config_file_name " << master_config_file_name << endl;
+	std::cout << "In ParseConfigFile() master_config_file_name " << master_config_file_name << std::endl;
 	if ( !master_config_file.is_open() ) {
-		cerr << "file " << master_config_file_name << " doesn't exist" << endl;
+		std::cerr << "file " << master_config_file_name << " doesn't exist" << std::endl;
 		exit(1);
 	}
-	cout << endl << "input file opened" << endl;
+	std::cout << std::endl << "input file opened" << std::endl;
 	
 	// problem_type
 	getline( master_config_file, input_str );
-	config_sstream << input_str << endl;
+	config_sstream << input_str << std::endl;
 	sstream << input_str;
 	sstream >> str1 >> str2 >> config_p.problem_type;
 	sstream.str(""); sstream.clear();
 	// settings_file
 	getline( master_config_file, input_str );
-	config_sstream << input_str << endl;
+	config_sstream << input_str << std::endl;
 	sstream << input_str;
 	sstream >> str1 >> str2 >> config_p.settings_file;
 	sstream.str(""); sstream.clear();
 	// data_file
 	getline( master_config_file, input_str );
-	config_sstream << input_str << endl;
+	config_sstream << input_str << std::endl;
 	sstream << input_str;
 	sstream >> str1 >> str2 >> config_p.data_file;
 	sstream.str(""); sstream.clear();
 	// cnf_variables
 	getline( master_config_file, input_str );
-	config_sstream << input_str << endl;
+	config_sstream << input_str << std::endl;
 	sstream << input_str;
 	sstream >> str1 >> str2 >> config_p.cnf_variables;
 	sstream.str(""); sstream.clear();
 	// cnf_clauses
 	getline( master_config_file, input_str );
-	config_sstream << input_str << endl;
+	config_sstream << input_str << std::endl;
 	sstream << input_str;
 	sstream >> str1 >> str2 >> config_p.cnf_clauses;
 	sstream.str(""); sstream.clear();
 	// problems_in_wu
 	getline( master_config_file, input_str );
-	config_sstream << input_str << endl;
+	config_sstream << input_str << std::endl;
 	sstream << input_str;
 	sstream >> str1 >> str2 >> config_p.problems_in_wu;
 	sstream.str(""); sstream.clear();
 	// unsent_needed_wus
 	getline( master_config_file, input_str );
-	config_sstream << input_str << endl;
+	config_sstream << input_str << std::endl;
 	sstream << input_str;
 	sstream >> str1 >> str2 >> config_p.unsent_needed_wus;
 	sstream.str(""); sstream.clear();
 	// total_wus
 	getline( master_config_file, input_str );
-	config_sstream << input_str << endl;
+	config_sstream << input_str << std::endl;
 	sstream << input_str;
 	sstream >> str1 >> str2 >> config_p.total_wus;
 	sstream.str(""); sstream.clear();
@@ -170,22 +169,22 @@ void ParseConfigFile( config_params_crypto &config_p, string master_config_file_
 	config_p.settings_file = prev_path + config_p.settings_file;
 	config_p.data_file     = prev_path + config_p.data_file;
 	
-	cout << "problem_type "      << config_p.problem_type << endl;
-	cout << "settings_file "     << config_p.settings_file << endl;
-	cout << "data_file "         << config_p.data_file << endl;
-	cout << "cnf_variables "     << config_p.cnf_variables << endl;
-	cout << "cnf_clauses "       << config_p.cnf_clauses << endl;
-	cout << "problems_in_wu "    << config_p.problems_in_wu << endl;
-	cout << "unsent_needed_wus " << config_p.unsent_needed_wus << endl;
-	cout << "total_wus "         << config_p.total_wus << endl;
-	cout << "created_wus "       << config_p.created_wus << endl;
-	cout << "*** cnf_head "      << cnf_head << endl;
-	cout << endl;
+	std::cout << "problem_type "      << config_p.problem_type << std::endl;
+	std::cout << "settings_file "     << config_p.settings_file << std::endl;
+	std::cout << "data_file "         << config_p.data_file << std::endl;
+	std::cout << "cnf_variables "     << config_p.cnf_variables << std::endl;
+	std::cout << "cnf_clauses "       << config_p.cnf_clauses << std::endl;
+	std::cout << "problems_in_wu "    << config_p.problems_in_wu << std::endl;
+	std::cout << "unsent_needed_wus " << config_p.unsent_needed_wus << std::endl;
+	std::cout << "total_wus "         << config_p.total_wus << std::endl;
+	std::cout << "created_wus "       << config_p.created_wus << std::endl;
+	std::cout << "*** cnf_head "      << cnf_head << std::endl;
+	std::cout << std::endl;
 	
 	master_config_file.close();
 }
 
-bool do_work( string master_config_file_name, vector<long long> &wu_id_vec )
+bool do_work( std::string master_config_file_name, std::vector<long long> &wu_id_vec )
 {
 	//double start_time = cpuTime();
 
@@ -193,16 +192,16 @@ bool do_work( string master_config_file_name, vector<long long> &wu_id_vec )
 	all_processed_wus = 0;
 	long long unsent_count = 0;
 	config_params_crypto config_p;
-	stringstream config_sstream;
-	string cnf_head;
+	std::stringstream config_sstream;
+	std::string cnf_head;
 	long long wus_for_creation_count = 0;
 	
 	ParseConfigFile( config_p, master_config_file_name, cnf_head, config_sstream );
-	ifstream ifile;
-	ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
+	std::ifstream ifile;
+	ifile.open( config_p.data_file.c_str(), std::ios_base :: in | std::ios_base :: binary );
 	if ( !ifile.is_open() ) {
 		isRangeMode = true;
-		cout << "isRangeMode " << isRangeMode << endl;
+		std::cout << "isRangeMode " << isRangeMode << std::endl;
 	}
 	else
 		ifile.close();
@@ -218,20 +217,20 @@ bool do_work( string master_config_file_name, vector<long long> &wu_id_vec )
 	for (;;) {
 		if ( IsLastGenerating ) {
 			if ( config_p.created_wus == config_p.total_wus ) {
-				cout << "config_p.created_wus == config_p.total_wus" << endl;
-				cout << config_p.created_wus << " == " << config_p.total_wus << endl;
+				std::cout << "config_p.created_wus == config_p.total_wus" << std::endl;
+				std::cout << config_p.created_wus << " == " << config_p.total_wus << std::endl;
 			}
-			cout << "IsLastGenerating " << IsLastGenerating << endl;
-			cout << "generation done" << endl;
+			std::cout << "IsLastGenerating " << IsLastGenerating << std::endl;
+			std::cout << "generation done" << std::endl;
 			break;
 		}
 #ifndef _WIN32
 		GetCountOfUnsentWUs( unsent_count );
 #endif
-		cout << "unsent_count " << unsent_count << endl;
+		std::cout << "unsent_count " << unsent_count << std::endl;
 			
 		if ( unsent_count < 0 ) {
-			cout << "SQL error. unsent_count < 0. Waiting 60 seconds and try again" << endl;
+			std::cout << "SQL error. unsent_count < 0. Waiting 60 seconds and try again" << std::endl;
 #ifndef _WIN32
 			sleep( 60 );
 #endif
@@ -243,10 +242,10 @@ bool do_work( string master_config_file_name, vector<long long> &wu_id_vec )
 		if ( wus_for_creation_count + config_p.created_wus >= config_p.total_wus ) {
 			wus_for_creation_count = config_p.total_wus - config_p.created_wus; // create last several task
 			IsLastGenerating = true;
-			cout << "IsLastGenerating " << IsLastGenerating << endl;
+			std::cout << "IsLastGenerating " << IsLastGenerating << std::endl;
 		}
 
-		cout << "wus_for_creation_count " << wus_for_creation_count << endl;
+		std::cout << "wus_for_creation_count " << wus_for_creation_count << std::endl;
 
 		if ( ( wus_for_creation_count >= MIN_WUS_FOR_CREATION ) || ( IsLastGenerating ) ) {
 			// ls can be used many times - each launch vectore will be resized and filled again
@@ -255,10 +254,10 @@ bool do_work( string master_config_file_name, vector<long long> &wu_id_vec )
 				        wu_id_vec, IsLastGenerating );
 		}
 		else {
-			cout << "wus_for_creation_count < MIN_WUS_FOR_CREATION" << endl;
-			cout << wus_for_creation_count << " < " << MIN_WUS_FOR_CREATION << endl;
+			std::cout << "wus_for_creation_count < MIN_WUS_FOR_CREATION" << std::endl;
+			std::cout << wus_for_creation_count << " < " << MIN_WUS_FOR_CREATION << std::endl;
 			if ( old_wus_for_creation_count != wus_for_creation_count )
-				cout << "wus_for_creation_count " << wus_for_creation_count << endl;
+				std::cout << "wus_for_creation_count " << wus_for_creation_count << std::endl;
 			old_wus_for_creation_count = wus_for_creation_count;
 		}
 			
@@ -270,7 +269,7 @@ bool do_work( string master_config_file_name, vector<long long> &wu_id_vec )
 	}
 	//}
 	
-	cout << "wus_for_creation_count " << wus_for_creation_count << endl;
+	std::cout << "wus_for_creation_count " << wus_for_creation_count << std::endl;
 	
 	//double total_time = cpuTime() - start_time;
 	//cout << "total time " << total_time << endl;
@@ -278,33 +277,33 @@ bool do_work( string master_config_file_name, vector<long long> &wu_id_vec )
 	return 0;
 }
 
-void create_wus( string master_config_file_name, stringstream &config_sstream, config_params_crypto &config_p, 
-				 string cnf_head, long long wus_for_creation_count, vector<long long> &wu_id_vec, bool &IsLastGenerating )
+void create_wus( std::string master_config_file_name, std::stringstream &config_sstream, config_params_crypto &config_p, 
+				 std::string cnf_head, long long wus_for_creation_count, std::vector<long long> &wu_id_vec, bool &IsLastGenerating )
 {
-	ofstream output;
-	string wu_tag_str;
-	stringstream sstream, header_sstream;
+	std::ofstream output;
+	std::string wu_tag_str;
+	std::stringstream sstream, header_sstream;
 	
-	cout << "Start create_wus()" << endl;
-	cout << "cnf_head " << cnf_head << endl;
-	cout << "wus_for_creation_count " << wus_for_creation_count << endl;
+	std::cout << "Start create_wus()" << std::endl;
+	std::cout << "cnf_head " << cnf_head << std::endl;
+	std::cout << "wus_for_creation_count " << wus_for_creation_count << std::endl;
 	long long wu_index = 0;
 	bool IsAddingWUneeded;
 	bool IsFastExit = false;
 	long long new_created_wus = 0;
-	string str, word1;
-	ifstream ifile;
-	vector<int> var_choose_order;
+	std::string str, word1;
+	std::ifstream ifile;
+	std::vector<int> var_choose_order;
 	long long skip_byte;
 	unsigned long long values_index;
 	
 	// read header data once - it's common for every wu
 	ifile.open( config_p.settings_file.c_str() ); // write common head to every wu
 	if ( !ifile.is_open() ) {
-		cerr << "!ifile.is_open() " << config_p.settings_file << endl;
+		std::cerr << "!ifile.is_open() " << config_p.settings_file << std::endl;
 		exit(1);
 	}
-	cout << "file " << config_p.settings_file << " opened" << endl;
+	std::cout << "file " << config_p.settings_file << " opened" << std::endl;
 	//cout << "header:" << endl;
 	unsigned header_str_count = 0;
 	while ( getline( ifile, str ) ) {
@@ -316,30 +315,30 @@ void create_wus( string master_config_file_name, stringstream &config_sstream, c
 				var_choose_order.push_back( val );
 		}
 		sstream.clear(); sstream.str("");
-		header_sstream << str << endl;
+		header_sstream << str << std::endl;
 		header_str_count++;
 		//cout << str << endl;
 	}
 	ifile.close();
-	cout << "header_str_count " << header_str_count << endl;
+	std::cout << "header_str_count " << header_str_count << std::endl;
 	short int si;
 	unsigned long long ul = 0;
 	
 	if ( isRangeMode ) {
-		cout << "isRangeMode" << endl;
+		std::cout << "isRangeMode" << std::endl;
 		shl64( assumptions_count, var_choose_order.size() );
-		cout << "var_choose_order.size() " << var_choose_order.size() << endl;
-		cout << "assumptions_count " << assumptions_count << endl;
+		std::cout << "var_choose_order.size() " << var_choose_order.size() << std::endl;
+		std::cout << "assumptions_count " << assumptions_count << std::endl;
 	}
 	else {
 		// count blocks of data in file
 		if ( !assumptions_count ) {
-			ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
+			ifile.open( config_p.data_file.c_str(), std::ios_base :: in | std::ios_base :: binary );
 			if ( !ifile.is_open() ) {
-				cerr << "!ifile.is_open() " << config_p.data_file << endl;
+				std::cerr << "!ifile.is_open() " << config_p.data_file << std::endl;
 				exit(1);
 			}
-			cout << "file " << config_p.data_file << " opened" << endl;
+			std::cout << "file " << config_p.data_file << " opened" << std::endl;
 			/*ifile.read( (char*)&si, sizeof(si) ); // read header
 			while ( ifile.read( (char*)&ul, sizeof(ul) ) ) {
 				assumptions_count++;
@@ -350,16 +349,16 @@ void create_wus( string master_config_file_name, stringstream &config_sstream, c
 			long long total_byte_length = ifile.tellg();
 			ifile.close();
 			assumptions_count = (total_byte_length - 2) / sizeof(ul); // skip 2 byte of prefix 
-			cout << "assumptions_count:" << endl;
-			cout << assumptions_count << " time " << endl;
+			std::cout << "assumptions_count:" << std::endl;
+			std::cout << assumptions_count << " time " << std::endl;
 			ifile.close();
 		}
 		
 		values_index = config_p.created_wus * config_p.problems_in_wu;
 		skip_byte = 2 + sizeof(ul)*values_index;
-		cout << "skip_byte " << skip_byte << endl;
+		std::cout << "skip_byte " << skip_byte << std::endl;
 		
-		ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
+		ifile.open( config_p.data_file.c_str(), std::ios_base :: in | std::ios_base :: binary );
 		ifile.read( (char*)&si, sizeof(si) );
 		// skip already sended values
 		if ( skip_byte > 0 ) {
@@ -368,20 +367,20 @@ void create_wus( string master_config_file_name, stringstream &config_sstream, c
 		}
 	}
 	
-	cout << "created_wus "         << config_p.created_wus << endl;
-	unsigned long long total_wu_data_count = ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
-	cout << "total_wu_data_count " << total_wu_data_count  << endl;
+	std::cout << "created_wus "         << config_p.created_wus << std::endl;
+	unsigned long long total_wu_data_count = (unsigned long long)ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
+	std::cout << "total_wu_data_count " << total_wu_data_count  << std::endl;
 	if ( total_wu_data_count > config_p.total_wus )
 		total_wu_data_count = config_p.total_wus;
-	cout << "total_wu_data_count changed to " << total_wu_data_count << endl;
+	std::cout << "total_wu_data_count changed to " << total_wu_data_count << std::endl;
 	
-	cout << "before creating wus" << endl;
+	std::cout << "before creating wus" << std::endl;
 	unsigned long long now_created = 0;
 	unsigned long long range1, range2;
 	for( unsigned long long wu_index = config_p.created_wus; wu_index < config_p.created_wus + wus_for_creation_count; wu_index++ ) {
 		if ( IsFastExit )
 			break;
-		output.open( "wu-input.txt", ios_base :: out );
+		output.open( "wu-input.txt", std::ios_base :: out );
 		if ( !output.is_open() ) {
 			std::cerr << "Failed to create wu-input.txt" << std::endl;
 			exit(1);
@@ -389,30 +388,30 @@ void create_wus( string master_config_file_name, stringstream &config_sstream, c
 		output << header_sstream.str();
 		
 		if ( isRangeMode ) {
-			if ( header_sstream.str().find( "before_range" ) == string::npos )
-				output << "before_range" << endl; // add if forgot
+			if ( header_sstream.str().find( "before_range" ) == std::string::npos )
+				output << "before_range" << std::endl; // add if forgot
 			range1 = wu_index*config_p.problems_in_wu;
 			IsAddingWUneeded = ( range1 < assumptions_count ) ? true : false;
 			range2 = (wu_index+1)*config_p.problems_in_wu - 1;
 			if ( range2 >= assumptions_count ) {
 				range2 = assumptions_count - 1;
-				cout << "range2 changed to " << range2 << endl;
+				std::cout << "range2 changed to " << range2 << std::endl;
 				IsFastExit = true; // add last values to WU and exit
 				IsLastGenerating = true; // tell to high-level function about ending of generation
 			}
 			output << range1 << " " << range2;
 		}
 		else {
-			if ( header_sstream.str().find( "before_assignments" ) == string::npos )
-				output << "before_assignments" << endl; // add if forgot
+			if ( header_sstream.str().find( "before_assignments" ) == std::string::npos )
+				output << "before_assignments" << std::endl; // add if forgot
 			output.close();
-			output.open( "wu-input.txt", ios_base::out | ios_base::app | ios_base::binary );
+			output.open( "wu-input.txt", std::ios_base::out | std::ios_base::app | std::ios_base::binary );
 			output.write( (char*)&si, sizeof(si) ); // write first 2 symbols
 			IsAddingWUneeded = false; // if no values will be added then WU not needed
 			for ( unsigned long long i = 0; i < config_p.problems_in_wu; i++ ) {
 				if ( values_index >= assumptions_count ) {
-					cout << "in create_wus() last data was added to WU" << endl;
-					cout << "values_index " << values_index << endl;
+					std::cout << "in create_wus() last data was added to WU" << std::endl;
+					std::cout << "values_index " << values_index << std::endl;
 					IsFastExit = true; // add last values to WU and exit
 					IsLastGenerating = true; // tell to high-level function about ending of generation
 					break;
@@ -426,7 +425,7 @@ void create_wus( string master_config_file_name, stringstream &config_sstream, c
 		output.close();
 		
 		if ( !IsAddingWUneeded ) {
-			cout << "break cause of IsAddingWUneeded " << IsAddingWUneeded << endl;
+			std::cout << "break cause of IsAddingWUneeded " << IsAddingWUneeded << std::endl;
 			break; // don't create new WU
 		}
 		
@@ -436,8 +435,8 @@ void create_wus( string master_config_file_name, stringstream &config_sstream, c
 		wu_tag_str = sstream.str();
 		sstream.str( "" ); sstream.clear();
 		if ( !now_created ) {
-			cout << "isRangeMode " << isRangeMode << endl;
-			cout << "first wu_tag_str " << wu_tag_str << endl;
+			std::cout << "isRangeMode " << isRangeMode << std::endl;
+			std::cout << "first wu_tag_str " << wu_tag_str << std::endl;
 		}
 		now_created++;
 		/*wu = DC_createWU( "pdsat_crypto", NULL, 0, wu_tag_str.c_str() );
@@ -450,41 +449,41 @@ void create_wus( string master_config_file_name, stringstream &config_sstream, c
 	}
 	ifile.close();
 	
-	cout << "new_created_wus " << new_created_wus << endl;
+	std::cout << "new_created_wus " << new_created_wus << std::endl;
 	config_p.created_wus += new_created_wus;
 	
 	if ( !IsTasksFile ) { // don't update if additional wus from file ewre created
-		ofstream master_config_file;
+		std::ofstream master_config_file;
 		master_config_file.open( master_config_file_name.c_str() );
 		master_config_file << config_sstream.str();
-		master_config_file << "created_wus = " << config_p.created_wus << endl; // update master config file
+		master_config_file << "created_wus = " << config_p.created_wus << std::endl; // update master config file
 		master_config_file.close();
 	}
 
-	cout << "created_wus " << config_p.created_wus << endl;
-	cout << "---***---" << endl;
+	std::cout << "created_wus " << config_p.created_wus << std::endl;
+	std::cout << "---***---" << std::endl;
 }
 
-void add_result_to_file( string output_filename, char *tag, char *id )
+void add_result_to_file( std::string output_filename, char *tag, char *id )
 {
-	ofstream output_file;
-	string final_output_name;
-	stringstream final_sstream;
-	stringstream sstream;
+	std::ofstream output_file;
+	std::string final_output_name;
+	std::stringstream final_sstream;
+	std::stringstream sstream;
 	
 	sstream << "final_output.txt";
 	final_output_name = sstream.str( );
 	sstream.str( "" );
 	sstream.clear();
-	output_file.open( final_output_name.c_str(), ios_base :: out | ios_base :: app );
+	output_file.open( final_output_name.c_str(), std::ios_base :: out | std::ios_base :: app );
 	if ( !output_file.is_open() ) {
 		std::cerr << "Cannot open final_output.txt for writing" << std::cerr;
 		exit(1);
 	}
 	
-	string input_str;
-	ifstream result_file;
-	result_file.open( output_filename.c_str(), ios_base :: in );
+	std::string input_str;
+	std::ifstream result_file;
+	result_file.open( output_filename.c_str(), std::ios_base :: in );
 	if ( !result_file.is_open( ) ) {
 		std::cerr <<  "Cannot open result_file" << std::endl;
 		output_file.close();
@@ -494,7 +493,7 @@ void add_result_to_file( string output_filename, char *tag, char *id )
 	final_sstream << "result_" << tag << " " << "id " << id << " ";
 	while ( getline( result_file, input_str ) )
 		final_sstream << input_str;
-	final_sstream << endl;
+	final_sstream << std::endl;
 	
 	output_file << final_sstream.rdbuf();
 
@@ -514,7 +513,7 @@ void GetCountOfUnsentWUs( long long &unsent_count )
 	ifstream pass_file;
 	pass_file.open( pass_file_name );
 	if ( !pass_file.is_open() ) {
-		cerr << "psswd_file not open" << endl;
+		std::cerr << "psswd_file not open" << std::endl;
 		exit(1);
 	}
 	string str;
@@ -527,16 +526,16 @@ void GetCountOfUnsentWUs( long long &unsent_count )
 	getline( pass_file, str );
 	pass = new char[str.length() + 1];
 	strcpy( pass, str.c_str() );
-	cout << "db "   << db   << endl;
-	cout << "user " << user << endl;
+	std::cout << "db "   << db   << std::endl;
+	std::cout << "user " << user << std::endl;
 	//cout << "pass " << pass << endl;
 	
 	conn = mysql_init(NULL);
 	if(conn == NULL)
-		cerr << "Error: can't create MySQL-descriptor\n";
+		std::cerr << "Error: can't create MySQL-descriptor\n" << std::endl;
 
 	if(!mysql_real_connect(conn, host, user, pass, db, 0, NULL, 0)) {
-		cerr << "Error: can't connect to MySQL server" << endl;
+		std::cerr << "Error: can't connect to MySQL server" << std::endl;
 		exit(1);
 	}
 	delete[] db;
@@ -545,7 +544,7 @@ void GetCountOfUnsentWUs( long long &unsent_count )
 
 	vector< vector<stringstream *> > result_vec;
 	str = "SELECT COUNT(*) FROM workunit WHERE id IN(SELECT workunitid FROM result WHERE server_state = 2)";
-	cout << str << endl;
+	std::cout << str << std::endl;
 
 	if ( ProcessQuery( conn, str, result_vec ) ) {
 		*result_vec[0][0] >> unsent_count;
