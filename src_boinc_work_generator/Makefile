@@ -5,7 +5,7 @@ COMMON = ../src_common/
 INCDIRS  = -I${MYSQL} -I${BOOST} -I${COMMON}
 
 CPP_DEBUG_FLAGS = -O0 -DDEBUG_ALL -g ${INCDIRS}
-CPP_RELEASE_FLAGS = -O2 -D NDEBUG -D __STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS ${INCDIRS} 
+CPP_RELEASE_FLAGS = -O2 -D NDEBUG -D __STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS ${INCDIRS} -MYSQL
 DCAPI_MASTER_FLAGS = -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/uuid
 DCAPI_MASTER_LIBS = -ldcapi-boinc -lglib-2.0 -luuid /usr/lib/libmysqlclient.so
 

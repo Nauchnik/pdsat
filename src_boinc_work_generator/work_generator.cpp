@@ -1,16 +1,11 @@
-// master DC-API PD-SAT
+// work generator for SAT@home
+// creating files for further creating workunit
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
+#ifndef _WIN32
+#include <mysql.h>
 #endif
 
-#include <mysql.h>
-
-#include <dc.h>
-#include <dc_client.h>
-
 #include <stdlib.h>
-#include <getopt.h>
 #include <string.h>
 #include <limits.h>
 #include <stdio.h>
@@ -36,9 +31,6 @@ static long long processed_wus;
 static long long unsent_wus;
 static long long running_wus;
 
-char *dcapi_config_file_name = NULL;
-char *master_config_file_name = NULL;
-char *wu_id_file_name = NULL; // id of wu for additional creation
 char *pass_file_name = NULL;
 bool IsTasksFile;
 string prev_path;
@@ -52,152 +44,66 @@ struct config_params_crypto {
 	string problem_type;
 	string settings_file;
 	string data_file;
-	long long cnf_variables;
-	long long cnf_clauses;
-	long long problems_in_wu;
-	long long unsent_needed_wus;
-	long long total_wus;
-	long long created_wus;
+	unsigned long long cnf_variables;
+	unsigned long long cnf_clauses;
+	unsigned long long problems_in_wu;
+	unsigned long long unsent_needed_wus;
+	unsigned long long total_wus;
+	unsigned long long created_wus;
 };
 
 static void print_help(const char *prog);
-bool do_work( vector<long long> &wu_id_vec );
-void ParseConfigFile( string &cnf_head, stringstream &config_sstream );
-static void create_wus( stringstream &config_sstream, config_params_crypto &config_p, 
-	                    string cnf_head, long long wus_for_creation_count, vector<long long> &wu_id_vec, bool &IsLastGenerating );
-void add_result_to_file( string output_filename, char *tag, char *id );
+bool do_work( string master_config_file_name, vector<long long> &wu_id_vec );
+void ParseConfigFile( string &cnf_head, string master_config_file_name, stringstream &config_sstream );
+static void create_wus( string master_config_file_name, stringstream &config_sstream, config_params_crypto &config_p, 
+					    string cnf_head, long long wus_for_creation_count, vector<long long> &wu_id_vec, bool &IsLastGenerating );
+#ifndef _WIN32
 void GetCountOfUnsentWUs( long long &unsent_count );
 bool ProcessQuery( MYSQL *conn, string str, vector< vector<stringstream *> > &result_vec );
+#endif
 //bool find_sat( int cnf_index );
 //double cpuTime( void ) { return ( double )clock( ) / CLOCKS_PER_SEC; }
 
-static const struct option longopts[] =
-{
-	{ "dcapi_config",	 required_argument, NULL, 'c' },
-	{ "master_config",   required_argument, NULL, 'm' },
-	{ "wu_id",           optional_argument, NULL, 'w' },
-	{ "pass",            optional_argument, NULL, 'p' },
-	{ "help",	         no_argument,		NULL, 'h' },
-	{ NULL }
-};
-
 int main( int argc, char *argv[] )
 {
-	int c;
 	//double start_time = cpuTime();
 	vector<long long> wu_id_vec;
 	string str;
 	IsTasksFile= false;
-
-	while ( ( c = getopt_long( argc, argv, "c:m:w:p:h", longopts, NULL ) ) != -1 ) {
-		switch ( c ) {
-			case 'c':
-				dcapi_config_file_name = optarg;
-				break;
-			case 'm':
-				master_config_file_name = optarg;
-				break;
-			case 'w':
-				wu_id_file_name = optarg;
-				break;
-			case 'p':
-				pass_file_name = optarg;
-				break;
-			case 'h':
-				print_help( argv[0] );
-				break;
-			default:
-				exit( 1 );
-		}
-	}
 	
 	// find full path to file
-	string master_config_file_name_str = master_config_file_name;
+	string master_config_file_name = argv[1];
+	std::cout << "master_config_file_name " << master_config_file_name << std::endl;
 	int pos = -1, last_pos = 0;
 	for(;;){
-		pos = master_config_file_name_str.find("/", pos+1);
+		pos = master_config_file_name.find("/", pos+1);
 		if ( pos != string::npos )
 			last_pos = pos;
 		else
 			break;
 	}
-	prev_path = master_config_file_name_str.substr(0, last_pos+1);
+	prev_path = master_config_file_name.substr(0, last_pos+1);
 	cout << "prev_path " << prev_path << endl;
-	
-	if (optind != argc) {
-		fprintf(stderr, "Extra arguments on the command line\n");
-		exit( 1 );
-	}
-
-	// Specifying the config file is mandatory, otherwise the master can't
-	// run as a BOINC daemon
-	if ( !dcapi_config_file_name ) {
-		fprintf( stderr, "You must specify the dcapi config file\n" );
-		exit( 1 );
-	}
-
-	if ( !master_config_file_name ) {
-		fprintf( stderr, "You must specify the master config file file\n" );
-		exit( 1 );
-	}
-
-	/*if ( wu_id_file_name ) {
-		IsTasksFile = true;
-		cout << "wu_id_file " << wu_id_file_name << endl; 
-		cout << "IsTasksFile " << IsTasksFile << endl;
-		ifstream infile( wu_id_file_name );
-		while ( getline( infile, str ) )
-			wu_id_vec.push_back( atoi(str.c_str()) );
-		cout << "wu_id_vec" << endl;
-		for ( unsigned i=0; i < wu_id_vec.size(); ++i )
-			cout << wu_id_vec[i] << endl;
-		infile.close();
-	}*/
-	
-	cout << "dcapi_config_file_name "  << dcapi_config_file_name  << endl;
 	cout << "master_config_file_name " << master_config_file_name << endl;
 	
-	// Initialize the DC-API
-	if ( DC_initMaster( dcapi_config_file_name ) ) {
-		fprintf(stderr, "Master: DC_initMaster failed, exiting.\n");
-		exit(1);
-	}
-
-	// We need the result callback function only
-	//DC_setMasterCb( process_result, NULL, NULL );
-
-	do_work( wu_id_vec );
+	do_work( master_config_file_name, wu_id_vec );
 	//double total_time = cpuTime() - start_time;
 	//cout << "total time " << total_time << endl;
-		
+	
 	return 0;
 }
 
-static void print_help(const char *prog)
-{
-	const char *p;
-
-	// Strip the path component if present
-	p = strrchr(prog, '/');
-	if (p)
-		prog = p;
-
-	printf("Usage: %s {-c|--config} <dcapi_config file> (-m|--master_config) <master_config_file> -p <login-passw file> -w <wu_id_file_name> \n", prog);
-	exit(0);
-}
-
-void ParseConfigFile( config_params_crypto &config_p, string &cnf_head, stringstream &config_sstream )
+void ParseConfigFile( config_params_crypto &config_p, string master_config_file_name, string &cnf_head, stringstream &config_sstream )
 {
 	fstream master_config_file;
 	string input_str, str1, str2, str3;
 	stringstream sstream;
-
-	string master_config_file_name_str = master_config_file_name;
-	master_config_file.open( master_config_file_name_str.c_str() );
+;
+	master_config_file.open( master_config_file_name.c_str() );
 	
-	cout << "In ParseConfigFile() master_config_file_name " << master_config_file_name_str << endl;
+	cout << "In ParseConfigFile() master_config_file_name " << master_config_file_name << endl;
 	if ( !master_config_file.is_open() ) {
-		cerr << "file " << master_config_file_name_str << " doesn't exist" << endl;
+		cerr << "file " << master_config_file_name << " doesn't exist" << endl;
 		exit(1);
 	}
 	cout << endl << "input file opened" << endl;
@@ -279,11 +185,9 @@ void ParseConfigFile( config_params_crypto &config_p, string &cnf_head, stringst
 	master_config_file.close();
 }
 
-bool do_work( vector<long long> &wu_id_vec )
+bool do_work( string master_config_file_name, vector<long long> &wu_id_vec )
 {
 	//double start_time = cpuTime();
-
-	DC_log( LOG_NOTICE, "Master: Creating work units" );
 
 	processed_wus     = 0;
 	all_processed_wus = 0;
@@ -293,7 +197,7 @@ bool do_work( vector<long long> &wu_id_vec )
 	string cnf_head;
 	long long wus_for_creation_count = 0;
 	
-	ParseConfigFile( config_p, cnf_head, config_sstream );
+	ParseConfigFile( config_p, master_config_file_name, cnf_head, config_sstream );
 	ifstream ifile;
 	ifile.open( config_p.data_file.c_str(), ios_base :: in | ios_base :: binary );
 	if ( !ifile.is_open() ) {
@@ -321,16 +225,19 @@ bool do_work( vector<long long> &wu_id_vec )
 			cout << "generation done" << endl;
 			break;
 		}
-
+#ifndef _WIN32
 		GetCountOfUnsentWUs( unsent_count );
+#endif
 		cout << "unsent_count " << unsent_count << endl;
 			
 		if ( unsent_count < 0 ) {
 			cout << "SQL error. unsent_count < 0. Waiting 60 seconds and try again" << endl;
+#ifndef _WIN32
 			sleep( 60 );
+#endif
 			continue; // try to execute SQL again
 		}
-			
+				
 		wus_for_creation_count = config_p.unsent_needed_wus - unsent_count;
 
 		if ( wus_for_creation_count + config_p.created_wus >= config_p.total_wus ) {
@@ -344,7 +251,8 @@ bool do_work( vector<long long> &wu_id_vec )
 		if ( ( wus_for_creation_count >= MIN_WUS_FOR_CREATION ) || ( IsLastGenerating ) ) {
 			// ls can be used many times - each launch vectore will be resized and filled again
 			// ls.skip_valus is updated too
-			create_wus( config_sstream, config_p, cnf_head, wus_for_creation_count, wu_id_vec, IsLastGenerating );
+			create_wus( master_config_file_name, config_sstream, config_p, cnf_head, wus_for_creation_count, 
+				        wu_id_vec, IsLastGenerating );
 		}
 		else {
 			cout << "wus_for_creation_count < MIN_WUS_FOR_CREATION" << endl;
@@ -354,24 +262,25 @@ bool do_work( vector<long long> &wu_id_vec )
 			old_wus_for_creation_count = wus_for_creation_count;
 		}
 			
-		if ( !IsLastGenerating )
+		if ( !IsLastGenerating ) {
+#ifndef _WIN32
 			sleep( 1800 ); // wait
+#endif
+		}
 	}
 	//}
 	
 	cout << "wus_for_creation_count " << wus_for_creation_count << endl;
-	DC_log( LOG_NOTICE, "\n Work finished" );
-
+	
 	//double total_time = cpuTime() - start_time;
 	//cout << "total time " << total_time << endl;
 
 	return 0;
 }
 
-void create_wus( stringstream &config_sstream, config_params_crypto &config_p, string cnf_head, 
-				 long long wus_for_creation_count, vector<long long> &wu_id_vec, bool &IsLastGenerating )
+void create_wus( string master_config_file_name, stringstream &config_sstream, config_params_crypto &config_p, 
+				 string cnf_head, long long wus_for_creation_count, vector<long long> &wu_id_vec, bool &IsLastGenerating )
 {
-	DC_Workunit *wu;
 	ofstream output;
 	string wu_tag_str;
 	stringstream sstream, header_sstream;
@@ -460,22 +369,21 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	}
 	
 	cout << "created_wus "         << config_p.created_wus << endl;
-	long long total_wu_data_count = ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
+	unsigned long long total_wu_data_count = ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
 	cout << "total_wu_data_count " << total_wu_data_count  << endl;
 	if ( total_wu_data_count > config_p.total_wus )
 		total_wu_data_count = config_p.total_wus;
 	cout << "total_wu_data_count changed to " << total_wu_data_count << endl;
 	
 	cout << "before creating wus" << endl;
-	long long now_created = 0;
-	long long range1, range2;
-	for( long long wu_index = config_p.created_wus; wu_index < config_p.created_wus + wus_for_creation_count; wu_index++ ) {
+	unsigned long long now_created = 0;
+	unsigned long long range1, range2;
+	for( unsigned long long wu_index = config_p.created_wus; wu_index < config_p.created_wus + wus_for_creation_count; wu_index++ ) {
 		if ( IsFastExit )
 			break;
 		output.open( "wu-input.txt", ios_base :: out );
 		if ( !output.is_open() ) {
-			DC_log(LOG_ERR, "Failed to create wu-input.txt: %s",
-			strerror(errno));
+			std::cerr << "Failed to create wu-input.txt" << std::endl;
 			exit(1);
 		}
 		output << header_sstream.str();
@@ -501,7 +409,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 			output.open( "wu-input.txt", ios_base::out | ios_base::app | ios_base::binary );
 			output.write( (char*)&si, sizeof(si) ); // write first 2 symbols
 			IsAddingWUneeded = false; // if no values will be added then WU not needed
-			for ( long long i = 0; i < config_p.problems_in_wu; i++ ) {
+			for ( unsigned long long i = 0; i < config_p.problems_in_wu; i++ ) {
 				if ( values_index >= assumptions_count ) {
 					cout << "in create_wus() last data was added to WU" << endl;
 					cout << "values_index " << values_index << endl;
@@ -532,25 +440,12 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 			cout << "first wu_tag_str " << wu_tag_str << endl;
 		}
 		now_created++;
-		wu = DC_createWU( "pdsat_crypto", NULL, 0, wu_tag_str.c_str() );
+		/*wu = DC_createWU( "pdsat_crypto", NULL, 0, wu_tag_str.c_str() );
 		if ( !wu ) {
 			DC_log( LOG_ERR, "Work unit creation has failed" );
 			exit(1);
-		}
-
-		if (DC_addWUInput( wu, INPUT_LABEL, "wu-input.txt",
-				           DC_FILE_VOLATILE ) ) {
-			DC_log( LOG_ERR, "Failed to register WU input file" );
-			exit(1);
-		}
-		if (DC_addWUOutput( wu, OUTPUT_LABEL) ) {
-			DC_log(LOG_ERR, "Failed to register WU output file");
-			exit(1);
-		}
-		if (DC_submitWU(wu)) {
-			DC_log(LOG_ERR, "Failed to submit WU");
-			exit(1);
-		}
+		}*/
+		
 		new_created_wus++;
 	}
 	ifile.close();
@@ -560,8 +455,7 @@ void create_wus( stringstream &config_sstream, config_params_crypto &config_p, s
 	
 	if ( !IsTasksFile ) { // don't update if additional wus from file ewre created
 		ofstream master_config_file;
-		string master_config_file_name_str = master_config_file_name;
-		master_config_file.open( master_config_file_name_str.c_str() );
+		master_config_file.open( master_config_file_name.c_str() );
 		master_config_file << config_sstream.str();
 		master_config_file << "created_wus = " << config_p.created_wus << endl; // update master config file
 		master_config_file.close();
@@ -584,17 +478,15 @@ void add_result_to_file( string output_filename, char *tag, char *id )
 	sstream.clear();
 	output_file.open( final_output_name.c_str(), ios_base :: out | ios_base :: app );
 	if ( !output_file.is_open() ) {
-		DC_log(LOG_ERR, "Cannot open final_output.txt for writing: %s",
-			strerror(errno));
+		std::cerr << "Cannot open final_output.txt for writing" << std::cerr;
 		exit(1);
 	}
-
+	
 	string input_str;
 	ifstream result_file;
 	result_file.open( output_filename.c_str(), ios_base :: in );
 	if ( !result_file.is_open( ) ) {
-		DC_log(LOG_ERR, "Cannot open result_file: %s",
-			strerror(errno));
+		std::cerr <<  "Cannot open result_file" << std::endl;
 		output_file.close();
 		exit(1);
 	}
@@ -610,6 +502,7 @@ void add_result_to_file( string output_filename, char *tag, char *id )
 	result_file.close();
 }
 
+#ifndef _WIN32
 void GetCountOfUnsentWUs( long long &unsent_count )
 {
 	char *host = "localhost";
@@ -699,57 +592,4 @@ bool ProcessQuery( MYSQL *conn, string str, vector< vector<stringstream *> > &re
 
 	return true;
 }
-
-/*
-// Concatenate all results in their original order to form the final output
-// Try to find SAT in results
-bool find_sat( int cnf_index )
-{
-	bool flag = false;
-	ofstream output_file;
-	stringstream final_sstream;
-	stringstream sstream;
-	string final_output_name; 
-	
-	sstream << "final_output" << cnf_index << ".txt";
-	final_output_name = sstream.str( );
-	sstream.str( "" );
-	sstream.clear();
-	output_file.open( final_output_name.c_str() );
-	if ( !output_file.is_open() ) {
-		DC_log(LOG_ERR, "Cannot open final_output.txt for writing: %s",
-			strerror(errno));
-		exit(1);
-	}
-
-	string result_filename, input_str;
-	ifstream result_file;
-	for( int i = 1; i < created_wus + 1; i++ ) { // try all files
-		sstream << "result_" << i << ".txt";
-		result_filename = sstream.str();
-		sstream.str( "" );
-		sstream.clear();
-		result_file.open( result_filename.c_str(), ios_base :: in );
-		
-		if ( result_file.is_open( ) ) {     
-			//DC_log(LOG_NOTICE, "The result for WU %d exists ", i);
-			getline( result_file, input_str );
-			final_sstream << input_str;
-			final_sstream << " result_" << i << endl;
-			int sat_pos = input_str.find( "SAT" );
-			if ( !sat_pos ) { // if SAT then
-				flag = true;
-				while ( getline( result_file, input_str ) )
-					final_sstream << input_str << endl;
-			}
-			result_file.close();
-			result_file.clear();
-		}
-	}
-    
-	output_file << final_sstream.rdbuf();
-	output_file.close();
-	
-	return flag;
-}
-*/
+#endif
