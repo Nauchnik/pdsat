@@ -82,6 +82,7 @@ int main(int argc, char* argv[])
 	argv[1] = "bivium_template.cnf";
 	argv[2] = "out";
 #endif
+	double time = cpuTime();
 	std::ifstream in(argv[1], std::ios::in);
 	if (!in.is_open())
         printf("ERROR! Could not open file: %s\n", argc == 1 ? "<stdin>" : argv[1]), exit(1);
@@ -107,7 +108,7 @@ int main(int argc, char* argv[])
         
     if (S.verbosity > 0){
         printf("|  Parse time:           %12.2f s                                       |\n", parsed_time - initial_time);
-        printf("|                                                                             |\n"); }
+        printf("|                                                                       |\n"); }
 
 	if (!S.simplify()){
         if (res != NULL) fprintf(res, "UNSAT\n"), fclose(res);
@@ -117,8 +118,11 @@ int main(int argc, char* argv[])
             //printStats(S);
             printf("\n"); }
         printf("UNSATISFIABLE\n");
+		printf( "time %f", cpuTime() - time);
         exit(20);
     }
+
+	printf("|  after simplify:           %12.2f s                                       |\n", parsed_time - initial_time);
 
 	//S.start_activity = 1;
 	//S.resetIntervalVarActivity( 578, 777 );
@@ -129,7 +133,8 @@ int main(int argc, char* argv[])
     if (S.verbosity > 0){
         //printStats(S);
         printf("\n"); }
-    printf(ret == l_True ? "SATISFIABLE\n" : ret == l_False ? "UNSATISFIABLE\n" : "INDETERMINATE\n");
+    //printf(ret == l_True ? "SATISFIABLE\n" : ret == l_False ? "UNSATISFIABLE\n" : "INDETERMINATE\n");
+
     if (res != NULL){
         if (ret == l_True){
             fprintf(res, "SAT\n");
@@ -143,17 +148,19 @@ int main(int argc, char* argv[])
             fprintf(res, "INDET\n");
         fclose(res);
     }
-        
+	printf( "time %f", cpuTime() - time);
+    
 #ifdef NDEBUG
         exit(ret == l_True ? 10 : ret == l_False ? 20 : 0);     // (faster than "return", which will invoke the destructor for 'Solver')
 #else
         return (ret == l_True ? 10 : ret == l_False ? 20 : 0);
 #endif
-
+	
 	//debug
 	//std::ofstream out("out.cnf", std::ios::out);
 	//printProblem(cnf, out);
 	//out.close();
+	
 	return 0;
 }
 /*
