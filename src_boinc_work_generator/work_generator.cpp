@@ -17,7 +17,6 @@
 #include <sstream>
 #include <cmath>
 
-#include "../src_common/common.h"
 #include "../src_common/addit_func.h"
 
 using namespace Addit_func;
@@ -30,7 +29,7 @@ static long long processed_wus;
 static long long unsent_wus;
 static long long running_wus;
 
-char *pass_file_name = NULL;
+std::string pass_file_name;
 bool IsTasksFile;
 std::string prev_path;
 
@@ -511,7 +510,7 @@ void GetCountOfUnsentWUs( long long &unsent_count )
 	MYSQL *conn;
 	
 	ifstream pass_file;
-	pass_file.open( pass_file_name );
+	pass_file.open( pass_file_name.c_str() );
 	if ( !pass_file.is_open() ) {
 		std::cerr << "psswd_file not open" << std::endl;
 		exit(1);
