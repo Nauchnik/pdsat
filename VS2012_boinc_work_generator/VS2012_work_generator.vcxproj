@@ -66,15 +66,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\src_boinc_work_generator\work_generator.cpp" />
-    <ClCompile Include="..\src_common\addit_func.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src_boinc_work_generator\a5_1_114_0_settings" />
     <None Include="..\src_boinc_work_generator\Makefile" />
-    <None Include="..\src_boinc_work_generator\master-config-crypto.conf" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\src_common\addit_func.h" />
+    <None Include="..\src_boinc_work_generator\work_generator_config.conf" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

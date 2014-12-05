@@ -16,12 +16,10 @@
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <ctime>
 
-#include "../src_common/addit_func.h"
-
-using namespace Addit_func;
-
-const long long MIN_WUS_FOR_CREATION = 100;
+const unsigned long long MIN_WUS_FOR_CREATION = 100;
+const unsigned long long MAX_WUS_FOR_CREATION = 1000;
 
 // Number of results we have received so far
 static long long all_processed_wus;
@@ -36,6 +34,23 @@ std::string prev_path;
 
 unsigned long long assumptions_count = 0;
 bool isRangeMode = false;
+
+double cpu_time(void) { return (double)clock() / CLOCKS_PER_SEC; }
+
+void shl64( unsigned long long int &val_for_left_shift, unsigned int bit_count )
+{
+	unsigned int val1, val2;
+	if ( ( bit_count > 30 ) && ( bit_count < 61 ) ) {
+		val1 = 30;
+		val2 = bit_count - val1;
+		val_for_left_shift =  ( unsigned long long int )( 1 << val1 );
+		val_for_left_shift *= ( unsigned long long int )( 1 << val2 );
+	}
+	else if ( bit_count < 31 )
+		val_for_left_shift =  ( unsigned long long int )( 1 << bit_count );
+	else
+		std::cout << "\n bit_count " <<  bit_count << " is too large ";
+}
 
 // Command line options
 
@@ -58,15 +73,13 @@ void parse_config_file( std::string &cnf_head, std::stringstream &config_sstream
 static void create_wus( std::stringstream &config_sstream, config_params_crypto &config_p, std::string cnf_head, 
 					    long long wus_for_creation_count, bool &IsLastGenerating );
 #ifndef _WIN32
-void GetCountOfUnsentWUs( long long &unsent_count );
+void GetCountOfUnsentWUs( unsigned long long &unsent_count );
 bool ProcessQuery( MYSQL *conn, std::string str, std::vector< std::vector<std::stringstream *> > &result_vec );
 #endif
-//bool find_sat( int cnf_index );
-//double cpuTime( void ) { return ( double )clock( ) / CLOCKS_PER_SEC; }
 
 int main( int argc, char *argv[] )
 {
-	double start_time = Addit_func::cpu_time();
+	double start_time = cpu_time();
 	std::string str;
 	IsTasksFile= false;
 	if ( argc < 3 ) {
@@ -92,7 +105,7 @@ int main( int argc, char *argv[] )
 	std::cout << "new master_config_file_name " << master_config_file_name << std::endl;
 	
 	do_work();
-	std::cout << "total time " << Addit_func::cpu_time() - start_time << std::endl;
+	std::cout << "total time " << cpu_time() - start_time << std::endl;
 	
 	return 0;
 }
@@ -260,6 +273,12 @@ bool do_work()
 
 		std::cout << "wus_for_creation_count " << wus_for_creation_count << std::endl;
 
+		if ( wus_for_creation_count > MAX_WUS_FOR_CREATION ) {
+			std::cout << "wus_for_creation_count > MAX_WUS_FOR_CREATION" << std::endl;
+			wus_for_creation_count = MAX_WUS_FOR_CREATION;
+			std::cout << "changed to " << MAX_WUS_FOR_CREATION << std::endl;
+		}
+
 		if ( ( wus_for_creation_count >= MIN_WUS_FOR_CREATION ) || ( IsLastGenerating ) ) {
 			// ls can be used many times - each launch vectore will be resized and filled again
 			// ls.skip_valus is updated too
@@ -306,8 +325,6 @@ void create_wus( std::stringstream &config_sstream, config_params_crypto &config
 	std::string str, word1;
 	std::ifstream ifile;
 	std::vector<int> var_choose_order;
-	long long skip_byte;
-	unsigned long long values_index;
 	
 	// read header data once - it's common for every wu
 	ifile.open( config_p.settings_file.c_str() ); // write common head to every wu
@@ -333,7 +350,6 @@ void create_wus( std::stringstream &config_sstream, config_params_crypto &config
 	}
 	ifile.close();
 	std::cout << "header_str_count " << header_str_count << std::endl;
-	short int si;
 	unsigned long long ul = 0;
 	
 	if ( isRangeMode ) {
@@ -463,7 +479,7 @@ void add_result_to_file( std::string output_filename, char *tag, char *id )
 }
 
 #ifndef _WIN32
-void GetCountOfUnsentWUs( long long &unsent_count )
+void GetCountOfUnsentWUs( unsigned long long &unsent_count )
 {
 	char *host = "localhost";
     char *db;
@@ -471,13 +487,13 @@ void GetCountOfUnsentWUs( long long &unsent_count )
     char *pass;
 	MYSQL *conn;
 	
-	ifstream pass_file;
+	std::ifstream pass_file;
 	pass_file.open( pass_file_name.c_str() );
 	if ( !pass_file.is_open() ) {
 		std::cerr << "psswd_file not open" << std::endl;
 		exit(1);
 	}
-	string str;
+	std::string str;
 	getline( pass_file, str );
 	db = new char[str.length() + 1];
 	strcpy( db, str.c_str() );
@@ -503,7 +519,7 @@ void GetCountOfUnsentWUs( long long &unsent_count )
 	delete[] user;
 	delete[] pass;
 
-	vector< vector<stringstream *> > result_vec;
+	std::vector< std::vector<std::stringstream *> > result_vec;
 	str = "SELECT COUNT(*) FROM workunit WHERE id IN(SELECT workunitid FROM result WHERE server_state = 2)";
 	std::cout << str << std::endl;
 
@@ -516,30 +532,30 @@ void GetCountOfUnsentWUs( long long &unsent_count )
 		unsent_count = -1;
 }
 
-bool ProcessQuery( MYSQL *conn, string str, vector< vector<stringstream *> > &result_vec )
+bool ProcessQuery( MYSQL *conn, std::string str, std::vector< std::vector<std::stringstream *> > &result_vec )
 {
 	MYSQL_RES *res;
 	MYSQL_ROW row;
 	int num_fields;
 	
 	if ( mysql_query(conn, str.c_str()) != 0 ) {
-		cerr << "Error: can't execute SQL-query\n";
+		std::cerr << "Error: can't execute SQL-query\n";
 		return false;
 	}
 	
 	res = mysql_store_result( conn );
 
 	if( res == NULL ) 
-		cerr << "Error: can't get the result description\n";
+		std::cerr << "Error: can't get the result description\n";
 
 	num_fields = mysql_num_fields(res);
-	stringstream *sstream_p;
-	vector<stringstream *> result_data;
+	std::stringstream *sstream_p;
+	std::vector<std::stringstream *> result_data;
 
 	if ( mysql_num_rows( res ) > 0 ) {
 		while((row = mysql_fetch_row(res)) != NULL) {
 			for( int i = 0; i < num_fields; ++i ) {
-				sstream_p = new stringstream();
+				sstream_p = new std::stringstream();
 				*sstream_p << row[i]; // get value
 				result_data.push_back( sstream_p );
 			}

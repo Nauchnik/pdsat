@@ -1,33 +1,29 @@
 CPP = g++
 BOOST = ../../
 MYSQL = /usr/include/mysql
-COMMON = ../src_common/
-INCDIRS  = -I${MYSQL} -I${BOOST} -I${COMMON}
+UUID = /usr/include/uuid
+INCDIRS  = -I${MYSQL} -I${BOOST} -I${UUID}
 
 CPP_DEBUG_FLAGS = -O0 -DDEBUG_ALL -g ${INCDIRS}
 CPP_RELEASE_FLAGS = -O2 -D NDEBUG -D __STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS ${INCDIRS} -MYSQL
-DCAPI_MASTER_FLAGS = -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/uuid
-DCAPI_MASTER_LIBS = -ldcapi-boinc -lglib-2.0 -luuid /usr/lib/libmysqlclient.so
+MYSQL_LIBS = -luuid /usr/lib/libmysqlclient.so
 
 #all: release debug
 
 release: CPPFLAGS = $(CPP_RELEASE_FLAGS)
-release: pdsat-crypto-master
+release: pdsat_work_generator
 
 debug: CPPFLAGS = $(CPP_DEBUG_FLAGS)
-debug: pdsat-crypto-master
+debug: pdsat_work_generator
 
-pdsat-crypto-master: master.o addit_func.o
-	${CPP} ${CPPFLAGS} master.o addit_func.o -o pdsat-crypto-master ${DCAPI_MASTER_LIBS} ${DCAPI_MASTER_FLAGS}
+pdsat_work_generator: work_generator.o
+	${CPP} ${CPPFLAGS} work_generator.o -o pdsat_work_generator $(MYSQL_LIBS)
 
-master.o: master.cpp
-	${CPP} ${CPPFLAGS} master.cpp -c
-
-addit_func.o: ../src_common/addit_func.cpp
-	${CPP} ${CPPFLAGS} ../src_common/addit_func.cpp -c
+work_generator.o: work_generator.cpp
+	${CPP} ${CPPFLAGS} work_generator.cpp -c
 	
 clean:
 	rm -fr *.o
-	rm pdsat-crypto-master*
+	rm pdsat_work_generator*
 	clear
 	
