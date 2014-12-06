@@ -1,0 +1,293 @@
+<?xml version="1.0" ?>
+<boinc>
+  <config>
+    <upload_dir>
+      /var/lib/boinc/dcsdg/project/upload
+    </upload_dir>
+    <send_result_abort>
+      1
+    </send_result_abort>
+    <long_name>
+      OPTIMA@HOME
+    </long_name>
+    <cgi_url>
+      http://boinc.isa.ru/dcsdg_cgi/
+    </cgi_url>
+    <sched_debug_level>
+      3
+    </sched_debug_level>
+    <disable_account_creation>
+      0
+    </disable_account_creation>
+    <uldl_dir_fanout>
+      1024
+    </uldl_dir_fanout>
+    <download_url>
+      http://boinc.isa.ru/dcsdg/download
+    </download_url>
+    <db_user>
+      boinc_dcsdg
+    </db_user>
+    <log_dir>
+      /var/lib/boinc/dcsdg/project/log_boinc
+    </log_dir>
+    <httpd_user>
+      www-data
+    </httpd_user>
+    <app_dir>
+      /var/lib/boinc/dcsdg/project/apps
+    </app_dir>
+    <download_dir>
+      /var/lib/boinc/dcsdg/project/download
+    </download_dir>
+    <fuh_debug_level>
+      3
+    </fuh_debug_level>
+    <master_url>
+      http://boinc.isa.ru/dcsdg/
+    </master_url>
+    <host>
+      boinc
+    </host>
+    <db_name>
+      boinc_dcsdg
+    </db_name>
+    <shmem_key>
+      0x11119b38
+    </shmem_key>
+    <show_results>
+      1
+    </show_results>
+    <key_dir>
+      /var/lib/boinc/dcsdg/project/keys/
+    </key_dir>
+    <upload_url>
+      http://boinc.isa.ru/dcsdg_cgi/file_upload_handler
+    </upload_url>
+    <db_passwd>
+      2F3yDQgdGW
+    </db_passwd>
+    <min_sendwork_interval>
+      6
+    </min_sendwork_interval>
+    <db_host>
+      localhost
+    </db_host>
+    <daily_result_quota>
+      500
+    </daily_result_quota>
+    <one_result_per_user_per_wu>
+      0
+    </one_result_per_user_per_wu>
+    <max_wus_to_send>
+      50
+    </max_wus_to_send>
+    <max_wus_in_progress> 
+      8 
+    </max_wus_in_progress>
+    <dont_generate_upload_certificates/>
+    <ignore_upload_certificates/> 
+  </config>
+  <tasks>
+    <task>
+      <cmd>
+        db_dump -d 2 -dump_spec ../db_dump_spec.xml
+      </cmd>
+      <period>
+        6 hours
+      </period>
+      <output>
+        db_dump.out
+      </output>
+    </task>
+<!--    <task>
+      <cmd>
+        ma.pl
+      </cmd>
+      <period>
+        30 minutes
+      </period>
+      <output>
+        ma.out
+      </output>
+    </task>
+-->
+    <task>
+      <cmd>
+        db_wu_result_history1.pl boinc_dcsdg boinc_dcsdg 2F3yDQgdGW /var/lib/boinc/dcsdg/project/boinc_history 1800
+     </cmd>
+      <period>
+        30 minutes
+      </period>
+    </task>
+    <task>
+      <cmd>
+        run_in_ops ./update_uotd.php
+      </cmd>
+      <period>
+        1 days
+      </period>
+      <disabled>
+        1
+      </disabled>
+      <output>
+        update_uotd.out
+      </output>
+    </task>
+    <task>
+      <cmd>
+        run_in_ops ./update_forum_activities.php
+      </cmd>
+      <period>
+        1 hour
+      </period>
+      <disabled>
+        1
+      </disabled>
+      <output>
+        update_forum_activities.out
+      </output>
+    </task>
+    <task>
+      <cmd>
+        update_stats -update_users -update_teams -update_hosts
+      </cmd>
+      <period>
+        7 days
+      </period>
+      <output>
+        update_stats.out
+      </output>
+    </task>
+    <task>
+      <cmd>
+        run_in_ops ./update_profile_pages.php
+      </cmd>
+      <period>
+        24 hours
+      </period>
+      <disabled>
+        1
+      </disabled>
+      <output>
+        update_profile_pages.out
+      </output>
+    </task>
+    <task>
+      <cmd>
+        run_in_ops ./team_import.php
+      </cmd>
+      <period>
+        24 hours
+      </period>
+      <disabled>
+        1
+      </disabled>
+      <output>
+        team_import.out
+      </output>
+    </task>
+    <task>
+      <cmd>
+        run_in_ops ./notify.php
+      </cmd>
+      <period>
+        24 hours
+      </period>
+      <disabled>
+        1
+      </disabled>
+      <output>
+        notify.out
+      </output>
+    </task>
+    <task>
+      <cmd>
+        update_szdg_performance
+      </cmd>
+      <period>
+        1 hour 
+      </period>
+      <output>
+        update_szdg_performance.out
+      </output>
+    </task>
+    <task>
+      <cmd>
+        update_szdg_stats
+      </cmd>
+      <period>
+        12 hours
+      </period>
+      <output>
+        update_szdg_stats.out
+      </output>
+    </task>
+    <task>
+      <cmd>
+        update_rrd_data
+      </cmd>
+      <period>
+        30 minutes
+      </period>
+      <disabled>
+        1
+      </disabled>
+      <output>
+        update_rrd_data.out
+      </output>
+    </task>
+    <task>
+      <cmd>
+        update_rrd_graph
+      </cmd>
+      <period>
+        30 minutes
+      </period>
+      <disabled>
+        1
+      </disabled>
+      <output>
+        update_rrd_graph.out
+      </output>
+    </task>
+  </tasks>
+  <daemons>
+    <daemon>
+      <cmd>
+        feeder -d 3 
+      </cmd>
+    </daemon>
+    <daemon>
+      <cmd>
+        transitioner -d 3 
+      </cmd>
+    </daemon>
+    <daemon>
+      <cmd>
+        file_deleter -d 3 
+      </cmd>
+    </daemon>
+<!--    <daemon>
+      <cmd>
+        sample_assimilator -d 3 -app molc
+      </cmd>
+    </daemon>
+    <daemon>
+      <cmd>
+        sample_trivial_validator -d 3 -app molc
+      </cmd>
+    </daemon> -->
+    <daemon>
+      <cmd>
+        sample_assimilator -d 3 -app smallexpx
+      </cmd>
+    </daemon>
+    <daemon>
+      <cmd>
+        sample_trivial_validator -d 3 -credit_from_wu -app smallexpx
+      </cmd>
+    </daemon>
+  </daemons>
+</boinc>
+
