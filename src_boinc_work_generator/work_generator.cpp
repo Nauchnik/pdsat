@@ -18,7 +18,7 @@
 #include <cmath>
 #include <ctime>
 
-const unsigned long long MIN_WUS_FOR_CREATION = 100;
+const unsigned long long MIN_WUS_FOR_CREATION = 2;
 const unsigned long long MAX_WUS_FOR_CREATION = 1000;
 
 // Number of results we have received so far
@@ -398,7 +398,7 @@ void create_wus( std::stringstream &config_without_created_wus_sstream, config_p
 	std::cout << "before creating wus" << std::endl;
 	unsigned long long now_created = 0;
 	unsigned long long range1, range2;
-	std::string system_str;
+	std::string system_str, wu_name;
 	for( unsigned long long wu_index = config_p.created_wus; wu_index < config_p.created_wus + wus_for_creation_count; wu_index++ ) {
 		if ( IsFastExit )
 			break;
@@ -422,7 +422,8 @@ void create_wus( std::stringstream &config_without_created_wus_sstream, config_p
 		sstream << config_p.problem_type;
 		sstream << "--" << wu_index + 1; // save info about CNF name
 
-		cur_wu_input_file_name = sstream.str();
+		wu_name = sstream.str();
+		cur_wu_input_file_name = "input_" + wu_name;
 		sstream.str( "" ); sstream.clear();
 		
 		temp_wu_file_name.open( "tmp_wu_file", std::ios_base :: out );
@@ -442,10 +443,10 @@ void create_wus( std::stringstream &config_without_created_wus_sstream, config_p
 		std::cout << "before system command : " << system_str << std::endl; 
 		system( system_str.c_str() );
 		std::cout << "after system command" << std::endl;
-		system_str = "create_work -appname pdsat_crypto -wu_name " + cur_wu_input_file_name + 
-			         " -wu_template ../../project/templates/workunit_template_bivium9.xml" + 
-					 " -result_template ../../project/templates/result_template_bivium9.xml " + cur_wu_input_file_name;
-		std::cout << "before system command : " << system_str << std::endl; 
+		system_str = "create_work -appname pdsat_crypto -wu_name " + wu_name +
+			         " -wu_template ./templates/workunit_template_bivium9.xml" + 
+					 " -result_template ./templates/result_template_bivium9.xml " + cur_wu_input_file_name;
+		std::cout << "before system command : " << system_str << std::endl;
 		system( system_str.c_str() );
 		std::cout << "after system command" << std::endl;
 		
