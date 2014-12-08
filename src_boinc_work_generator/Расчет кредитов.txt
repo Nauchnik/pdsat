@@ -1,51 +1,19 @@
-E8400 Linpack результаты
-Average 14.5949 GFLOPS на 2 ядра
-Maximal 15.5642 GFLOPS на 2 ядра
-Взял Maximal
-т.е. 7.7821 GFLOPS на 1 ядро.
-BOINC benchmark:
-8.339 GFLOPs на 1 ядро
+--- Для эксперимента bivium9 на 8.12.2014
+Phenom 2 X6 T1100 
+id 1371
 
-на тестах по a5_1 (method 2) на хосте 10651 с CPU E8400
-SELECT AVG(cpu_time) FROM result WHERE hostid=10651
-Tavg = 6606 секунд
-
-Credit = Tavg * (LinXStone + Dhrystone)/2 *100/86400
-Credit = 6606 * (7.7821 + 8.339)/2 *100/86400
-Credit = 61.6296
-
-SELECT AVG(granted_credit) FROM result WHERE hostid=10651
-37.7984
-
-Итого вместо 61.6296 кредитов начислялось в среднем 37.7984 для моего хоста, т.е. около 61 % от необходимого.
-
-----
-i7-2600k Linpack результаты
-Average 35.8426 GFLOPS на 8 ядер
-Maximal 54.8113 GFLOPS на 8 ядер
-Итого 6.8514 GFLOPS на 1 ядро
-BOINC benchmark:
-11.946 GFLOPs на 1 ядро
-
-SELECT AVG(cpu_time) FROM result WHERE hostid=11369
-Tavg = 6958 секунд
-
-Credit = Tavg * (LinXStone + Dhrystone)/2 *100/86400
-Credit = 6958 * (6.8514 + 11.946)/2 *100/86400
-Credit = 75.6899
-
-
---- Для эксперимента bivium9 на 27.11.2014
-Phenom 2 X6 T1100
 Линпак
 60,095 GFLOPs на 6 ядер
 10,01583 GFLOPs на 1 ядро
 BOINC benchmark INT
 7,429
-время 17292 сек.
+// взять среднее время по посчитанным заданиями для эксперимента bivium9_3 и версии приложения 2.03
+SELECT AVG(cpu_time) FROM result WHERE hostid=1371 AND granted_credit > 0 AND name LIKE '%bivium9_3%' AND app_version_num = 203
+86 подходящих результатов в БД
+cреднее время 12873 сек.
 
-кредитов
-174,57
+Credit = 12873 * (7,429 + 10,01583)/2 *100/86400
+Credit = 129.957926267361
+Credit = 130
 
-granted
-26.25
+Средний granted_credit по этим заданиям равен 62

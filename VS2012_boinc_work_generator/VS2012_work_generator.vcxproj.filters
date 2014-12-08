@@ -25,7 +25,7 @@
     <None Include="..\src_boinc_work_generator\work_generator_config.conf" />
   </ItemGroup>
   <ItemGroup>
-    <Xml Include="..\src_boinc_work_generator\pdsat-credits-files\templates\result_template_bivium9.xml" />
-    <Xml Include="..\src_boinc_work_generator\pdsat-credits-files\templates\workunit_template_bivium9.xml" />
+    <Xml Include="..\src_boinc_work_generator\templates\result_template_bivium9.xml" />
+    <Xml Include="..\src_boinc_work_generator\templates\workunit_template_bivium9.xml" />
   </ItemGroup>
 </Project>
