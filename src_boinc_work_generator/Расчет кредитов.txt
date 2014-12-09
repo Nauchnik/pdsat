@@ -17,3 +17,8 @@ Credit = 129.957926267361
 Credit = 130
 
 —редний granted_credit по этим задани€м равен 62
+
+ƒобавить в старые workunit, по которым еще не получены результаты, указание на кредит
+UPDATE workunit SET xml_doc = CONCAT('<input_template>', XML_DOC, '<credit>130</credit></input_template>') WHERE max_error_results=4 AND canonical_resultid=0
+
+456 workunit с именем не bivium9_3
