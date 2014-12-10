@@ -74,7 +74,9 @@
   </ItemGroup>
   <ItemGroup>
     <Xml Include="..\src_boinc_work_generator\templates\result_template_bivium9.xml" />
-    <Xml Include="..\src_boinc_work_generator\templates\workunit_template_bivium9.xml" />
+    <Xml Include="..\src_boinc_work_generator\templates\workunit_template_bivium9.xml">
+      <SubType>Designer</SubType>
+    </Xml>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
