@@ -440,15 +440,15 @@ void create_wus( std::stringstream &config_without_created_wus_sstream, config_p
 		temp_wu_file_name.clear();
 		
 		system_str = "cp tmp_wu_file `dir_hier_path " + cur_wu_input_file_name + "`";
-		std::cout << "before system command : " << system_str << std::endl; 
+		//std::cout << "before system command : " << system_str << std::endl; 
 		system( system_str.c_str() );
-		std::cout << "after system command" << std::endl;
+		//std::cout << "after system command" << std::endl;
 		system_str = "create_work -appname pdsat_crypto -wu_name " + wu_name +
 			         " -wu_template templates/workunit_template_bivium9.xml" + 
 					 " -result_template templates/result_template_bivium9.xml " + cur_wu_input_file_name;
 		std::cout << "before system command : " << system_str << std::endl;
 		system( system_str.c_str() );
-		std::cout << "after system command" << std::endl;
+		//std::cout << "after system command" << std::endl;
 		
 		if ( !now_created ) {
 			std::cout << "isRangeMode " << isRangeMode << std::endl;
