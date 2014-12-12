@@ -18,8 +18,8 @@
 #include <cmath>
 #include <ctime>
 
-const unsigned long long MIN_WUS_FOR_CREATION = 100;
-const unsigned long long MAX_WUS_FOR_CREATION = 1000;
+const long long MIN_WUS_FOR_CREATION = 100;
+const long long MAX_WUS_FOR_CREATION = 1000;
 
 // Number of results we have received so far
 static long long all_processed_wus;
@@ -58,14 +58,14 @@ struct config_params_crypto {
 	std::string problem_type;
 	std::string settings_file;
 	std::string data_file;
-	unsigned long long cnf_variables;
-	unsigned long long cnf_clauses;
-	unsigned long long problems_in_wu;
-	unsigned long long unsent_needed_wus;
-	unsigned long long total_wus;
-	unsigned long long created_wus;
-	unsigned seconds_between_launches;
-	unsigned credits_per_wu;
+	long long cnf_variables;
+	long long cnf_clauses;
+	long long problems_in_wu;
+	long long unsent_needed_wus;
+	long long total_wus;
+	long long created_wus;
+	int seconds_between_launches;
+	int credits_per_wu;
 };
 
 static void print_help(const char *prog);
@@ -74,7 +74,7 @@ void parse_config_file( std::string &cnf_head, std::stringstream &config_without
 static void create_wus( std::stringstream &cconfig_without_created_wus_sstream, config_params_crypto &config_p, std::string cnf_head, 
 					    long long wus_for_creation_count, bool &IsLastGenerating );
 #ifndef _WIN32
-void GetCountOfUnsentWUs( unsigned long long &unsent_count );
+void GetCountOfUnsentWUs( long long &unsent_count );
 bool ProcessQuery( MYSQL *conn, std::string str, std::vector< std::vector<std::stringstream *> > &result_vec );
 #endif
 
@@ -246,11 +246,11 @@ bool do_work()
 
 	processed_wus     = 0;
 	all_processed_wus = 0;
-	unsigned long long unsent_count = 0;
+	long long unsent_count = 0;
 	config_params_crypto config_p;
 	std::stringstream config_without_created_wus_sstream;
 	std::string cnf_head;
-	unsigned long long wus_for_creation_count = 0;
+	long long wus_for_creation_count = 0;
 	
 	parse_config_file( config_p, cnf_head, config_without_created_wus_sstream );
 	std::ifstream ifile;
@@ -359,7 +359,7 @@ void create_wus( std::stringstream &config_without_created_wus_sstream, config_p
 	}
 	std::cout << "file " << config_p.settings_file << " opened" << std::endl;
 	//cout << "header:" << endl;
-	unsigned header_str_count = 0;
+	int header_str_count = 0;
 	while ( getline( ifile, str ) ) {
 		sstream << str;
 		sstream >> word1;
@@ -375,7 +375,6 @@ void create_wus( std::stringstream &config_without_created_wus_sstream, config_p
 	}
 	ifile.close();
 	std::cout << "header_str_count " << header_str_count << std::endl;
-	unsigned long long ul = 0;
 	
 	if ( isRangeMode ) {
 		std::cout << "isRangeMode" << std::endl;
@@ -389,7 +388,7 @@ void create_wus( std::stringstream &config_without_created_wus_sstream, config_p
 	}
 	
 	std::cout << "created_wus "         << config_p.created_wus << std::endl;
-	unsigned long long total_wu_data_count = (unsigned long long)ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
+	long long total_wu_data_count = (long long)ceil( double(assumptions_count) / double(config_p.problems_in_wu) );
 	std::cout << "total_wu_data_count " << total_wu_data_count  << std::endl;
 	if ( total_wu_data_count > config_p.total_wus )
 		total_wu_data_count = config_p.total_wus;
