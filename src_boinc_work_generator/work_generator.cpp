@@ -517,7 +517,7 @@ void add_result_to_file( std::string output_filename, char *tag, char *id )
 }
 
 #ifndef _WIN32
-void GetCountOfUnsentWUs( unsigned long long &unsent_count )
+void GetCountOfUnsentWUs( long long &unsent_count )
 {
 	char *host = "localhost";
     char *db;
