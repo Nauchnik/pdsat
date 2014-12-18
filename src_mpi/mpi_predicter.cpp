@@ -76,6 +76,183 @@ bool ds_compareByActivity(const decomp_set &a, const decomp_set &b)
 	return a.med_var_activity > b.med_var_activity;
 }
 
+//---------------------------------------------------------
+bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
+{
+// Predicting of computer cost
+	std::stringstream sstream_control;
+	rank = -1;
+	std::vector<int> ::iterator vec_it;
+	MPI_Init( &argc, &argv );
+	MPI_Comm_size( MPI_COMM_WORLD, &corecount );
+	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+	
+	if ( ( solver_name.find( "." ) != std::string::npos ) ||
+		 ( solver_name.find( "/" ) != std::string::npos )
+		 )
+	{
+		isSolverSystemCalling = true;
+		ts_strategy = 0;
+	}
+	
+	IsPredict = true;
+	if ( corecount < 2 ) { 
+		std::cerr << "Error. corecount < 2" << std::endl; 
+		return false; 
+	}
+	
+	vec_IsDecompSetSendedToProcess.resize( corecount - 1 );
+	if ( te > 0 )
+		max_solving_time = te; // for (ro, es, te) predict mode
+
+	int stream_char_len, state_char_len;
+	
+	if ( rank == 0 ) { // control node
+		std::cout << "MPI_Predict is running " << std::endl;
+		
+		if ( !ReadIntCNF( ) ) { 
+			std::cerr << "Error in ReadIntCNF" << std::endl; 
+			return 1; 
+		}
+		
+		if ( predict_to > MAX_CORE_LEN ) {
+			std::cout << "Warning. predict_to > MAX_PREDICT_TO. Changed to MAX_PREDICT_TO" << std::endl;
+			std::cout << predict_to << " > " << MAX_CORE_LEN << std::endl;
+			predict_to = MAX_CORE_LEN;
+		}
+		if  ( predict_to > (int)core_len ) {
+			std::cout << "core_len changed to predict_to" << std::endl;
+			std::cout << core_len << " changed to " << predict_to << std::endl;
+			core_len = predict_to;
+		}
+		if ( ( !predict_to ) && ( core_len ) ) {
+			std::cout << "predict_to changed to core_len" << std::endl;
+			std::cout << predict_to << " changed to " << core_len << std::endl;
+			predict_to = core_len;
+			var_choose_order = full_var_choose_order;
+		}
+		
+		activity_vec_len = core_len;
+		var_activity = new double[activity_vec_len];
+		for ( unsigned i=0; i < activity_vec_len; i++ )
+			var_activity[i] = 0.0;
+		total_var_activity.resize( activity_vec_len );
+		for( auto &x : total_var_activity ) x = 0;
+		//for( std::vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it )
+		//	*it = 0;
+		
+		int *full_local_decomp_set = new int[core_len];
+		for( unsigned i=0; i < core_len; ++i )
+			full_local_decomp_set[i] = full_var_choose_order[i];
+
+		unsigned k=0;
+		for ( auto &x : full_var_choose_order )
+			core_var_indexes.insert( std::pair<int,unsigned>(x,k++) );
+		
+		// send core_len once to every compute process
+		for( int i=0; i < corecount-1; ++i ) {
+			MPI_Send( &var_count,        1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &core_len,         1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &activity_vec_len, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &known_last_bits,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &known_vars_count, 1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &input_var_num,    1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &start_activity,   1, MPI_DOUBLE, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( full_local_decomp_set, core_len, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
+		}
+		delete[] full_local_decomp_set;
+		
+		if ( te > 0 ) {
+			first_stream_var_index = var_count - keystream_len;
+			std::cout << "first_stream_var_index " << first_stream_var_index << std::endl;
+
+			MakeSatSample( state_vec_vec, stream_vec_vec );
+			stream_char_len = stream_vec_vec.size() * stream_vec_vec[0].size();
+			state_char_len  = state_vec_vec.size()  * state_vec_vec[0].size();
+			std::cout << "stream_vec_vec.size() " << stream_vec_vec.size() << std::endl;
+			std::cout << "state_vec_vec.size() "  << state_vec_vec.size()  << std::endl;
+			std::cout << "stream_char_len "       << stream_char_len       << std::endl;
+			std::cout << "state_char_len "        << state_char_len        << std::endl;
+			char *stream_arr = new char[stream_char_len];
+			char *state_arr  = new char[state_char_len];
+			int k = 0;
+			for ( auto &x : stream_vec_vec )
+				for ( auto y = x.begin(); y != x.end(); y++ )
+					stream_arr[k++] = *y ? 1 : 0;
+			std::cout << "stream_arr size " << k << std::endl;
+			if ( k != stream_char_len ) {
+				std::cerr << "k != stream_char_len" << std::endl;
+				std::cerr << k << " != " << stream_char_len << std::endl;
+				exit(1);
+			}
+			k = 0;
+			for ( auto &x : state_vec_vec )
+				for ( auto y = x.begin(); y != x.end(); y++ )
+					state_arr[k++] = *y ? 1 : 0;
+			std::cout << "state_arr size " << k << std::endl;
+			if ( k != state_char_len ) {
+				std::cerr << "k != state_char_len" << std::endl;
+				std::cerr << k << " != " << state_char_len << std::endl;
+				exit(1);
+			}
+			
+			for( int i=0; i < corecount-1; ++i ) {
+				MPI_Send( &first_stream_var_index,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+				MPI_Send( stream_arr, stream_char_len, MPI_CHAR,     i + 1, 0, MPI_COMM_WORLD );
+				MPI_Send( state_arr,  state_char_len,  MPI_CHAR,     i + 1, 0, MPI_COMM_WORLD );
+			}
+			std::cout << "stream_arr and state_arr sended" << std::endl;
+			
+			delete[] stream_arr;
+			delete[] state_arr;
+		}
+		
+		array_message = NULL;
+		
+		std::cout << "verbosity "     << verbosity           << std::endl;
+		std::cout << "solver_name "   << solver_name         << std::endl;
+		std::cout << "schema_type "   << schema_type         << std::endl;
+		std::cout << "corecount "     << corecount           << std::endl;
+		std::cout << "deep_predict  " << deep_predict        << std::endl;
+		std::cout << "predict_from "  << predict_from        << std::endl;
+		std::cout << "predict_to "    << predict_to          << std::endl;
+		std::cout << "cnf_in_set_count " << cnf_in_set_count << std::endl; 
+		std::cout << "proc_count "    << proc_count          << std::endl;
+		std::cout << "core_len "      << core_len            << std::endl;
+		std::cout << "input_var_num " << input_var_num       << std::endl;
+ 		std::cout << "start_activity "    << start_activity << std::endl;
+		std::cout << "max_var_deep_predict " << max_var_deep_predict << std::endl;
+		std::cout << "start_temperature_koef " << start_temperature_koef << std::endl;
+		std::cout << "point_admission_koef " << point_admission_koef << std::endl;
+		std::cout << "ts_strategy " << ts_strategy << std::endl;
+		std::cout << "IsFirstStage " << IsFirstStage << std::endl;
+		std::cout << "max_L2_hamming_distance " << max_L2_hamming_distance << std::endl;
+		std::cout << "evaluation_type " << evaluation_type << std::endl;
+		std::cout << "te for (ro, es, te) " << te << std::endl;
+		std::cout << "er for (ro, es, te) " << er << std::endl;
+		//cout << "penalty for (ro, es, te) " << penalty << std::endl;
+		std::cout << "keystream_len " << keystream_len << std::endl;
+		std::cout << "blob_var_count " << blob_var_count << std::endl;
+		std::cout << "isSolverSystemCalling " << isSolverSystemCalling << std::endl;
+		std::cout << std::endl;
+		
+		DeepPredictMain();
+		
+		delete[] var_activity;
+	}
+	else { // if rank != 0
+		if ( !ComputeProcessPredict( ) ) {
+			std::cout << std::endl << "Error in ComputeProcessPredict" << std::endl;
+			MPI_Abort( MPI_COMM_WORLD, 0 );
+			return false;
+		}
+	}
+
+	MPI_Abort( MPI_COMM_WORLD, 0 );
+
+	return true;
+}
+
 void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number_to_send, int &cur_task_index, unsigned &cur_decomp_set_index )
 {
 	if ( verbosity > 1 )
@@ -602,13 +779,13 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	std::stringstream sstream;
 	unsigned base_known_vars_count = 0;
 	// get core_len before getting tasks
-	MPI_Recv( &var_count,        1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &core_len,         1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &activity_vec_len, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &known_last_bits,  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &var_count,			  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &core_len,			  1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &activity_vec_len,      1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &known_last_bits,       1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &base_known_vars_count, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &input_var_num,    1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &start_activity,   1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &input_var_num,		  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &start_activity,		  1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	if ( input_var_num == 0 ) {
 		std::cerr << "input_var_num == 0" << std::endl;
 		exit(1);
@@ -636,9 +813,6 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	all_vars_set.resize( var_count ); // all vars including additional anf keystream
 	for ( unsigned i=0; i < all_vars_set.size(); i++ )
 		all_vars_set[i] = i+1;
-	sstream << "collisions_rank" << rank;
-	std::string collisions_file_name = sstream.str();
-	sstream.str(""); sstream.clear();
 
 	if ( isSolverSystemCalling ) {
 		// get data and size of template cnf file
@@ -682,9 +856,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		tmp_cnf_process << template_sstream.str();
 		tmp_cnf_process.close();
 	}
-	
-	// read file with CNF once
-	if ( !isSolverSystemCalling ) {
+	else if ( !isSolverSystemCalling ) { // read file with CNF once
 		if ( rank == 1 ) 
 			std::cout << "Before solver program calling" << std::endl;
 		minisat22_wrapper m22_wrapper;
@@ -1373,182 +1545,6 @@ bool MPI_Predicter :: DeepPredictMain( )
 	
 	global_count_var_changing.clear();
 	
-	return true;
-}
-
-//---------------------------------------------------------
-bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
-{
-// Predicting of computer cost
-	std::stringstream sstream_control;
-	rank = -1;
-	std::vector<int> ::iterator vec_it;
-	MPI_Init( &argc, &argv );
-	MPI_Comm_size( MPI_COMM_WORLD, &corecount );
-	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
-	
-	if ( ( solver_name.find( "." ) != std::string::npos ) ||
-		 ( solver_name.find( "/" ) != std::string::npos )
-		 )
-	{
-		isSolverSystemCalling = true;
-		ts_strategy = 0;
-	}
-	
-	IsPredict = true;
-	if ( corecount < 2 ) { 
-		std::cerr << "Error. corecount < 2" << std::endl; return false; 
-	}
-	
-	vec_IsDecompSetSendedToProcess.resize( corecount - 1 );
-	if ( te > 0 )
-		max_solving_time = te; // for (ro, es, te) predict mode
-
-	int stream_char_len, state_char_len;
-	
-	if ( rank == 0 ) { // control node
-		std::cout << "MPI_Predict is running " << std::endl;
-		
-		if ( !ReadIntCNF( ) ) { 
-			std::cerr << "Error in ReadIntCNF" << std::endl; return 1; 
-		}
-		
-		if ( predict_to > MAX_CORE_LEN ) {
-			std::cout << "Warning. predict_to > MAX_PREDICT_TO. Changed to MAX_PREDICT_TO" << std::endl;
-			std::cout << predict_to << " > " << MAX_CORE_LEN << std::endl;
-			predict_to = MAX_CORE_LEN;
-		}
-		if  ( predict_to > (int)core_len ) {
-			std::cout << "core_len changed to predict_to" << std::endl;
-			std::cout << core_len << " changed to " << predict_to << std::endl;
-			core_len = predict_to;
-		}
-
-		if ( ( !predict_to ) && ( core_len ) ) {
-			std::cout << "predict_to changed to core_len" << std::endl;
-			std::cout << predict_to << " changed to " << core_len << std::endl;
-			predict_to = core_len;
-			var_choose_order = full_var_choose_order;
-		}
-		
-		activity_vec_len = core_len;
-		var_activity = new double[activity_vec_len];
-		for ( unsigned i=0; i < activity_vec_len; i++ )
-			var_activity[i] = 0.0;
-		total_var_activity.resize( activity_vec_len );
-		//for( auto &x : total_var_activity ) x = 0;
-		for( std::vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it )
-			*it = 0;
-		
-		int *full_local_decomp_set = new int[core_len];
-		for( unsigned i=0; i < core_len; ++i )
-			full_local_decomp_set[i] = full_var_choose_order[i];
-
-		unsigned k=0;
-		for ( auto &x : full_var_choose_order )
-			core_var_indexes.insert( std::pair<int,unsigned>(x,k++) );
-		
-		// send core_len once to every compute process
-		for( int i=0; i < corecount-1; ++i ) {
-			MPI_Send( &var_count,        1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &core_len,         1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &activity_vec_len, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &known_last_bits,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &known_vars_count, 1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &input_var_num,    1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &start_activity,   1, MPI_DOUBLE, i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( full_local_decomp_set, core_len, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
-		}
-		delete[] full_local_decomp_set;
-		
-		if ( te > 0 ) {
-			first_stream_var_index = var_count - keystream_len;
-			std::cout << "first_stream_var_index " << first_stream_var_index << std::endl;
-
-			MakeSatSample( state_vec_vec, stream_vec_vec );
-			stream_char_len = stream_vec_vec.size() * stream_vec_vec[0].size();
-			state_char_len  = state_vec_vec.size()  * state_vec_vec[0].size();
-			std::cout << "stream_vec_vec.size() " << stream_vec_vec.size() << std::endl;
-			std::cout << "state_vec_vec.size() "  << state_vec_vec.size()  << std::endl;
-			std::cout << "stream_char_len "       << stream_char_len       << std::endl;
-			std::cout << "state_char_len "        << state_char_len        << std::endl;
-			char *stream_arr = new char[stream_char_len];
-			char *state_arr  = new char[state_char_len];
-			int k = 0;
-			for ( auto &x : stream_vec_vec )
-				for ( auto y = x.begin(); y != x.end(); y++ )
-					stream_arr[k++] = *y ? 1 : 0;
-			std::cout << "stream_arr size " << k << std::endl;
-			if ( k != stream_char_len ) {
-				std::cerr << "k != stream_char_len" << std::endl;
-				std::cerr << k << " != " << stream_char_len << std::endl;
-				exit(1);
-			}
-			k = 0;
-			for ( auto &x : state_vec_vec )
-				for ( auto y = x.begin(); y != x.end(); y++ )
-					state_arr[k++] = *y ? 1 : 0;
-			std::cout << "state_arr size " << k << std::endl;
-			if ( k != state_char_len ) {
-				std::cerr << "k != state_char_len" << std::endl;
-				std::cerr << k << " != " << state_char_len << std::endl;
-				exit(1);
-			}
-			
-			for( int i=0; i < corecount-1; ++i ) {
-				MPI_Send( &first_stream_var_index,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-				MPI_Send( stream_arr, stream_char_len, MPI_CHAR,     i + 1, 0, MPI_COMM_WORLD );
-				MPI_Send( state_arr,  state_char_len,  MPI_CHAR,     i + 1, 0, MPI_COMM_WORLD );
-			}
-			std::cout << "stream_arr and state_arr sended" << std::endl;
-			
-			delete[] stream_arr;
-			delete[] state_arr;
-		}
-		
-		array_message = NULL;
-		
-		std::cout << "verbosity "     << verbosity           << std::endl;
-		std::cout << "solver_name "   << solver_name         << std::endl;
-		std::cout << "schema_type "   << schema_type         << std::endl;
-		std::cout << "corecount "     << corecount           << std::endl;
-		std::cout << "deep_predict  " << deep_predict        << std::endl;
-		std::cout << "predict_from "  << predict_from        << std::endl;
-		std::cout << "predict_to "    << predict_to          << std::endl;
-		std::cout << "cnf_in_set_count " << cnf_in_set_count << std::endl; 
-		std::cout << "proc_count "    << proc_count          << std::endl;
-		std::cout << "core_len "      << core_len            << std::endl;
-		std::cout << "input_var_num " << input_var_num       << std::endl;
- 		std::cout << "start_activity "    << start_activity << std::endl;
-		std::cout << "max_var_deep_predict " << max_var_deep_predict << std::endl;
-		std::cout << "start_temperature_koef " << start_temperature_koef << std::endl;
-		std::cout << "point_admission_koef " << point_admission_koef << std::endl;
-		std::cout << "ts_strategy " << ts_strategy << std::endl;
-		std::cout << "IsFirstStage " << IsFirstStage << std::endl;
-		std::cout << "max_L2_hamming_distance " << max_L2_hamming_distance << std::endl;
-		std::cout << "evaluation_type " << evaluation_type << std::endl;
-		std::cout << "te for (ro, es, te) " << te << std::endl;
-		std::cout << "er for (ro, es, te) " << er << std::endl;
-		//cout << "penalty for (ro, es, te) " << penalty << std::endl;
-		std::cout << "keystream_len " << keystream_len << std::endl;
-		std::cout << "blob_var_count " << blob_var_count << std::endl;
-		std::cout << "isSolverSystemCalling " << isSolverSystemCalling << std::endl;
-		std::cout << std::endl;
-		
-		DeepPredictMain();
-		
-		delete[] var_activity;
-	}
-	else { // if rank != 0
-		if ( !ComputeProcessPredict( ) ) {
-			std::cout << std::endl << "Error in ComputeProcessPredict" << std::endl;
-			MPI_Abort( MPI_COMM_WORLD, 0 );
-			return false;
-		}
-	}
-
-	MPI_Abort( MPI_COMM_WORLD, 0 );
-
 	return true;
 }
 

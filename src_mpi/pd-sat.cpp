@@ -82,8 +82,11 @@ int main( int argc, char** argv )
 	Flags myflags;
 
 	// check input flags -solver -sort -koef -schema -predict -predict_from -predict_to
-	if ( !GetInputFlags( argc, argv, myflags ) )
-	{ printf( "\n Error in GetInputFlags" ); WriteUsage( ); return 1; }
+	if ( !GetInputFlags( argc, argv, myflags ) ) { 
+		printf( "\n Error in GetInputFlags" ); 
+		WriteUsage( ); 
+		return 1; 
+	}
 	
 	if ( myflags.IsConseq ) {
 		MPI_Solver mpi_s;
