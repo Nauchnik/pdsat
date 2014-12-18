@@ -30,7 +30,7 @@ public:
 	bool no_increm;
 	
 	bool MPI_Solve( int argc, char **argv );
-	bool ControlProcessSolve( );
+	bool ControlProcessSolve( std::vector<std::vector<bool>> &interrupted_problems_var_values );
 	bool ComputeProcessSolve( );
 
 	bool MPI_ConseqSolve( int argc, char **argv );
@@ -42,7 +42,7 @@ public:
 	void AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
    	                            double *solving_times );
 	bool SolverRun( Minisat::Solver *&S, unsigned long long &process_sat_count, double &cnf_time_from_node, 
-				    int current_task_index );
+				    int current_task_index, std::vector< std::vector<bool> > &interrupted_problems_var_values_from_process );
 };
 
 #endif
