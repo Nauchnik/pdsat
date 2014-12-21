@@ -37,15 +37,12 @@ MPI_Base :: MPI_Base( ) :
 	verbosity			 ( 0 ),
 	check_every_conflict ( 2000 ),
 	known_point_file_name ( "known_point" ),
-	known_assumptions_file_name ( "known_assumptions_0" ),
-	base_known_assumptions_file_name ( "known_assumptions" ),
 	IsSolveAll           ( false ),
 	IsPredict            ( false ),
 	max_solving_time     ( 0 ),
 	max_nof_restarts     ( 0 ),
 	keybit_count         ( 4 ),
 	rslos_table_name     ( "" ),
-	assumptions_count    ( 0 ),
 	activity_vec_len	 ( 0 ),
 	first_stream_var_index ( 0 ),
 	te ( 0 ),
@@ -134,7 +131,7 @@ bool MPI_Base :: GetMainMasksFromVarChoose( std::vector<int> &var_choose_order )
 	
 	return true;
 }
-
+/*
 bool MPI_Base :: MakeAssignsFromFile( int current_task_index, unsigned long long before_binary_length, vec< vec<Lit> > &dummy_vec )
 {
 	if ( verbosity > 0 )
@@ -171,11 +168,6 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, unsigned long long
 		previous_problems_count += batch_addit_size_count;
 	
 	std::string str, str1;
-	std::ifstream ifile( known_assumptions_file_name.c_str(), std::ios_base :: in | std::ios_base :: binary );
-	if ( !ifile.is_open() ) {
-		std::cerr << "Error. !in.is_open(). file name " << known_assumptions_file_name << std::endl;
-		return false;
-	}
 	//cout << "before_binary_length " << before_binary_length << std::endl;
 	ifile.seekg( before_binary_length, ifile.beg ); // skip some bytes
 	
@@ -206,7 +198,6 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, unsigned long long
 	sstream_info << "current_task_index "      << current_task_index << std::endl;
 	sstream_info << "all_tasks_count "         << all_tasks_count << std::endl;
 	sstream_info << "previous_problems_count " << previous_problems_count << std::endl;
-	sstream_info << "assumptions_count "       << assumptions_count << std::endl;
 	sstream_info << "basic_batch_size "        << basic_batch_size  << std::endl;
 	sstream_info << "cur_batch_size "          << cur_batch_size << std::endl;
 	sstream_info << "byte_count "              << byte_count << std::endl;
@@ -241,7 +232,7 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, unsigned long long
 	}
 	ifile.close();
 	return true;
-}
+}*/
 
 bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask, 
 									   unsigned *part_mask, 
@@ -818,9 +809,9 @@ bool MPI_Base :: ReadIntCNF()
 		std::cout << "new core_len (less to known_last_bits) " << core_len << std::endl;
 	}
 	
-	if ( !input_var_num ) {
-		std::cerr << "input_var_num == 0" << input_var_num << std::endl;
-		exit(1);
+	if ( ( IsPredict ) && ( !input_var_num ) ) {
+		std::cerr << "input_var_num == 0 in predict mode" << std::endl;
+		return false;
 	}
 	
 	std::cout << "ReadIntCNF() done" << std::endl;

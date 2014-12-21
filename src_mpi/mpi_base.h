@@ -74,8 +74,6 @@ public:
 	
 	unsigned activity_vec_len;
 	std::string known_point_file_name;
-	std::string base_known_assumptions_file_name;
-	std::string known_assumptions_file_name;
 	bool isSolverSystemCalling; // calling of solver file by system command
 	
 	bool IsPB; //  pseudo Bool mode. if 0 then common CNF mode
@@ -111,10 +109,9 @@ public:
 	bool IsSolveAll;
 	double max_solving_time; // max time in seconds for solving particular SAT subproblem
 	unsigned keybit_count;
-	unsigned long long assumptions_count;
 	std::string rslos_table_name;
 	int max_nof_restarts;
-	char *input_cnf_name;
+	std::string input_cnf_name;
 	std::vector<int> var_choose_order;
 	std::vector<int> full_var_choose_order; // all variables that can be chosen to decomp set
 	std::vector<int> all_vars_set;
@@ -140,7 +137,7 @@ public:
 							   unsigned *part_mask, 
 						       unsigned *value, 
 							   Minisat::vec< Minisat::vec<Minisat::Lit> > &dummy_vec );
-	bool MakeAssignsFromFile( int current_task_index, unsigned long long before_binary_length, Minisat::vec< Minisat::vec<Minisat::Lit> > &dummy_vec );
+	//bool MakeAssignsFromFile( int current_task_index, unsigned long long before_binary_length, Minisat::vec< Minisat::vec<Minisat::Lit> > &dummy_vec );
 	
 	void MakeRandArr( std::vector< std::vector<unsigned> > &rand_arr, unsigned shortcnf_count, unsigned rnd_uint32_count );
 	void MakeUniqueRandArr( std::vector<unsigned> &rand_arr, unsigned rand_arr_len, unsigned max_rand_val );
