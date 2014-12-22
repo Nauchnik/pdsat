@@ -813,7 +813,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	all_vars_set.resize( var_count ); // all vars including additional anf keystream
 	for ( unsigned i=0; i < all_vars_set.size(); i++ )
 		all_vars_set[i] = i+1;
-
+	
 	if ( isSolverSystemCalling ) {
 		// get data and size of template cnf file
 		if ( rank == 1 ) 

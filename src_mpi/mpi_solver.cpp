@@ -66,36 +66,59 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	else { // rank == 0, control process
 		std::cout << "*** MPI_Solve is running ***" << std::endl;
 		total_start_time = MPI_Wtime();
-		for (;;) {
+		//for (;;) {
 			sstream << base_solving_info_file_name << "_" << solving_iteration_count;
 			solving_info_file_name = sstream.str();
 			sstream.clear(); sstream.str("");
 			std::cout << "solving_info_file_name " << solving_info_file_name << std::endl; 
 			
 			iteration_start_time = MPI_Wtime();
+			
+			std::vector<std::vector<bool>> interrupted_problems_var_values, satisfying_assignments;
+			ControlProcessSolve( var_choose_order, interrupted_problems_var_values, satisfying_assignments );
+			std::cout << "final interrupted_problems_var_values.size() " << interrupted_problems_var_values.size() << std::endl;
+			std::cout << "final satisfying_assignments.size() " << satisfying_assignments.size() << std::endl;
+			
+			if ( interrupted_problems_var_values.size() > 0 ) {
+				std::ofstream ofile("interrupted_problems");
+				for ( auto &x : interrupted_problems_var_values ) {
+					for ( unsigned j=0; j < x.size(); j++ )
+						ofile << x[j];
+					ofile << std::endl;
+				}
+				ofile.close();
+			}
 
-			std::vector<std::vector<bool>> interrupted_problems_var_values;
-			ControlProcessSolve( var_choose_order, interrupted_problems_var_values );
+			if ( satisfying_assignments.size() > 0 ) {
+				std::ofstream ofile("satisfying_assignments");
+				for ( auto &x : satisfying_assignments ) {
+					for ( unsigned j=0; j < x.size(); j++ )
+						ofile << x[j];
+					ofile << std::endl;
+				}
+				ofile.close();
+			}
 			
 			iteration_final_time = MPI_Wtime() - iteration_start_time;
 			WriteTimeToFile( iteration_final_time );
-
-			if ( max_solving_time_koef > 0.0 ) { // if increasing time limit for same subproblems
+			
+			/*if ( max_solving_time_koef > 0.0 ) { // if increasing time limit for same subproblems
 				if ( ( sat_count && !IsSolveAll ) || ( max_solving_time_koef == 0.0 ) )
 					break; // exit if SAT set found or iterative solving is not needed
-			
+				
 				// send messages for breaking low loop on compute processes
 				if ( interrupted_count ) {
 					std::cout << "sending break messages to all computing processes" << std::endl;
 					for ( int i = 1; i < corecount; i++ )
 						MPI_Send( &break_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
 				}
-				else break;
-			
+				else 
+					break;
+				
 				max_solving_time *= max_solving_time_koef; // increase time limit
 			}
-			else break;
-		}
+			else break;*/
+		//}
 		
 		whole_final_time = MPI_Wtime() - total_start_time;
 		solving_info_file_name = base_solving_info_file_name + "_total";
@@ -151,12 +174,14 @@ void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, doubl
 
 bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count, 
 							  double &cnf_time_from_node, int current_task_index,
-							  std::vector< std::vector<bool> > &interrupted_problems_var_values_from_process )
+							  std::vector< std::vector<bool> > &interrupted_problems_var_values_from_process,
+							  std::vector< std::vector<bool> > &sat_assignment_from_process )
 {
 	if ( verbosity > 1 )
 		std::cout << "start SolverRun()" << std::endl;
 	
 	interrupted_problems_var_values_from_process.clear();
+	sat_assignment_from_process.clear();
 	process_sat_count = 0;
 	vec< vec<Lit> > dummy_vec;
 	lbool ret;
@@ -179,7 +204,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 	unsigned long long before_binary_length = 0;
 	
 	MakeAssignsFromMasks( full_mask, part_mask, mask_value, dummy_vec );
-		
+	
 	if ( ( verbosity > 1 ) && ( rank == 1 ) ) {
 		std::cout << "dummy_vec size" << dummy_vec.size() << std::endl;
 		for ( int i = 0; i < dummy_vec.size(); ++i ) {
@@ -188,13 +213,13 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 			std::cout << std::endl;
 		}
 	}
-
+	
 	for ( int i = 0; i < dummy_vec.size(); ++i )
 		if ( dummy_vec[i].size() == 0 ) {
 			std::cerr << "dummy_vec.size() == 0" << std::endl;
 			return false;
 		}
-		
+	
 	uint64_t prev_starts, prev_conflicts;
 	for ( int i=0; i < dummy_vec.size(); ++i ) {
 		// save current state to check differences
@@ -218,7 +243,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 			cur_problem_state = SolvedOnPreprocessing;  // solved by BCP
 		else
 			cur_problem_state = Solved; // just solved
-			
+		
 		AddSolvingTimeToArray( cur_problem_state, cnf_time_from_node, solving_times );
 		
 		if ( cur_problem_state == Interrupted ) {
@@ -242,7 +267,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 			}
 			b_SAT_set_array.resize( S->model.size() );
 			for ( int i=0; i < S->model.size(); i++ )
-				b_SAT_set_array[i] = ( S->model[i] == l_True) ? 1 : 0 ;
+				b_SAT_set_array[i] = ( S->model[i] == l_True) ? true : false;
 			// check res file for SAT set existing
 			if ( !AnalyzeSATset( ) ) {
 				// is't needed to deallocate memory - MPI_Abort will do it	
@@ -252,6 +277,10 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 			}
 			if ( !IsSolveAll )
 				break;
+			sat_assignment_from_process.push_back( b_SAT_set_array );
+			std::cout << "satisfying assignment.size() " << b_SAT_set_array.size() << std::endl;
+			for ( unsigned j=0; j < b_SAT_set_array.size() ; j++ )
+				std::cout << b_SAT_set_array[j];
 		}
 	}
 
@@ -366,10 +395,11 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_
 }
 
 bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order, 
-									    std::vector<std::vector<bool>> &interrupted_problems_var_values )
+									    std::vector<std::vector<bool>> &interrupted_problems_var_values,
+										std::vector<std::vector<bool>> &satisfying_assignments )
 {
 	interrupted_problems_var_values.clear();
-	std::vector<bool> cur_interrupted_problems_var_values;
+	std::vector<bool> cur_interrupted_problems_var_values, cur_satisfying_assignment;
 	std::cout << std::endl << "ControlProcessSolve is running" << std::endl;
 	std::cout << "solving_iteration_count " << solving_iteration_count << std::endl;
 	
@@ -501,35 +531,68 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 	
 	while ( solved_tasks_count < all_tasks_count ) {
 		// recieve from core message about solved task 		
-		MPI_Recv( &process_sat_count, 1, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( &process_sat_count, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		if ( verbosity > 0 )
+			std::cout << "recieved process_sat_count " << process_sat_count << std::endl;
 		current_status = status;
-		MPI_Recv( solving_times, SOLVING_TIME_LEN, MPI_DOUBLE, current_status.MPI_SOURCE, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( solving_times, SOLVING_TIME_LEN, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		if ( verbosity > 0 )
+			std::cout << "recieved solving_times " << std::endl;
 		
 		// get interrupted tasks if such exist
-		MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		MPI_Probe( current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );;
 		MPI_Get_count( &status, MPI_CHAR, &char_arr_len );
-		std::cout << "char_arr_len " << char_arr_len << std::endl;
-		if ( char_arr_len % var_choose_order.size() != 0 ) {
+		if ( ( char_arr_len > 1 ) && ( char_arr_len % var_choose_order.size() != 0 ) ) {
 			std::cerr << "char_arr_len % var_choose_order.size() != 0" << std::endl;
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 		if ( char_arr_len > 0 ) {
 			char_arr = new char[char_arr_len];
-			MPI_Recv( char_arr, char_arr_len, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-			cur_interrupted_problems_var_values.resize( var_choose_order.size() );
-			elem_index=0;
-			for ( int j=0; j < char_arr_len; j++ ) {
-				cur_interrupted_problems_var_values[elem_index++] = (char_arr[j] == '1' ? true : false);
-				if ( ( j > 0 ) && ( j % var_choose_order.size() == 0 ) ) {
-					interrupted_problems_var_values.push_back( cur_interrupted_problems_var_values );
-					elem_index=0;
+			MPI_Recv( char_arr, char_arr_len, MPI_CHAR, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+			if ( char_arr_len > 1 ) {
+				std::cout << "recieved char_arr_len " << char_arr_len << std::endl;
+				cur_interrupted_problems_var_values.resize( var_choose_order.size() );
+				elem_index=0;
+				for ( int j=0; j < char_arr_len; j++ ) {
+					cur_interrupted_problems_var_values[elem_index++] = (char_arr[j] == '1' ? true : false);
+					if ( (j+1) % var_choose_order.size() == 0 ) {
+						interrupted_problems_var_values.push_back( cur_interrupted_problems_var_values );
+						elem_index=0;
+					}
 				}
 			}
 			delete[] char_arr;
 		}
-
-		std::cout << "interrupted_problems_var_values.size() " << interrupted_problems_var_values.size() << std::endl;
 		
+		// get satisfying assignments if such exist
+		MPI_Probe( current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );;
+		MPI_Get_count( &status, MPI_CHAR, &char_arr_len );
+		if ( ( char_arr_len > 1 ) && ( char_arr_len % var_count != 0 ) ) {
+			std::cerr << "char_arr_len % var_count != 0" << std::endl;
+			std::cerr << char_arr_len << " % " << var_count << " != 0 " << std::endl;
+			MPI_Abort( MPI_COMM_WORLD, 0 );
+		}
+		if ( char_arr_len > 0 ) {
+			char_arr = new char[char_arr_len];
+			MPI_Recv( char_arr, char_arr_len, MPI_CHAR, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+			if ( char_arr_len > 1 ) {
+				std::cout << "recieved char_arr_len " << char_arr_len << std::endl;
+				cur_satisfying_assignment.resize( var_count );
+				elem_index=0;
+				for ( int j=0; j < char_arr_len; j++ ) {
+					cur_satisfying_assignment[elem_index++] = (char_arr[j] == '1' ? true : false);
+					if ( (j+1) % var_count == 0 ) {
+						satisfying_assignments.push_back( cur_satisfying_assignment );
+						elem_index=0;
+					}
+				}
+			}
+			delete[] char_arr;
+		}
+		
+		if ( char_arr_len > 1 )
+			std::cout << "interrupted_problems_var_values.size() " << interrupted_problems_var_values.size() << std::endl;
+
 		/*char_send_array = new char[interrupted_problems_var_values_from_process.size() * var_choose_order.size()];
 		char_send_array_index = 0;
 		for ( auto &x : interrupted_problems_var_values_from_process )
@@ -584,9 +647,9 @@ bool MPI_Solver :: ComputeProcessSolve()
 	std::ifstream infile;
 	int *var_choose_order_int;
 	std::ifstream in;
-	std::vector< std::vector<bool> > interrupted_problems_var_values_from_process;
+	std::vector< std::vector<bool> > interrupted_problems_var_values_from_process, sat_assignment_from_process;
 	char *char_send_array;
-	int char_send_array_index = 0;
+	int char_send_array_len = 0;
 	
 	for (;;) {
 		if ( rank == 1 )
@@ -633,7 +696,7 @@ bool MPI_Solver :: ComputeProcessSolve()
 				std::cout << var_choose_order[i] << " ";
 			std::cout << std::endl;
 		}
-
+		
 		S->core_len         = core_len;
 		S->max_solving_time = max_solving_time;
 		S->start_activity   = start_activity;
@@ -664,7 +727,7 @@ bool MPI_Solver :: ComputeProcessSolve()
 			}
 			MPI_Recv( mask_value, FULL_MASK_LEN, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 			
-			if ( verbosity > 2 ){
+			if ( ( rank == 1 ) && ( verbosity > 2 ) ){
 				std::cout << "full_mask" << std::endl;
 				for( unsigned i=0; i<FULL_MASK_LEN; ++i )
 					std::cout << full_mask[i] << " ";
@@ -680,7 +743,7 @@ bool MPI_Solver :: ComputeProcessSolve()
 			}
 			
 			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index, 
-				             interrupted_problems_var_values_from_process ) ) 
+				             interrupted_problems_var_values_from_process, sat_assignment_from_process ) ) 
 			{ 
 				std::cout << std::endl << "Error in SolverRun"; 
 				return false; 
@@ -688,18 +751,55 @@ bool MPI_Solver :: ComputeProcessSolve()
 			
 			if ( verbosity > 0 )
 				std::cout << "process_sat_count is " << process_sat_count << std::endl;
+
+			if ( interrupted_problems_var_values_from_process.size() > 0 )
+				std::cout << "interrupted_problems_var_values_from_process.size.size() " << interrupted_problems_var_values_from_process.size() << std::endl;
 			
 			MPI_Send( &process_sat_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD );
 			MPI_Send( solving_times, SOLVING_TIME_LEN, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD );
+
+			if ( ( rank == 1 ) && ( verbosity > 0 ) ) {
+				std::cout << "sended process_sat_count " << std::endl;
+				std::cout << "sended solving_times " << std::endl;
+			}
 			
 			// send info about interrupted problems
-			char_send_array = new char[interrupted_problems_var_values_from_process.size() * var_choose_order.size()];
-			char_send_array_index = 0;
-			for ( auto &x : interrupted_problems_var_values_from_process )
-				for ( unsigned t = 0; t < x.size(); t++ )
-					char_send_array[char_send_array_index++] = (x[t] == true ? '1' : '0');
-			MPI_Send( char_send_array, char_send_array_index, MPI_CHAR, 0, 0, MPI_COMM_WORLD );
+			if ( interrupted_problems_var_values_from_process.size() > 0 ) {
+				char_send_array = new char[interrupted_problems_var_values_from_process.size() * interrupted_problems_var_values_from_process[0].size()];
+				char_send_array_len = 0;
+				for ( auto &x : interrupted_problems_var_values_from_process )
+					for ( unsigned t = 0; t < x.size(); t++ )
+						char_send_array[char_send_array_len++] = (x[t] == true ? '1' : '0');
+			}
+			else {
+				char_send_array_len = 1;
+				char_send_array = new char[char_send_array_len];
+				char_send_array[0] = '2';
+			}
+			
+			MPI_Send( char_send_array, char_send_array_len, MPI_CHAR, 0, 0, MPI_COMM_WORLD );
 			delete[] char_send_array;
+			
+			if ( sat_assignment_from_process.size() > 0 ) {
+				char_send_array = new char[sat_assignment_from_process.size() * sat_assignment_from_process[0].size()];
+				char_send_array_len = 0;
+				for ( auto &x : sat_assignment_from_process )
+					for ( unsigned t = 0; t < x.size(); t++ )
+						char_send_array[char_send_array_len++] = (x[t] == true ? '1' : '0');
+			}
+			else {
+				char_send_array_len = 1;
+				char_send_array = new char[char_send_array_len];
+				char_send_array[0] = '2';
+			}
+
+			MPI_Send( char_send_array, char_send_array_len, MPI_CHAR, 0, 0, MPI_COMM_WORLD );
+			delete[] char_send_array;
+			
+			if ( ( rank == 1 ) && ( verbosity > 0 ) ) {
+				std::cout << "char_send_arra " << std::endl;
+				std::cout << "char_send_array_len " << char_send_array_len << std::endl;
+			}
 		}
 		
 		delete S;
@@ -725,7 +825,7 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 	double start_sec;
 	double final_sec;
 	Solver *S;
-	std::vector<std::vector<bool>> interrupted_problems_var_values_from_process;
+	std::vector<std::vector<bool>> interrupted_problems_var_values_from_process, sat_assignments_from_process;
 
 	// MPI start
 	//MPI_Request request;
@@ -785,8 +885,11 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 		if ( !IsPB ) {
 			int current_task_index = 0;
 			std::cout << std::endl << std::endl << "Standart mode of SAT solving";
-			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index, interrupted_problems_var_values_from_process ) ) {
-				std::cout << std::endl << "Error in SolverRun"; return false;
+			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index, interrupted_problems_var_values_from_process,
+						     sat_assignments_from_process ) ) 
+			{
+				std::cout << std::endl << "Error in SolverRun"; 
+				return false;
 			}
 			if ( process_sat_count ) {
 				if ( !AnalyzeSATset( ) ) {
@@ -834,6 +937,7 @@ void MPI_Solver :: PrintParams( )
 	std::cout << std::endl << "max_solving_time "         << max_solving_time;
 	std::cout << std::endl << "max_nof_restarts "         << max_nof_restarts;
 	std::cout << std::endl << "max_solving_time_koef "    << max_solving_time_koef;
+	std::cout << std::endl << "var_count "                << var_count;
 	std::cout << std::endl;
 }
 

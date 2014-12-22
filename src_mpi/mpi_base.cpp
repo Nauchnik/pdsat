@@ -17,7 +17,7 @@ MPI_Base :: MPI_Base( ) :
 	corecount			 ( 0 ),
 	solver_name          ( "" ),
 	core_len             ( 0 ),
-	koef_val             ( 2 ),
+	koef_val             ( 4 ),
 	schema_type          ( "" ),
 	var_count            ( 0 ),
 	clause_count         ( 0 ),
@@ -921,12 +921,12 @@ bool MPI_Base :: AnalyzeSATset( )
 	
 	answer_var_count = core_len;
 	
-	sstream << "SAT" << std::endl;
+	/*sstream << "SAT" << std::endl;
 	for ( unsigned i = 0; i < b_SAT_set_array.size(); ++i )
 		sstream << b_SAT_set_array[i];
 	sstream << std::endl; 
 	answer_file << sstream.rdbuf( );
-	answer_file.close( );
+	answer_file.close( );*/
 	lit_SAT_set_array.clear();
 	
 	return true;
