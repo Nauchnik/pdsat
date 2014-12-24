@@ -716,8 +716,10 @@ bool MPI_Solver :: ComputeProcessSolve()
 					std::cout << "breaking low level loop while computing" << std::endl;
 				break; // stop and get new init values for solving iteration
 			}
-			else if ( current_task_index == -2 )
+			else if ( current_task_index == -2 ) {
 				MPI_Finalize( ); // finalize-message from control process
+				break;
+			}
 			
 			// with assumptions file we need only current_task_index for reading values from file 
 			if ( !IsFirstTaskRecieved ) {
