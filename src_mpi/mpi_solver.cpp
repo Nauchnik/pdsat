@@ -422,7 +422,8 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 		std::cout << x << " ";
 	std::cout << std::endl;
 	
-	unsigned max_possible_tasks_count = (unsigned)(pow( 2, ceil( log(corecount - 1)/log(2) ))) * (1<<koef_val);
+	// log(a)/log(b) = log(_a)b
+	unsigned max_possible_tasks_count = (unsigned)(pow( 2, ceil( log(corecount - 1)/log(2) ))) * (unsigned)(pow(2,koef_val) );
 	std::cout << "max_possible_tasks_count " << max_possible_tasks_count << std::endl;
 	std::cout << "current part_mask_var_count " << part_mask_var_count << std::endl; 
 	part_mask_var_count = (unsigned)(log(max_possible_tasks_count)/log(2));
@@ -550,7 +551,7 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 			char_arr = new char[char_arr_len];
 			MPI_Recv( char_arr, char_arr_len, MPI_CHAR, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 			if ( char_arr_len > 1 ) {
-				std::cout << "recieved char_arr_len " << char_arr_len << std::endl;
+				//std::cout << "recieved char_arr_len " << char_arr_len << std::endl;
 				cur_interrupted_problems_var_values.resize( var_choose_order.size() );
 				elem_index=0;
 				for ( int j=0; j < char_arr_len; j++ ) {
@@ -609,7 +610,7 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 			sat_count += process_sat_count;
 			std::cout << "sat_count " << sat_count << std::endl;
 			if ( finding_first_sat_time == 0 ) // first time only
-				finding_first_sat_time = Minisat::cpuTime() - total_start_time;
+				finding_first_sat_time = MPI_Wtime() - total_start_time;
 		}
 		
 		WriteSolvingTimeInfo( solving_times, solved_tasks_count );
@@ -754,8 +755,8 @@ bool MPI_Solver :: ComputeProcessSolve()
 			if ( verbosity > 0 )
 				std::cout << "process_sat_count is " << process_sat_count << std::endl;
 
-			if ( interrupted_problems_var_values_from_process.size() > 0 )
-				std::cout << "interrupted_problems_var_values_from_process.size.size() " << interrupted_problems_var_values_from_process.size() << std::endl;
+			if ( ( verbosity > 0 ) && ( interrupted_problems_var_values_from_process.size() > 0 ) )
+				std::cout << "interrupted_problems_var_values_from_process.size() " << interrupted_problems_var_values_from_process.size() << std::endl;
 			
 			MPI_Send( &process_sat_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD );
 			MPI_Send( solving_times, SOLVING_TIME_LEN, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD );

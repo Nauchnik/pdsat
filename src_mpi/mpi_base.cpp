@@ -921,12 +921,12 @@ bool MPI_Base :: AnalyzeSATset( )
 	
 	answer_var_count = core_len;
 	
-	/*sstream << "SAT" << std::endl;
+	sstream << "SAT" << std::endl;
 	for ( unsigned i = 0; i < b_SAT_set_array.size(); ++i )
 		sstream << b_SAT_set_array[i];
 	sstream << std::endl; 
 	answer_file << sstream.rdbuf( );
-	answer_file.close( );*/
+	answer_file.close( );
 	lit_SAT_set_array.clear();
 	
 	return true;
