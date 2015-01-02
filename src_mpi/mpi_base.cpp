@@ -438,7 +438,7 @@ bool MPI_Base :: ReadVarCount( )
 	bool IsUncorrectLine = false;
 	
 	// check file with main CNF
-	std::ifstream main_cnf( input_cnf_name, std::ios::in );
+	std::ifstream main_cnf( input_cnf_name.c_str(), std::ios::in );
     if ( !main_cnf ) {
 		std :: cerr << std::endl << "Error in opening of file with input CNF " 
 			        << input_cnf_name << std::endl;
@@ -496,7 +496,7 @@ bool MPI_Base :: ReadVarCount( )
 
 	main_cnf.close( ); // reopen file
 	main_cnf.clear( );
-	main_cnf.open( input_cnf_name );
+	main_cnf.open( input_cnf_name.c_str() );
 	current_clause_count = 0;
 
 	// step 2 - get arrays of lengths
@@ -583,7 +583,7 @@ bool MPI_Base :: ReadIntCNF()
 		clause_array[i].resize( clause_lengths[i] );
 
 	// check file with main CNF
-	std::ifstream main_cnf( input_cnf_name, std::ios::in );
+	std::ifstream main_cnf( input_cnf_name.c_str(), std::ios::in );
     if ( !main_cnf.is_open() ) {
 		std::cerr << "Error in opening of file with input CNF with name" 
 			 << input_cnf_name << std::endl;
@@ -997,7 +997,7 @@ void MPI_Base :: MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec,
 		Solver *S;
 		Minisat::lbool ret;
 		minisat22_wrapper m22_wrapper;
-		std::ifstream in( input_cnf_name );
+		std::ifstream in( input_cnf_name.c_str() );
 		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
 		in.close();
 		S = new Solver();
