@@ -19,7 +19,7 @@
 #include <ctime>
 
 const long long MIN_WUS_FOR_CREATION = 100;
-const long long MAX_WUS_FOR_CREATION = 1000;
+const long long MAX_WUS_FOR_CREATION = 2000;
 
 // Number of results we have received so far
 static long long all_processed_wus;
@@ -443,8 +443,8 @@ void create_wus( std::stringstream &config_without_created_wus_sstream, config_p
 		system( system_str.c_str() );
 		//std::cout << "after system command" << std::endl;
 		system_str = "create_work -appname pdsat_crypto -wu_name " + wu_name +
-			         " -wu_template templates/workunit_template_bivium9.xml" + 
-					 " -result_template templates/result_template_bivium9.xml " + cur_wu_input_file_name;
+			         " -wu_template templates/workunit_template_bivium.xml" + 
+					 " -result_template templates/result_template_bivium.xml " + cur_wu_input_file_name;
 		std::cout << "before system command : " << system_str << std::endl;
 		system( system_str.c_str() );
 		//std::cout << "after system command" << std::endl;
