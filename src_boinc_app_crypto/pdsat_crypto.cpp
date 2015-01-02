@@ -30,7 +30,7 @@ using namespace std;
 #define OUTPUT_FILENAME "out"
 
 const int MAX_NOF_RESTARTS            = 5000;
-const double MAX_SOLVING_TIME         = 10.0;
+const double MAX_SOLVING_TIME         = 0.848;
 const int MIN_CHECKPOINT_INTERVAL_SEC = 10;
 
 unsigned long long last_iteration_done = 0;

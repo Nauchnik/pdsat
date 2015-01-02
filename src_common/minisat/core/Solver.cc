@@ -741,15 +741,15 @@ lbool Solver::search(int nof_conflicts)
 			
             if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
-            }else{\
-				if ( print_learnts ) { // added pdsat
+            }else{
+				/*if ( print_learnts ) { // added pdsat
 					for ( unsigned i = 0; i < learnt_clause.size(); i++ ) {
 						if ( sign(learnt_clause[i]) )
 							printf( "-" );
 						printf( "%d ", var(learnt_clause[i]) + 1 );
 					}
 					printf("0 \n");
-				}
+				}*/
                 CRef cr = ca.alloc(learnt_clause, true);
                 learnts.push(cr);
                 attachClause(cr);
