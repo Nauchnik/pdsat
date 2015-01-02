@@ -29,9 +29,9 @@ using namespace std;
 #define INPUT_FILENAME  "in"
 #define OUTPUT_FILENAME "out"
 
-const int MAX_NOF_RESTARTS            = 5000;
-const double MAX_SOLVING_TIME         = 0.848;
-const int MIN_CHECKPOINT_INTERVAL_SEC = 10;
+const int MAX_NOF_RESTARTS            = 1000;
+const double MAX_SOLVING_TIME         = 10;
+const int MIN_CHECKPOINT_INTERVAL_SEC = 30;
 
 unsigned long long last_iteration_done = 0;
 unsigned long long total_problems_count = 0;
@@ -181,8 +181,12 @@ bool do_work( string &input_path, string &current_result_str )
 	m22_wrapper.parse_DIMACS_from_inc( cnf_array, cnf );
 	Solver *S = new Solver();
 	S->addProblem( cnf );
-	S->max_nof_restarts = MAX_NOF_RESTARTS;
-	S->max_solving_time = MAX_SOLVING_TIME;
+	
+	if ( problem_type.find( "bivium9_" ) != string::npos ) // for old bivium9_* workunits use old restrictions
+		S->max_solving_time = MAX_SOLVING_TIME;
+	else if ( problem_type.find( "bivium_" ) != string::npos )
+		S->max_nof_restarts = MAX_NOF_RESTARTS;
+	
 	fprintf( stderr, " S->max_nof_restarts %d ", S->max_nof_restarts );
 	fprintf( stderr, " S->max_solving_time %f ", S->max_solving_time );
 	S->verbosity = 0;

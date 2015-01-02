@@ -22,3 +22,18 @@ Credit = 130
 UPDATE workunit SET xml_doc = CONCAT('<input_template>', XML_DOC, '<credit>130</credit></input_template>') WHERE max_error_results=4 AND canonical_resultid=0
 
 456 workunit с именем не bivium9_3
+
+--- Для эксперимента bivium на 02.01.2015
+E8400
+Среднее время решения 1 поздазачи 31.4256 секунды
+300 подзадач в задании, т.е. 9427.68 секунд на задание
+BOINC benchmark INT
+8084.57
+Линпак
+Average 14.5949 GFLOPS на 2 ядра
+Maximal 15.5642 GFLOPS на 2 ядра
+т.е. среднее 7.29745 GFLOPS на 1 ядро
+
+Credit = 9427.68 * (8,084 + 7,297)/2 *100/86400
+Credit = 83.9161725
+Credit = 84
