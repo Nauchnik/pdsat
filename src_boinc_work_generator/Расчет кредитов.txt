@@ -37,3 +37,32 @@ Maximal 15.5642 GFLOPS на 2 ядра
 Credit = 9427.68 * (8,084 + 7,297)/2 *100/86400
 Credit = 83.9161725
 Credit = 84
+
+*** AMD Opteron 6276
+7.13636 GFLOPS по тесту HPL на 1 ядро
+2.44544 по BOINC benchmark INT на 1 ядро
+
+Пользователь Ensurance - много узлов с такими процессорами
+SELECT AVG(cpu_time) FROM result WHERE cpu_time > 4000 AND granted_credit=84 AND userid=84242
+12100.7551 секунд
+
+Credit = 12100.7551 * (7.13636 + 2.44544)/2 *100/86400
+Credit = 67.098967139571759259259259259259
+Credit = 67
+
+Заниженное значение BOINC benchmark, нельзя этому доверять
+Если принять за HPL, то будет
+99.94831558499537037037037037037
+
+*** i7-3770K, Windows 7
+SELECT AVG(cpu_time) FROM result WHERE cpu_time > 4000 AND granted_credit=84 AND hostid=14489
+8323.14539 секунд в среднем
+
+Линпак
+6.05 GFLOPs на 1 ядро
+BOINC benchmark INT
+13.52305
+
+Credit = 8323.14539 * (13.52305 + 6.05)/2 *100/86400
+Credit = 94.276238932719618055555555555556
+Credit = 94
