@@ -118,11 +118,6 @@ Solver::~Solver()
 //=================================================================================================
 // Minor methods:
 
-// added pdsat
-bool compare_lits(Lit a, Lit b){
-	return var(a)<var(b);
-}
-
 // remove all learnt clauses and set initial values of some parameters
 void Solver::clearDB()
 {

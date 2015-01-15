@@ -66,3 +66,6 @@ BOINC benchmark INT
 Credit = 8323.14539 * (13.52305 + 6.05)/2 *100/86400
 Credit = 94.276238932719618055555555555556
 Credit = 94
+
+Запуск генерации
+nohup ./bin/pdsat_work_generator ./bin/work_generator_config.conf ./bin/pass &> ./bin/work_generator_out &
