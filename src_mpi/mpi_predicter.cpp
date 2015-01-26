@@ -66,14 +66,19 @@ MPI_Predicter :: ~MPI_Predicter( )
 { }
 
 // comparison for sorting
-bool ua_compareByActivity(const unchecked_area &a, const unchecked_area &b)
+bool ua_compareByMedActivity(const unchecked_area &a, const unchecked_area &b)
 {
 	return a.med_var_activity > b.med_var_activity;
 }
 
-bool ds_compareByActivity(const decomp_set &a, const decomp_set &b)
+bool ds_compareByMedActivity(const decomp_set &a, const decomp_set &b)
 {
 	return a.med_var_activity > b.med_var_activity;
+}
+
+bool ds_compareByDiffActivity(const decomp_set &a, const decomp_set &b)
+{
+	return a.diff_variable_activity > b.diff_variable_activity;
 }
 
 //---------------------------------------------------------
@@ -1343,7 +1348,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 									(*L2_it).med_var_activity += total_var_activity[i];
 							(*L2_it).med_var_activity /= (*L2_it).center.count();
 						}
-						L2_matches.sort( ua_compareByActivity );
+						L2_matches.sort( ua_compareByMedActivity );
 						if ( verbosity > 0 ) { 
 							std::cout << "L2 after sorting. total_var_activity : center.count()";
 							for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it )
@@ -2515,6 +2520,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	}
 	decomp_set_arr.clear();
 	decomp_set d_s;
+	std::list<decomp_set> points_smaller_center, points_larger_center;
 	unsigned current_skipped = 0;
 	std::stringstream sstream;
 	std::vector<int> new_var_choose_order;
@@ -2544,6 +2550,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 		d_s.var_choose_order = new_var_choose_order;
 		d_s.cur_var_changing = cur_vars_changing;
 		d_s.IsAddedToL2      = false;
+		d_s.diff_variable_activity = total_var_activity[cur_index];
 		decomp_set_arr.push_back( d_s ); // add new decomp set
 	} // for ( int i = 0; i < decomp_set_count; i++ )
 	
@@ -2559,14 +2566,44 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 				(*dec_it).med_var_activity += total_var_activity[ core_var_indexes.find(*vec_it)->second ];
 			(*dec_it).med_var_activity /= (*dec_it).var_choose_order.size();
 		}
-		sort( decomp_set_arr.begin(), decomp_set_arr.end(), ds_compareByActivity );
+		sort( decomp_set_arr.begin(), decomp_set_arr.end(), ds_compareByMedActivity );
 		if ( verbosity > 0 ) {
 			std::cout << "decomp_set_arr activity" << std::endl;
 			for ( dec_it = decomp_set_arr.begin(); dec_it != decomp_set_arr.end(); ++dec_it )
 				std::cout << (*dec_it).med_var_activity << std::endl;
 		}
 	}
-
+	else if ( ts_strategy == 2 ) {
+		// hold only points with high activity of diff variable (if set larger than center)
+		// of with low activity (if set is smaller than center)
+		if ( decomp_set_arr.size() > 100 ) {
+			for ( auto &x : decomp_set_arr )
+				if ( x.var_choose_order.size() < var_choose_order.size() )
+					points_smaller_center.push_back( x );
+				else if ( x.var_choose_order.size() > var_choose_order.size() )
+					points_larger_center.push_back( x );
+			points_smaller_center.sort( ds_compareByDiffActivity );
+			points_larger_center.sort( ds_compareByDiffActivity );
+			decomp_set_arr.clear();
+			// get smaller points with lowest values of activity of a diff variable
+			unsigned k=0;
+			std::list<decomp_set>::iterator list_dec_it;
+			for ( list_dec_it = points_smaller_center.begin(); list_dec_it != points_smaller_center.end(); list_dec_it++ ) {
+				decomp_set_arr.push_back( *list_dec_it );
+				if ( k++ == 50)
+					break;
+			}
+			// get lareger points with highest values of activity of a diff variable
+			k = 0;
+			std::list<decomp_set>::reverse_iterator list_dec_rit;
+			for ( list_dec_rit = points_smaller_center.rbegin(); list_dec_rit != points_smaller_center.rend(); list_dec_rit++ ) {
+				decomp_set_arr.push_back( *list_dec_rit );
+				if ( k++ == 50)
+					break;
+			}
+		}
+	}
+	
 	global_skipped_points_count += current_skipped;
 
 	// Common for all procedures of getting deep tasks

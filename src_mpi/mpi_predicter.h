@@ -45,6 +45,7 @@ struct decomp_set
 	int cur_var_changing; // how many vars were changed in current decomp_set relatively to last best point
 	bool IsAddedToL2;
 	double med_var_activity;
+	double diff_variable_activity; // variable by which set differs from current center point
 };
 
 struct point_struct
