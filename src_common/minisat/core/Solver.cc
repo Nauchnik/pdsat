@@ -182,9 +182,9 @@ void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&va
 	for( unsigned i=0; i < activity_vec_len; ++i )
 		var_activity[i] = activity[full_var_choose_order[i]-1];
 	for( unsigned i=0; i < activity_vec_len; ++i )
-		if( var_activity[i] > 1e10 )
+		if( var_activity[i] > 1e100 )
 			for( unsigned j=0; j < activity_vec_len; ++j ) // Rescale:
-				var_activity[j] *= 1e-10;
+				var_activity[j] *= 1e-100;
 }
 
 // added

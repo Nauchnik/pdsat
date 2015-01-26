@@ -114,9 +114,9 @@ public:
 	std::string input_cnf_name;
 	std::vector<int> var_choose_order;
 	std::vector<int> full_var_choose_order; // all variables that can be chosen to decomp set
-	std::vector<int> all_vars_set;
-	std::vector<int> rslos_lengths;
-	double *all_var_activity;
+	//std::vector<int> all_vars_set;
+	//std::vector<int> rslos_lengths;
+	//double *all_var_activity;
 
 	// Read header "p cnf [var_count] [clause_count]" from DIMACS file
 	bool ReadVarCount( );

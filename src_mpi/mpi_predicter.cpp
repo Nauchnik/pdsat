@@ -132,7 +132,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			var_choose_order = full_var_choose_order;
 		}
 		
-		activity_vec_len = core_len;
+		activity_vec_len = core_len; // if we need check all variables then set core_len = [all variables] - [known variable]
 		var_activity = new double[activity_vec_len];
 		for ( unsigned i=0; i < activity_vec_len; i++ )
 			var_activity[i] = 0.0;
@@ -434,11 +434,11 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 		if ( !isSolverSystemCalling ) {
 			MPI_Recv( &isSolvedOnPreprocessing,    1, MPI_INT, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 			MPI_Recv( var_activity, activity_vec_len, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-			for( unsigned i=0; i < total_var_activity.size(); ++i ) {
-				if( ( total_var_activity[i] += var_activity[i] ) > 1e50 )
+			// update total activity
+			for( unsigned i=0; i < total_var_activity.size(); ++i )
+				if( ( total_var_activity[i] += var_activity[i] ) > 1e200 )
 					for( unsigned j=0; j < total_var_activity.size(); ++j ) // Rescale:
-						total_var_activity[j] *= 1e-50;
-			}
+						total_var_activity[j] *= 1e-200;
 		}
 		
 		if ( verbosity > 1 )
@@ -748,20 +748,6 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 			for ( unsigned i=0; i < all_vars_set.size(); i++)
 				ofile << all_var_activity[i] << " ";
 			ofile.close();
-		}
-		if ( var_choose_order.size() <= blob_var_count ) {
-			sstream << "blob_point_set_len_" << var_choose_order.size() << "_rank_" << rank << "_num_" << cur_point_number;
-			cur_state_file_name = sstream.str();
-			sstream.clear(); sstream.str("");
-			S->clearDB();
-			S->saveState( cur_state_file_name );
-			sstream << "blob_point_set_len_" << var_choose_order.size() << "_rank_" << rank << "_num_" << cur_point_number << "_set";
-			cur_state_file_name = sstream.str();
-			sstream.clear(); sstream.str("");
-			ofstream ofile( cur_state_file_name.c_str() );
-			for ( unsigned i=0; i < var_choose_order.size(); i++ )
-				ofile << var_choose_order[i] << " ";
-			ofile.close();
 		}*/
 	}
 	delete S;
@@ -810,9 +796,9 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	for ( unsigned i=0; i < core_len; ++i )
 		full_var_choose_order[i] = full_local_decomp_set[i];
 	delete[] full_local_decomp_set;
-	all_vars_set.resize( var_count ); // all vars including additional anf keystream
+	/*all_vars_set.resize( var_count ); // all vars including additional CNF keystream
 	for ( unsigned i=0; i < all_vars_set.size(); i++ )
-		all_vars_set[i] = i+1;
+		all_vars_set[i] = i+1;*/
 	
 	if ( isSolverSystemCalling ) {
 		// get data and size of template cnf file
@@ -933,7 +919,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	cnf_time_from_node = 0.0;
 	int ProcessListNumber;
 	var_activity = new double[activity_vec_len];
-	all_var_activity = new double[all_vars_set.size()];
+	//all_var_activity = new double[all_vars_set.size()];
 	bool isFirstDecompSetReceived = false, isNewDecompSetReceived = false;
 	unsigned large_message_count = 0, small_message_count = 0;
 	std::string polarity_file_name;
@@ -1108,7 +1094,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	}
 	
 	delete[] var_activity;
-	delete[] all_var_activity;
+	//delete[] all_var_activity;
  	delete[] array_message;
 	MPI_Finalize();
 	return true;
@@ -1760,11 +1746,10 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 			var_activity_file.open( var_activity_file_name.c_str(), std::ios_base::app );
 	}
 
-	if ( !isSolverSystemCalling )
-		var_activity_file << record_count << std::endl;
-	//for( auto &x : total_var_activity )
-	//	var_activity_file << x << " ";
 	if ( !isSolverSystemCalling ) {
+		var_activity_file << record_count << std::endl;
+		//for( auto &x : total_var_activity )
+		//	var_activity_file << x << " ";
 		for( std::vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it )
 			var_activity_file << *it << " ";
 		var_activity_file << std::endl;
