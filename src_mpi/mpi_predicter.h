@@ -23,6 +23,7 @@ const int    MAX_VAR_FOR_RANDOM            = 60;
 const double MIN_STOP_TIME				   = 0.01;
 const int    MAX_DISTANCE_TO_RECORD        = 10;
 const int    PREDICT_TIMES_COUNT           = 6;
+const double MIN_PROBLEM_LIMIT             = 10;
 
 struct unchecked_area
 {

@@ -263,7 +263,7 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 	if ( verbosity > 1 )
 		std::cout << "SendPredictTask() start" << std::endl;
 	
-	cnf_start_time_arr[cur_task_index] = Minisat::cpuTime(); // fix current time
+	cnf_start_time_arr[cur_task_index] = MPI_Wtime(); // fix current time
 	node_list[cur_task_index] = process_number_to_send; // fix node where SAT problem will be solved
 	
 	if ( ( !cur_task_index ) || ( cur_task_index % (int)cnf_in_set_count == 0 ) ) { // if new sample then new set to all precesses
@@ -375,7 +375,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 			if ( ( int_cur_time ) && ( int_cur_time != prev_int_cur_time ) && 
 				 ( int_cur_time % predict_every_sec ) == 0 )
 			{
-				get_predict_time = Minisat::cpuTime();
+				get_predict_time = MPI_Wtime();
 				prev_int_cur_time = int_cur_time;
 				if ( !GetPredict( ) ) { 
 					std::cout << "Error in GetPredict " << std::endl; return false; 
@@ -402,7 +402,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 					}
 				}*/
 				
-				get_predict_time = Minisat::cpuTime() - get_predict_time;
+				get_predict_time = MPI_Wtime() - get_predict_time;
 				
 				while ( ceil(get_predict_time) > predict_every_sec ) {
 					predict_every_sec *= 2; // increase treshold  
@@ -1409,7 +1409,7 @@ bool MPI_Predicter :: DeepPredictMain( )
 	int stop_message = -1;
 	std::fstream deep_predict_file;
 	std::stringstream sstream;
-	whole_deep_time = Minisat::cpuTime();
+	whole_deep_time = MPI_Wtime();
 	std::stringstream sstream_control;
 
 	std::cout << "DeepPredictMain() started" << std::endl;
@@ -1528,7 +1528,7 @@ bool MPI_Predicter :: DeepPredictMain( )
 	sstream << std::endl;
 	sstream << "points count " << points_count << std::endl;
 	sstream << "temperature " << cur_temperature << std::endl;
-	sstream << "***whole_deep_time "           << Minisat::cpuTime() - whole_deep_time << " s" << std::endl;
+	sstream << "***whole_deep_time "           << MPI_Wtime() - whole_deep_time << " s" << std::endl;
 	sstream << "***whole_get_deep_tasks_time " << whole_get_deep_tasks_time     << " s" << std::endl;
 	sstream << "***whole_get_predict_time "    << whole_get_predict_time        << " s" << std::endl;
 	deep_predict_file << sstream.rdbuf();
@@ -1908,7 +1908,7 @@ bool MPI_Predicter :: GetPredict()
 	unsigned long long temp_llint = 0;
 	int set_index_bound = 0,
 		cur_cnf_in_set_count = 0;
-	double current_time = Minisat::cpuTime();
+	double current_time = MPI_Wtime();
 	
 	cnf_to_stop_arr.clear(); // every time get stop-list again
 	std::stringstream sstream;
@@ -1963,8 +1963,8 @@ bool MPI_Predicter :: GetPredict()
 					//if ( cur_cnf_time > max_real_time_sample ) 
 					//	max_real_time_sample = cur_cnf_time; // compute only real time
 				}
-				else if ( cnf_start_time_arr[j] > 0 )
-					cur_cnf_time = MPI_Wtime( ) - cnf_start_time_arr[j];
+				else if ( ( cnf_start_time_arr[j] > 0 ) && ( (MPI_Wtime() - cnf_start_time_arr[j]) > MIN_PROBLEM_LIMIT ) )
+					cur_cnf_time = MPI_Wtime() - cnf_start_time_arr[j];
 				else
 					cur_cnf_time = 0; // computing of task wasn't started yet
 				// we can stop processing of sample with such task if needed
@@ -2008,7 +2008,7 @@ bool MPI_Predicter :: GetPredict()
 			//	return true;
 		}
 		else if ( ( best_predict_time > 0.0 ) && ( predict_time_arr[i] >= best_predict_time  ) && 
-			      ( predict_time_arr[i] != HUGE_DOUBLE ) && (!isSolverSystemCalling) ) { // stop, predict >= best
+			      ( predict_time_arr[i] != HUGE_DOUBLE ) && ( !isSolverSystemCalling) ) { // stop, predict >= best
 			if ( ( deep_predict == 5 ) && 
 			     ( predict_time_arr[i] < best_predict_time * (1 + point_admission_koef) ) ) // new point can be worst for simalation annealing
 			{
@@ -2076,7 +2076,7 @@ bool MPI_Predicter :: GetPredict()
 		deep_predict_file.close();
 	}
 	
-	whole_get_predict_time += Minisat::cpuTime() - current_time;
+	whole_get_predict_time += MPI_Wtime() - current_time;
 
 	if ( verbosity > 2 )
 		std::cout << "In GetPredict() after AddNewUncheckedArea()" << std::endl;
@@ -2387,7 +2387,7 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, std::
 	checked_area new_ca;
 	unsigned i;
 	std::string str;
-	double current_time = Minisat::cpuTime();
+	double current_time = MPI_Wtime();
 
 	if ( verbosity > 1 ) {
 		std::cout << "Started AddNewUncheckedArea() with" << std::endl;
@@ -2480,7 +2480,7 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, std::
 	if ( verbosity > 1 )
 		std::cout << "In AddNewUncheckedArea() end" << std::endl;
 	
-	whole_add_new_unchecked_area_time += Minisat::cpuTime() - current_time;
+	whole_add_new_unchecked_area_time += MPI_Wtime() - current_time;
 }
 
 bool MPI_Predicter :: GetDeepPredictTasks( )
@@ -2590,15 +2590,15 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 			std::list<decomp_set>::iterator list_dec_it;
 			for ( list_dec_it = points_smaller_center.begin(); list_dec_it != points_smaller_center.end(); list_dec_it++ ) {
 				decomp_set_arr.push_back( *list_dec_it );
-				if ( k++ == 50)
+				if ( ++k == 50 )
 					break;
 			}
 			// get lareger points with highest values of activity of a diff variable
 			k = 0;
 			std::list<decomp_set>::reverse_iterator list_dec_rit;
-			for ( list_dec_rit = points_smaller_center.rbegin(); list_dec_rit != points_smaller_center.rend(); list_dec_rit++ ) {
+			for ( list_dec_rit = points_larger_center.rbegin(); list_dec_rit != points_larger_center.rend(); list_dec_rit++ ) {
 				decomp_set_arr.push_back( *list_dec_rit );
-				if ( k++ == 50)
+				if ( ++k == 50 )
 					break;
 			}
 		}
@@ -2625,7 +2625,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	sstream << "global_checked_points_count " << global_checked_points_count << std::endl;
 	sstream << "global_stopped_points_count " << global_stopped_points_count << std::endl;
 	sstream << "global_skipped_points_count " << global_skipped_points_count << std::endl;
-	sstream << "whole_deep_time "             << Minisat::cpuTime() - whole_deep_time << " s" << std::endl;
+	sstream << "whole_deep_time "             << MPI_Wtime() - whole_deep_time << " s" << std::endl;
 	sstream << "whole_get_deep_tasks_time "   << whole_get_deep_tasks_time     << " s" << std::endl;
 	sstream << "whole_get_predict_time "      << whole_get_predict_time       << " s" << std::endl;
 	sstream << "whole_add_new_unchecked_area_time " << whole_add_new_unchecked_area_time << " s" << std::endl;
