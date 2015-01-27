@@ -479,8 +479,8 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 	unsigned solved_tasks_count = 0;
 	// write init info
 	WriteSolvingTimeInfo( solving_times, solved_tasks_count );
-	int *var_choose_order_int = new int[MAX_ASSIGNS_COUNT];
-	for( unsigned i=0; i < MAX_ASSIGNS_COUNT; ++i ) {
+	int *var_choose_order_int = new int[MAX_CORE_LEN];
+	for( unsigned i=0; i < MAX_CORE_LEN; ++i ) {
 		if ( i < var_choose_order.size() )
 			var_choose_order_int[i] = var_choose_order[i];
 		else 
@@ -495,7 +495,7 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 		MPI_Send( &solving_iteration_count, 1, MPI_INT,                 i + 1, 0, MPI_COMM_WORLD );
 		MPI_Send( &max_solving_time,        1, MPI_DOUBLE,              i + 1, 0, MPI_COMM_WORLD );
 		MPI_Send( &start_activity,          1, MPI_DOUBLE,              i + 1, 0, MPI_COMM_WORLD );
-		MPI_Send( var_choose_order_int,     MAX_ASSIGNS_COUNT, MPI_INT, i + 1, 0, MPI_COMM_WORLD );
+		MPI_Send( var_choose_order_int,     MAX_CORE_LEN, MPI_INT, i + 1, 0, MPI_COMM_WORLD );
 	}
 	delete[] var_choose_order_int;
 	
@@ -666,16 +666,16 @@ bool MPI_Solver :: ComputeProcessSolve()
 		S->IsPredict = false;
 		
 		IsFirstTaskRecieved = false;
-		var_choose_order_int = new int[MAX_ASSIGNS_COUNT];
+		var_choose_order_int = new int[MAX_CORE_LEN];
 		MPI_Recv( &core_len,                 1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &all_tasks_count,          1, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &solving_iteration_count,  1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &max_solving_time,         1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
 		MPI_Recv( &start_activity,           1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
-		MPI_Recv( var_choose_order_int,      MAX_ASSIGNS_COUNT, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( var_choose_order_int,      MAX_CORE_LEN, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
 		
 		var_choose_order.resize(0);
-		for( unsigned i=0; i < MAX_ASSIGNS_COUNT; ++i ) {
+		for( unsigned i=0; i < MAX_CORE_LEN; ++i ) {
 			if ( var_choose_order_int[i] == -1 )
 				break;
 			if ( var_choose_order_int[i] <= 0 ) {

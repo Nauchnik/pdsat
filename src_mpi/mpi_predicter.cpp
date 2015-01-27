@@ -78,7 +78,7 @@ bool ds_compareByMedActivity(const decomp_set &a, const decomp_set &b)
 
 bool ds_compareByDiffActivity(const decomp_set &a, const decomp_set &b)
 {
-	return a.diff_variable_activity > b.diff_variable_activity;
+	return a.diff_variable_activity < b.diff_variable_activity;
 }
 
 //---------------------------------------------------------
@@ -1166,7 +1166,6 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 	unsigned L1_erased_count = 0;
 	unsigned L2_erased_count = 0;
 	std::list<unchecked_area> :: iterator L2_it;
-	bool isChoosingByActivity;
 	
 	if ( IsRecordUpdated ) {
 		sstream << std::endl << "---Record Updated---" << std::endl;
@@ -1284,79 +1283,73 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 			if ( verbosity > 0 )
 				std::cout << "L2_matches.size() " << L2_matches.size() << std::endl;
 			sstream << "L2_matches.size() " << L2_matches.size() << std::endl;
-			isChoosingByActivity = true;
 			
-			if ( isChoosingByActivity ) {
-				sstream << "isChoosingByActivity " << isChoosingByActivity << std::endl;
-				switch ( ts_strategy ) { // randomly choose weight of point from L2 and go to such random point
-					case 0:
-						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
-							IsAdding = true;	
-							for ( unsigned i=0; i < power_values.size(); i++ )
-								if ( (*L2_it).center.count() == power_values[i] ) {
-									IsAdding = false;
-				    				break;    
-								}
-							if ( IsAdding )
-							power_values.push_back( (*L2_it).center.count() );
+			if ( ts_strategy == 0 ) { // randomly choose weight of point from L2 and go to such random point
+				for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
+					IsAdding = true;	
+					for ( unsigned i=0; i < power_values.size(); i++ )
+						if ( (*L2_it).center.count() == power_values[i] ) {
+							IsAdding = false;
+				    		break;    
 						}
-						rand_L2_start_search_index = uint_rand( gen ) % L2_matches.size();
-						rand_power_value           = uint_rand( gen ) % power_values.size();
-						L2_index = 0;
-						IsAdding = false;
-						// choose randomly area from randoml class of area center power
-						// start search from random part of L2 list, because random_shuffle() don't work for list
-						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
-							if ( ( L2_index >= rand_L2_start_search_index ) &&
-								 ( (*L2_it).center.count() == power_values[rand_power_value] )
-								 )
-							{
-								IsAdding = true;
-								current_unchecked_area = *L2_it;
-								break;
-							}
-							L2_index++;
-						}
-						// try to find to another side if we havn't found point
-						if ( !IsAdding ) {
-							L2_index = 0;
-							for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it ) {
-								if ( ( L2_index < rand_L2_start_search_index ) &&
-									 ( (*L2_it).center.count() == power_values[rand_power_value] ) ) 
-								{
-									current_unchecked_area = *L2_it;
-									break;
-								}
-								L2_index++;
-							}
-						}
-						sstream << "power_values ";
-						for ( unsigned i=0; i<power_values.size(); i++)
-							sstream << power_values[i] << " ";
-						sstream << std::endl;
-						sstream << "rand_power_value "           << rand_power_value           << std::endl;
-						sstream << "rand_L2_start_search_index " << rand_L2_start_search_index << std::endl;
-						sstream << "L2_index "					 << L2_index                   << std::endl;
-						power_values.clear();
-						break;
-					case 1: // sort areas from L2 by  median of var activities of centers
-						// update activity of points from L2
-						for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it ) {
-							(*L2_it).med_var_activity = 0;
-							for ( unsigned i=0; i < (*L2_it).center.size(); ++i )
-								if ( (*L2_it).center[i] )
-									(*L2_it).med_var_activity += total_var_activity[i];
-							(*L2_it).med_var_activity /= (*L2_it).center.count();
-						}
-						L2_matches.sort( ua_compareByMedActivity );
-						if ( verbosity > 0 ) { 
-							std::cout << "L2 after sorting. total_var_activity : center.count()";
-							for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it )
-								std::cout << (*L2_it).med_var_activity << " : " << (*L2_it).center.count() << std::endl;
-						}
-						current_unchecked_area = (*L2_matches.begin());
-						break;
+					if ( IsAdding )
+					power_values.push_back( (*L2_it).center.count() );
 				}
+				rand_L2_start_search_index = uint_rand( gen ) % L2_matches.size();
+				rand_power_value           = uint_rand( gen ) % power_values.size();
+				L2_index = 0;
+				IsAdding = false;
+				// choose randomly area from randoml class of area center power
+				// start search from random part of L2 list, because random_shuffle() don't work for list
+				for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
+					if ( ( L2_index >= rand_L2_start_search_index ) &&
+						 ( (*L2_it).center.count() == power_values[rand_power_value] )
+						 )
+					{
+						IsAdding = true;
+						current_unchecked_area = *L2_it;
+						break;
+					}
+					L2_index++;
+				}
+				// try to find to another side if we havn't found point
+				if ( !IsAdding ) {
+					L2_index = 0;
+					for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it ) {
+						if ( ( L2_index < rand_L2_start_search_index ) &&
+							 ( (*L2_it).center.count() == power_values[rand_power_value] ) ) 
+						{
+							current_unchecked_area = *L2_it;
+							break;
+						}
+						L2_index++;
+					}
+				}
+				sstream << "power_values ";
+				for ( unsigned i=0; i<power_values.size(); i++)
+					sstream << power_values[i] << " ";
+				sstream << std::endl;
+				sstream << "rand_power_value "           << rand_power_value           << std::endl;
+				sstream << "rand_L2_start_search_index " << rand_L2_start_search_index << std::endl;
+				sstream << "L2_index "					 << L2_index                   << std::endl;
+				power_values.clear();
+			}
+			else if ( ts_strategy > 0 ) { // sort areas from L2 by median of var activities of centers
+				// update activity of points from L2
+				for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it ) {
+					(*L2_it).med_var_activity = 0;
+					for ( unsigned i=0; i < (*L2_it).center.size(); ++i )
+						if ( (*L2_it).center[i] )
+							(*L2_it).med_var_activity += total_var_activity[i];
+					(*L2_it).med_var_activity /= (*L2_it).center.count();
+				}
+				L2_matches.sort( ua_compareByMedActivity );
+				if ( verbosity > 0 ) { 
+					std::cout << "L2 after sorting. total_var_activity : center.count()";
+					for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it )
+						std::cout << (*L2_it).med_var_activity << " : " << (*L2_it).center.count() << std::endl;
+				}
+				current_unchecked_area = (*L2_matches.begin());
 			}
 			
 			L2_matches.clear();
@@ -1824,7 +1817,9 @@ double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_
 {
 	// (ro, es, te) mode, here sum for sample is number of solved problems with time < te 
 	// get best predict time for current point with different variants of time limits
-	double point_cur_predict_time = 0.0, point_best_predict_time = HUGE_DOUBLE, 
+	long double point_cur_predict_time = 0.0, 
+				//point_best_predict_time = HUGE_DOUBLE, 
+				point_best_predict_time = std::numeric_limits<long double>::infinity(),
 		   cur_probability, point_best_time_limit = 0.0;
 	unsigned cur_solved_in_time, point_best_solved_in_time = 0;
 	std::vector<double> predict_times;
@@ -1900,7 +1895,7 @@ bool MPI_Predicter :: GetPredict()
 	unsigned cur_var_num, solved_in_sample_count, 
 			 cur_cnf_to_skip_count = 0, 
 			 cur_cnf_to_stop_count = 0;
-	double cur_predict_time  = 0.0,
+	long double cur_predict_time  = 0.0,
 		   cur_sum_part_time = 0.0,
 		   cur_med_part_time = 0.0,
 		   time1 = 0,
@@ -1973,6 +1968,7 @@ bool MPI_Predicter :: GetPredict()
 
 			med_time_arr[i] = sum_time_arr[i] / (double)cur_cnf_in_set_count;
 			cur_predict_time = med_time_arr[i] / (double)proc_count;
+			if ( cur_var_num  )
 			cur_predict_time *= pow( 2.0, (double)cur_var_num );
 		}
 		else if ( te > 0.0 ) // here med_time_arr in (0,1)
@@ -2576,7 +2572,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	else if ( ts_strategy == 2 ) {
 		// hold only points with high activity of diff variable (if set larger than center)
 		// of with low activity (if set is smaller than center)
-		if ( decomp_set_arr.size() > 100 ) {
+		if ( decomp_set_arr.size() > TS2_POINTS_COUNT ) {
 			for ( auto &x : decomp_set_arr )
 				if ( x.var_choose_order.size() < var_choose_order.size() )
 					points_smaller_center.push_back( x );
@@ -2590,7 +2586,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 			std::list<decomp_set>::iterator list_dec_it;
 			for ( list_dec_it = points_smaller_center.begin(); list_dec_it != points_smaller_center.end(); list_dec_it++ ) {
 				decomp_set_arr.push_back( *list_dec_it );
-				if ( ++k == 50 )
+				if ( ++k == TS2_POINTS_COUNT / 2  )
 					break;
 			}
 			// get lareger points with highest values of activity of a diff variable
@@ -2598,7 +2594,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 			std::list<decomp_set>::reverse_iterator list_dec_rit;
 			for ( list_dec_rit = points_larger_center.rbegin(); list_dec_rit != points_larger_center.rend(); list_dec_rit++ ) {
 				decomp_set_arr.push_back( *list_dec_rit );
-				if ( ++k == 50 )
+				if ( ++k == TS2_POINTS_COUNT / 2 )
 					break;
 			}
 		}

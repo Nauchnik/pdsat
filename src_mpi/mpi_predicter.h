@@ -12,7 +12,6 @@
 #endif
 
 const unsigned MAX_STEP_CNF_IN_SET		   = 30;
-
 const int    MAX_WORD_LENGTH			   = 64;
 const int    MAX_LINE_LENGTH               = 524288;
 const int    MAX_LINE_LENGTH_2             = 8192;
@@ -24,6 +23,8 @@ const double MIN_STOP_TIME				   = 0.01;
 const int    MAX_DISTANCE_TO_RECORD        = 10;
 const int    PREDICT_TIMES_COUNT           = 6;
 const double MIN_PROBLEM_LIMIT             = 10;
+const int    TS2_POINTS_COUNT              = 50;
+const unsigned MAX_POW_VALUE               = 1024;
 
 struct unchecked_area
 {
@@ -174,12 +175,12 @@ private:
 	std::vector<double> predict_time_limites;
 	
 	int best_var_num;
-	double best_predict_time;
-	double best_predict_time_arr[PREDICT_TIMES_COUNT];
-	double best_sum_time;
+	long double best_predict_time;
+	long double best_predict_time_arr[PREDICT_TIMES_COUNT];
+	long double best_sum_time;
 	int best_cnf_in_set_count;
 	unsigned best_solved_in_time;
-	double best_time_limit;
+	long double best_time_limit;
 	int *array_message; // for sending via MPI
 	unsigned array_message_size;
 	
@@ -191,8 +192,8 @@ private:
 	double *var_activity;
 
 	int real_best_var_num;
-	double real_best_predict_time;
-	double best_predict_time_last_area; // best time from previous area of points
+	long double real_best_predict_time;
+	long double best_predict_time_last_area; // best time from previous area of points
 	std::vector<int> real_var_choose_order;
 	
 	std::vector<unsigned> set_len_arr; // array of indexes of sets
@@ -208,9 +209,9 @@ private:
 	std::vector<double> sum_time_arr;
 	std::vector<unsigned> solved_in_time_arr;
 	std::vector<double> time_limit_arr; // time limit with best predict value for a point in RoEsTe mode
-	std::vector<double> med_time_arr;
-	std::vector<double> predict_time_arr;
-	std::vector<double> predict_part_time_arr;
+	std::vector<long double> med_time_arr;
+	std::vector<long double> predict_time_arr;
+	std::vector<long double> predict_part_time_arr;
 };
 
 #endif
