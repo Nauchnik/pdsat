@@ -23,7 +23,7 @@ const double MIN_STOP_TIME				   = 0.01;
 const int    MAX_DISTANCE_TO_RECORD        = 20;
 const int    PREDICT_TIMES_COUNT           = 6;
 const double MIN_PROBLEM_LIMIT             = 10;
-const int    TS2_POINTS_COUNT              = 50;
+const int    TS2_POINTS_COUNT              = 100;
 const unsigned MAX_POW_VALUE               = 1000;
 
 struct unchecked_area
