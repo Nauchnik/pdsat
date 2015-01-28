@@ -1253,6 +1253,8 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 			for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
 				xor_bs = (*L2_it).center ^ bs;
 				if ( xor_bs.count() == 0 ) {
+					if ( ts_strategy == 2 )
+						continue; // in this mode points point can be undeleted from L2 to L1
 					std::cerr << "xor_bs == 0. current center in L2" << std::endl;
 					std::cerr << "(*L2_it).checked_points.count() " << (*L2_it).checked_points.count() << std::endl;
 					MPI_Abort( MPI_COMM_WORLD, 0 );
@@ -1443,10 +1445,9 @@ bool MPI_Predicter :: DeepPredictMain( )
 		if ( verbosity > 0 )
 			std::cout << "PrepareForPredict() done" << std::endl;
 
-		if ( !ControlProcessPredict( ProcessListNumber++, sstream_control ) ) {
+		if ( !ControlProcessPredict( ProcessListNumber++, sstream_control ) )
 			MPI_Abort( MPI_COMM_WORLD, 0 );
-		}
-
+		
 		if ( verbosity > 0 )
 			std::cout << "ControlProcessPredict() done" << std::endl;
 
@@ -1818,8 +1819,7 @@ double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_
 	// (ro, es, te) mode, here sum for sample is number of solved problems with time < te 
 	// get best predict time for current point with different variants of time limits
 	long double point_cur_predict_time = 0.0, 
-				//point_best_predict_time = HUGE_DOUBLE, 
-				point_best_predict_time = std::numeric_limits<long double>::infinity(),
+				point_best_predict_time = HUGE_DOUBLE, 
 		   cur_probability, point_best_time_limit = 0.0;
 	unsigned cur_solved_in_time, point_best_solved_in_time = 0;
 	std::vector<double> predict_times;
@@ -1968,7 +1968,6 @@ bool MPI_Predicter :: GetPredict()
 
 			med_time_arr[i] = sum_time_arr[i] / (double)cur_cnf_in_set_count;
 			cur_predict_time = med_time_arr[i] / (double)proc_count;
-			if ( cur_var_num  )
 			cur_predict_time *= pow( 2.0, (double)cur_var_num );
 		}
 		else if ( te > 0.0 ) // here med_time_arr in (0,1)

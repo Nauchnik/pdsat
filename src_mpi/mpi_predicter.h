@@ -20,11 +20,11 @@ const double TRANSP_COAST                  = 0.000001;
 const int    NUM_KEY_BITS                  = 64;
 const int    MAX_VAR_FOR_RANDOM            = 60;
 const double MIN_STOP_TIME				   = 0.01;
-const int    MAX_DISTANCE_TO_RECORD        = 10;
+const int    MAX_DISTANCE_TO_RECORD        = 20;
 const int    PREDICT_TIMES_COUNT           = 6;
 const double MIN_PROBLEM_LIMIT             = 10;
 const int    TS2_POINTS_COUNT              = 50;
-const unsigned MAX_POW_VALUE               = 1024;
+const unsigned MAX_POW_VALUE               = 1000;
 
 struct unchecked_area
 {
