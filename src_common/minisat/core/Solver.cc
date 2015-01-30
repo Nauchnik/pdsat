@@ -104,7 +104,7 @@ Solver::Solver() :
   , max_nof_restarts   ( 0 )
   , start_activity     ( 0 )
   , core_len           ( 0 )
-  , IsPredict          ( false )
+  , isPredict          ( false )
   , start_solving_time ( 0 )
   , max_solving_time   ( 0 )
   , rank               ( -1 )
@@ -866,6 +866,14 @@ lbool Solver::solve_()
 #else
 	start_solving_time = cpuTime();
 #endif
+
+#ifdef _MPI
+	MPI_Status mpi_status;
+	MPI_Request mpi_request;
+	int iprobe_message,
+	test_message,
+	irecv_message;
+#endif
 	
     model.clear();
     conflict.clear();
@@ -905,6 +913,35 @@ lbool Solver::solve_()
 			 cancelUntil(0);
 			 return l_Undef;
 		}
+
+#ifdef _MPI
+		if ( isPredict ) {
+			if ( ( pdsat_verbosity > 0 ) && ( rank == 1 ) ) {
+				std::cout << "try to MPI_Iprobe()" << std::endl;
+				std::cout << "rank " << rank << std::endl;
+			}
+			int size;
+			MPI_Iprobe( 0, 0, MPI_COMM_WORLD, &iprobe_message, &mpi_status );
+			if ( pdsat_verbosity > 0 )
+				std::cout << "iprobe_message " << iprobe_message << std::endl;
+			if ( iprobe_message ) {
+				MPI_Get_count(&mpi_status, MPI_UNSIGNED, &size);
+			if ( size == 1 ) {
+				MPI_Irecv( &irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request );
+				MPI_Test( &mpi_request, &test_message, &mpi_status );
+				if ( test_message ) {
+					if ( pdsat_verbosity > 0 )
+						std::cout << "m2.2 interrupted after " << conflicts << " conflicts" << std::endl;
+					cancelUntil(0);
+					return l_Undef;
+				}
+			}
+			else
+				std::cerr << "In Solver() MPI_Get_count(&status, MPI_UNSIGNED, &size); " << size << std::endl;
+			}
+		}
+#endif
+		
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
         status = search(rest_base * restart_first);
         if (!withinBudget()) break;

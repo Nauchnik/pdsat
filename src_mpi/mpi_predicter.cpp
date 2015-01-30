@@ -100,7 +100,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		ts_strategy = 0;
 	}
 	
-	IsPredict = true;
+	isPredict = true;
 	if ( corecount < 2 ) { 
 		std::cerr << "Error. corecount < 2" << std::endl; 
 		return false; 
@@ -263,9 +263,6 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 	if ( verbosity > 1 )
 		std::cout << "SendPredictTask() start" << std::endl;
 	
-	cnf_start_time_arr[cur_task_index] = MPI_Wtime(); // fix current time
-	node_list[cur_task_index] = process_number_to_send; // fix node where SAT problem will be solved
-	
 	if ( ( !cur_task_index ) || ( cur_task_index % (int)cnf_in_set_count == 0 ) ) { // if new sample then new set to all precesses
 		if ( verbosity > 1 ) {
 			std::cout << "In SendPredictTask() new decomp set" << std::endl; 
@@ -289,6 +286,9 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 		}
 		cur_decomp_set_index++;
 	}
+
+	cnf_start_time_arr[cur_task_index] = MPI_Wtime(); // fix current time
+	node_list[cur_task_index] = process_number_to_send; // fix node where SAT problem will be solved
 	
 	// send decomp_set if needed
 	if ( vec_IsDecompSetSendedToProcess[process_number_to_send-1] == false ) {
@@ -359,7 +359,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 	int total_sat_count = 0;
 	MPI_Status status,
 		       current_status;
-	//MPI_Request request;
+	MPI_Request request;
 	solved_tasks_count = 0;
 	cnf_time_from_node = 0.0;
 	double start_sec = MPI_Wtime( ); // get init time
@@ -388,11 +388,10 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 					return true;
 				}
 				
-				// TODO return stopping ?
-				/*if ( !isSolverSystemCalling ) {
+				// send stop-messages to compute nodes
+				if ( !isSolverSystemCalling ) {
 					if ( ( verbosity > 0 ) && ( cnf_to_stop_arr.size() > 0 ) )
 						std::cout << "cnf_to_stop_count " << cnf_to_stop_arr.size() << std::endl;
-					// send list of stop-messages
 					for ( unsigned i = 0; i < cnf_to_stop_arr.size(); i++ ) {
 						MPI_Isend( &stop_message, 1, MPI_INT, node_list[cnf_to_stop_arr[i]], 0, 
 								   MPI_COMM_WORLD, &request ); // stop_message == -1
@@ -400,7 +399,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 							std::cout << "stop-message was send to node # " 
 								      << node_list[cnf_to_stop_arr[i]] << std::endl;
 					}
-				}*/
+				}
 				
 				get_predict_time = MPI_Wtime() - get_predict_time;
 				
@@ -692,7 +691,7 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 		S->addClause( dummy[i] );
 	
 	S->pdsat_verbosity  = verbosity;
-	S->IsPredict        = IsPredict;
+	S->isPredict        = isPredict;
 	S->max_solving_time = max_solving_time;
 	S->rank             = rank;
 	S->core_len         = core_len;
@@ -1231,6 +1230,11 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 		sstream << std::endl << "---Record not updated---" << std::endl;
 		checked_area c_a;
 		unupdated_count++;
+		// for "window" mode - mark current center point as checked point
+		if ( ts_strategy == 2 )
+			for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it )
+				if ( L2_it->center == current_unchecked_area.center )
+					L2_it->is_partly_checked = true;
 		sstream << "unupdated_count " << unupdated_count << std::endl;
 		if ( deep_predict >= 5 ) { // tabu search mode
 			boost::dynamic_bitset<> bs, xor_bs;
@@ -1251,10 +1255,10 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 			// find min hamming distance of points in L2 from current record point
 			min_hamming_distance = (unsigned)core_len;
 			for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
+				if ( L2_it->is_partly_checked ) // don't choose if choosed already
+					continue;
 				xor_bs = (*L2_it).center ^ bs;
 				if ( xor_bs.count() == 0 ) {
-					if ( ts_strategy == 2 )
-						continue; // in this mode points point can be undeleted from L2 to L1
 					std::cerr << "xor_bs == 0. current center in L2" << std::endl;
 					std::cerr << "(*L2_it).checked_points.count() " << (*L2_it).checked_points.count() << std::endl;
 					MPI_Abort( MPI_COMM_WORLD, 0 );
@@ -1275,7 +1279,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 			// remember matches
 			for ( L2_it = L2.begin(); L2_it != L2.end(); L2_it++ ) {
 				xor_bs = (*L2_it).center ^ bs;
-				if ( xor_bs.count() == min_hamming_distance )
+				if ( ( !(L2_it->is_partly_checked) ) && ( xor_bs.count() == min_hamming_distance ) )
 					L2_matches.push_back( *L2_it );
 			}
 			
@@ -1487,15 +1491,15 @@ bool MPI_Predicter :: DeepPredictMain( )
 		// stop all current tasks if not first stage (in this stage all problems must be solved)
 		/*if ( !IsFirstStage ) {
 			if ( verbosity > 1 )
-				cout << "Extra stop sending " << std::endl;
+				std::cout << "Extra stop sending " << std::endl;
 			for ( int i = 1; i < corecount; i++ ) {
 				MPI_Isend( &stop_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &request );
 				if ( verbosity > 0 )
-					cout << "stop-message was send to node # " << i << std::endl;
+					std::cout << "stop-message was send to node # " << i << std::endl;
 			}
 		}*/
 	} // while
-
+	
 	if ( ( deep_predict <= 2 ) && ( best_predict_time == real_best_predict_time ) ) {
 		best_var_num = real_best_var_num;
 		var_choose_order = real_var_choose_order;
@@ -1592,6 +1596,7 @@ bool MPI_Predicter :: PrepareForPredict()
 	cnf_start_time_arr.resize( all_tasks_count );
 	// array of real time of CNF solving
 	cnf_real_time_arr.resize( all_tasks_count );
+	cnf_not_solved_check_count.resize( all_tasks_count );
 	cnf_issat_arr.resize( all_tasks_count );
 	cnf_prepr_arr.resize( all_tasks_count );
 	
@@ -1601,8 +1606,9 @@ bool MPI_Predicter :: PrepareForPredict()
 		cnf_real_time_arr[i]  = 0.0;
 		cnf_prepr_arr[i]      = 0;
 		cnf_issat_arr[i]      = false;
+		cnf_not_solved_check_count[i] = 0;
 	}
-
+	
 	std::cout << "all_tasks_count " << all_tasks_count << std::endl;
 	
 	// count of solved subproblems from sample with time limit
@@ -1950,22 +1956,25 @@ bool MPI_Predicter :: GetPredict()
 		isTeBkvUpdated = false;
 		
 		// get current predict time
-		if ( te == 0.0 ) {
+		if ( te == 0.0 ) {		
 			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ ) {
 				// if real time from node doesn't exist, use roundly time from 0-core
-				if ( cnf_real_time_arr[j] > 0 ) {
+				if ( cnf_real_time_arr[j] > 0.0 ) {
 					cur_cnf_time = cnf_real_time_arr[j];
 					//if ( cur_cnf_time > max_real_time_sample ) 
 					//	max_real_time_sample = cur_cnf_time; // compute only real time
 				}
-				else if ( ( cnf_start_time_arr[j] > 0 ) && ( (MPI_Wtime() - cnf_start_time_arr[j]) > MIN_PROBLEM_LIMIT ) )
-					cur_cnf_time = MPI_Wtime() - cnf_start_time_arr[j];
+				else if ( cnf_start_time_arr[j] > 0 ) {
+					if ( ++cnf_not_solved_check_count[j] > 1 ) // stop if subproblem not solved in more than 1 check
+						cur_cnf_time = ( MPI_Wtime() - cnf_start_time_arr[j] );
+					else cur_cnf_time = 0.0;
+				}
 				else
 					cur_cnf_time = 0; // computing of task wasn't started yet
 				// we can stop processing of sample with such task if needed
 				sum_time_arr[i] += cur_cnf_time;
 			}
-
+			
 			med_time_arr[i] = sum_time_arr[i] / (double)cur_cnf_in_set_count;
 			cur_predict_time = med_time_arr[i] / (double)proc_count;
 			cur_predict_time *= pow( 2.0, (double)cur_var_num );
@@ -2392,6 +2401,7 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, std::
 	new_ua.center = point;
 	new_ua.radius = 1;
 	new_ua.checked_points.resize( point.size() );
+	new_ua.is_partly_checked = false;
 	
 	for ( L1_it = L1.begin(); L1_it != L1.end(); L1_it++ ) {
 		// necessary condition - points with close count of 1s

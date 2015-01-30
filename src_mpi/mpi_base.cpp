@@ -38,7 +38,7 @@ MPI_Base :: MPI_Base( ) :
 	check_every_conflict ( 2000 ),
 	known_point_file_name ( "known_point" ),
 	IsSolveAll           ( false ),
-	IsPredict            ( false ),
+	isPredict            ( false ),
 	max_solving_time     ( 0 ),
 	max_nof_restarts     ( 0 ),
 	keybit_count         ( 4 ),
@@ -809,7 +809,7 @@ bool MPI_Base :: ReadIntCNF()
 		std::cout << "new core_len (less to known_last_bits) " << core_len << std::endl;
 	}
 	
-	if ( ( IsPredict ) && ( !input_var_num ) ) {
+	if ( ( isPredict ) && ( !input_var_num ) ) {
 		std::cerr << "input_var_num == 0 in predict mode" << std::endl;
 		return false;
 	}

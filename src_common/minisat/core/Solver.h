@@ -50,7 +50,7 @@ public:
 	double start_solving_time;
 	double start_activity;
 	int core_len;
-	bool IsPredict;
+	bool isPredict;
 	int rank;
 	int pdsat_verbosity;
 	bool print_learnts;

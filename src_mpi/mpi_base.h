@@ -64,7 +64,7 @@ public:
 	double start_activity;
 	bool IsConseq;
 	int check_every_conflict;
-	bool IsPredict;
+	bool isPredict;
 	bool isMakeSatSampleAnyWay;
 	
 	unsigned *full_mask;

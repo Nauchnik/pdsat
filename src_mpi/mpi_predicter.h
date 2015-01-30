@@ -22,7 +22,6 @@ const int    MAX_VAR_FOR_RANDOM            = 60;
 const double MIN_STOP_TIME				   = 0.01;
 const int    MAX_DISTANCE_TO_RECORD        = 20;
 const int    PREDICT_TIMES_COUNT           = 6;
-const double MIN_PROBLEM_LIMIT             = 10;
 const int    TS2_POINTS_COUNT              = 100;
 const unsigned MAX_POW_VALUE               = 1000;
 
@@ -32,6 +31,7 @@ struct unchecked_area
 	boost::dynamic_bitset<> checked_points; // i here corresponds to checked point with component # i
 	int radius;
 	double med_var_activity;
+	bool is_partly_checked; // if checked in window mode, then not all points in radius are checked, but we can't chosse it again
 };
 
 struct checked_area
@@ -164,6 +164,7 @@ public:
 private:
 	std::vector<decomp_set> decomp_set_arr;
 	std::vector<double> cnf_real_time_arr;
+	std::vector<int> cnf_not_solved_check_count;
 	std::vector<bool> cnf_issat_arr;
 	std::vector<int> cnf_prepr_arr;
 	std::vector<int> cnf_status_arr;

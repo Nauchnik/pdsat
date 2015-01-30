@@ -45,7 +45,7 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	MPI_Comm_size( MPI_COMM_WORLD, &corecount );
 	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
 
-	IsPredict = false;
+	isPredict = false;
 	double iteration_start_time, iteration_final_time;
 	double whole_final_time;
 	std::stringstream sstream;
@@ -663,7 +663,7 @@ bool MPI_Solver :: ComputeProcessSolve()
 		S = new Solver();
 		S->addProblem(cnf);
 		S->verbosity = 0;
-		S->IsPredict = false;
+		S->isPredict = false;
 		
 		IsFirstTaskRecieved = false;
 		var_choose_order_int = new int[MAX_CORE_LEN];
