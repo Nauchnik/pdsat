@@ -1290,7 +1290,8 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 				std::cout << "L2_matches.size() " << L2_matches.size() << std::endl;
 			sstream << "L2_matches.size() " << L2_matches.size() << std::endl;
 			
-			if ( ts_strategy == 0 ) { // randomly choose weight of point from L2 and go to such random point
+			// randomly choose weight of point from L2_matches and go to such random point
+			if ( ts_strategy >= 0 ) { 
 				for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
 					IsAdding = true;	
 					for ( unsigned i=0; i < power_values.size(); i++ )
@@ -1305,7 +1306,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 				rand_power_value           = uint_rand( gen ) % power_values.size();
 				L2_index = 0;
 				IsAdding = false;
-				// choose randomly area from randoml class of area center power
+				// choose randomly area from random class of area center power
 				// start search from random part of L2 list, because random_shuffle() don't work for list
 				for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); L2_it++ ) {
 					if ( ( L2_index >= rand_L2_start_search_index ) &&
@@ -1340,7 +1341,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 				sstream << "L2_index "					 << L2_index                   << std::endl;
 				power_values.clear();
 			}
-			else if ( ts_strategy > 0 ) { // sort areas from L2 by median of var activities of centers
+			/*else if ( ts_strategy > 0 ) { // sort areas from L2 by median of var activities of centers
 				// update activity of points from L2
 				for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it ) {
 					(*L2_it).med_var_activity = 0;
@@ -1356,7 +1357,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 						std::cout << (*L2_it).med_var_activity << " : " << (*L2_it).center.count() << std::endl;
 				}
 				current_unchecked_area = (*L2_matches.begin());
-			}
+			}*/
 			
 			L2_matches.clear();
 			
