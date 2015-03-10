@@ -82,18 +82,9 @@ void Bivium::shift_regs()
 
 bool Bivium::getNextBit()
 {
-	/*bool m1 = m_reg[65];
-	bool m2 = m_reg[92];
-	bool m3 = m_reg[161];
-	bool m4 = m_reg[176];
-	bool m5 = m1^m2;
-	bool m6 = m3^m4;
-	bool m7 = m5^m6;*/
 	bool t1 = m_reg[65]^m_reg[92];
 	bool t2 = m_reg[161]^m_reg[176];
-
 	shift_regs();
-
 	return t1^t2;
 }
 
