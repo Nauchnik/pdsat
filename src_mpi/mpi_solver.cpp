@@ -590,12 +590,17 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 			cur_satisfying_assignment.solving_time = solving_times[3]; // sat solving time
 			char_arr = new char[char_arr_len];
 			MPI_Recv( char_arr, char_arr_len, MPI_CHAR, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-			if ( char_arr_len > 1 ) {
+			if ( char_arr_len > 1 ) { // read several assignments from one array
 				std::cout << "recieved char_arr_len " << char_arr_len << std::endl;
+				elem_index=0;
 				cur_satisfying_assignment.str.resize( var_count );
-				for ( int j=0; j < var_count; j++ )
-					cur_satisfying_assignment.str[j] = char_arr[j];
-				satisfying_assignments.push_back( cur_satisfying_assignment );
+				for ( int j=0; j < char_arr_len; j++ ) {
+					cur_satisfying_assignment.str[elem_index++] = char_arr[j];
+					if ( (j+1) % var_count == 0 ) {
+						satisfying_assignments.push_back( cur_satisfying_assignment );
+						elem_index=0;
+					}
+				}
 			}
 			delete[] char_arr;
 		}
@@ -792,6 +797,7 @@ bool MPI_Solver :: ComputeProcessSolve()
 			MPI_Send( char_send_array, char_send_array_len, MPI_CHAR, 0, 0, MPI_COMM_WORLD );
 			delete[] char_send_array;
 			
+			// send satisfying assignments if such occur
 			if ( sat_assignment_from_process.size() > 0 ) {
 				char_send_array = new char[sat_assignment_from_process.size() * sat_assignment_from_process[0].size()];
 				char_send_array_len = 0;
