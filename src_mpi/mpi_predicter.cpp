@@ -741,7 +741,7 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 			b_SAT_set_array.resize( S->model.size() );
 			for ( int i=0; i < S->model.size(); i++ )
 				b_SAT_set_array[i] = ( S->model[i] == l_True) ? 1 : 0;
-			if ( !AnalyzeSATset( ) ) { 	// check res file for SAT set existing
+			if ( !AnalyzeSATset( cnf_time_from_node ) ) { 	// check res file for SAT set existing
 				std::cout << "Error in Analyzer procedute" << std::endl;
 				return false;
 			}

@@ -130,7 +130,7 @@ public:
 
 	void MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec, std::vector< std::vector<bool> > &stream_vec_vec );
 	
-	bool AnalyzeSATset( );
+	bool AnalyzeSATset( double cnf_time_from_node );
 	bool CheckSATset( std::vector<int> &lit_SAT_set_array );
 	bool MakeAssignsFromMasks( unsigned *full_mask, 
 							   unsigned *part_mask, 

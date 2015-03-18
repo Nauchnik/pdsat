@@ -858,7 +858,7 @@ bool MPI_Base :: CheckSATset( std::vector<int> &lit_SAT_set_array )
 }
 
 //---------------------------------------------------------
-bool MPI_Base :: AnalyzeSATset( )
+bool MPI_Base :: AnalyzeSATset( double cnf_time_from_node )
 {
 // Reading of SAT set and check it for correction
 	int lits_num = 0,
@@ -921,7 +921,7 @@ bool MPI_Base :: AnalyzeSATset( )
 	
 	answer_var_count = core_len;
 	
-	sstream << "SAT" << std::endl;
+	sstream << cnf_time_from_node << " s SAT " << std::endl;
 	for ( unsigned i = 0; i < b_SAT_set_array.size(); ++i )
 		sstream << b_SAT_set_array[i];
 	sstream << std::endl; 

@@ -281,7 +281,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 			for ( int i=0; i < S->model.size(); i++ )
 				b_SAT_set_array[i] = ( S->model[i] == l_True) ? true : false;
 			// check res file for SAT set existing
-			if ( !AnalyzeSATset( ) ) {
+			if ( !AnalyzeSATset( cnf_time_from_node ) ) {
 				// is't needed to deallocate memory - MPI_Abort will do it	
 				std::cout << "Error in Analyzer" << std::endl;
 				MPI_Abort( MPI_COMM_WORLD, 0 );
@@ -903,14 +903,14 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 		if ( !IsPB ) {
 			int current_task_index = 0;
 			std::cout << std::endl << std::endl << "Standart mode of SAT solving";
-			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index, interrupted_problems_var_values_from_process,
-						     sat_assignments_from_process ) ) 
+			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index, 
+				             interrupted_problems_var_values_from_process, sat_assignments_from_process ) ) 
 			{
 				std::cout << std::endl << "Error in SolverRun"; 
 				return false;
 			}
 			if ( process_sat_count ) {
-				if ( !AnalyzeSATset( ) ) {
+				if ( !AnalyzeSATset( cnf_time_from_node ) ) {
 					// is't needed to deallocate memory - MPI_Abort will do it	
 					std::cout << "\n Error in Analyzer" << std::endl;
 					MPI_Abort( MPI_COMM_WORLD, 0 );
