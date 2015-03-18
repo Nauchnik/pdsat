@@ -74,7 +74,8 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 			
 			iteration_start_time = MPI_Wtime();
 			
-			std::vector<std::vector<bool>> interrupted_problems_var_values, satisfying_assignments;
+			std::vector<std::vector<bool>> interrupted_problems_var_values;
+			std::vector< satisfying_assignment > satisfying_assignments;
 			ControlProcessSolve( var_choose_order, interrupted_problems_var_values, satisfying_assignments );
 			std::cout << "final interrupted_problems_var_values.size() " << interrupted_problems_var_values.size() << std::endl;
 			std::cout << "final satisfying_assignments.size() " << satisfying_assignments.size() << std::endl;
@@ -89,12 +90,23 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 				ofile.close();
 			}
 
+			unsigned ones_count;
+			std::string tmp_str;
 			if ( satisfying_assignments.size() > 0 ) {
 				std::ofstream ofile("satisfying_assignments");
+				for ( auto &x : satisfying_assignments )
+					ofile << x.str << std::endl;
+				ofile.close(); ofile.clear();
+				ofile.open( "decomp_set_satisfying_assignments" );
 				for ( auto &x : satisfying_assignments ) {
-					for ( unsigned j=0; j < x.size(); j++ )
-						ofile << x[j];
-					ofile << std::endl;
+					ones_count = 0;
+					tmp_str = "";
+					for ( auto &y : var_choose_order ) {
+						if ( x.str[y-1] == '1' ) 
+							ones_count++;
+						tmp_str += x.str[y-1];
+					}
+					ofile << x.solving_time << " s " << "ones " << ones_count << " " << tmp_str << std::endl;
 				}
 				ofile.close();
 			}
@@ -229,7 +241,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 		cnf_time_from_node = Minisat :: cpuTime();
 		ret = S->solveLimited( dummy_vec[i] );
 		cnf_time_from_node = Minisat :: cpuTime() - cnf_time_from_node;
-		
+
 		if ( no_increm )
 			S->clearDB(); // clear database if incremental solving disabled
 			
@@ -396,10 +408,11 @@ void MPI_Solver :: WriteSolvingTimeInfo( double *solving_times, unsigned solved_
 
 bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order, 
 									    std::vector<std::vector<bool>> &interrupted_problems_var_values,
-										std::vector<std::vector<bool>> &satisfying_assignments )
+										std::vector<satisfying_assignment> &satisfying_assignments )
 {
 	interrupted_problems_var_values.clear();
-	std::vector<bool> cur_interrupted_problems_var_values, cur_satisfying_assignment;
+	std::vector<bool> cur_interrupted_problems_var_values;
+	satisfying_assignment cur_satisfying_assignment;
 	std::cout << std::endl << "ControlProcessSolve is running" << std::endl;
 	std::cout << "solving_iteration_count " << solving_iteration_count << std::endl;
 	
@@ -505,7 +518,7 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 	unsigned start_tasks_count = ((corecount - 1) < (int)all_tasks_count) ? (unsigned)(corecount - 1) : all_tasks_count;
 	int char_arr_len;
 	char *char_arr;
-	unsigned elem_index=0;
+	unsigned elem_index;
 	
 	std::cout << "start_tasks_count " << start_tasks_count << std::endl;
 	// send to all cores (except # 0) tasks from 1st range
@@ -554,7 +567,7 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 				//std::cout << "recieved char_arr_len " << char_arr_len << std::endl;
 				cur_interrupted_problems_var_values.resize( var_choose_order.size() );
 				elem_index=0;
-				for ( int j=0; j < char_arr_len; j++ ) {
+				for ( int j=0; j < var_choose_order.size(); j++ ) {
 					cur_interrupted_problems_var_values[elem_index++] = (char_arr[j] == '1' ? true : false);
 					if ( (j+1) % var_choose_order.size() == 0 ) {
 						interrupted_problems_var_values.push_back( cur_interrupted_problems_var_values );
@@ -574,19 +587,15 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 		if ( char_arr_len > 0 ) {
+			cur_satisfying_assignment.solving_time = solving_times[3]; // sat solving time
 			char_arr = new char[char_arr_len];
 			MPI_Recv( char_arr, char_arr_len, MPI_CHAR, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 			if ( char_arr_len > 1 ) {
 				std::cout << "recieved char_arr_len " << char_arr_len << std::endl;
-				cur_satisfying_assignment.resize( var_count );
-				elem_index=0;
-				for ( int j=0; j < char_arr_len; j++ ) {
-					cur_satisfying_assignment[elem_index++] = (char_arr[j] == '1' ? true : false);
-					if ( (j+1) % var_count == 0 ) {
-						satisfying_assignments.push_back( cur_satisfying_assignment );
-						elem_index=0;
-					}
-				}
+				cur_satisfying_assignment.str.resize( var_count );
+				for ( int j=0; j < var_count; j++ )
+					cur_satisfying_assignment.str[j] = char_arr[j];
+				satisfying_assignments.push_back( cur_satisfying_assignment );
 			}
 			delete[] char_arr;
 		}

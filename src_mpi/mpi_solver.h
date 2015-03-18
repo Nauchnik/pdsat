@@ -5,6 +5,12 @@
 
 #include "mpi_base.h"
 
+struct satisfying_assignment
+{
+	std::string str;
+	double solving_time;
+};
+
 class MPI_Solver : public MPI_Base
 {
 private:
@@ -32,7 +38,7 @@ public:
 	bool MPI_Solve( int argc, char **argv );
 	bool ControlProcessSolve( std::vector<int> extern_var_choose_order, 
 		                      std::vector<std::vector<bool>> &interrupted_problems_var_values,
-							  std::vector<std::vector<bool>> &satisfying_assignments );
+							  std::vector<satisfying_assignment> &satisfying_assignments );
 	bool ComputeProcessSolve();
 	
 	bool MPI_ConseqSolve( int argc, char **argv );
