@@ -1548,7 +1548,7 @@ bool MPI_Predicter :: GetRandomValuesArray( unsigned shortcnf_count, std::vector
 			values_arr[i][j] = 0;
 
 	std::vector< std::vector<unsigned> > rand_arr;
-	unsigned rnd_uint32_count = FULL_MASK_LEN - 1;
+	unsigned rnd_uint32_count = FULL_MASK_LEN;
 	// numbs in rand_arr are long long int, so max 64 vars in decompose set
 	MakeRandArr( rand_arr, shortcnf_count, rnd_uint32_count );
 
@@ -1556,7 +1556,7 @@ bool MPI_Predicter :: GetRandomValuesArray( unsigned shortcnf_count, std::vector
 	unsigned mask;
 	for( unsigned uint = 0; uint < shortcnf_count; uint++ ) { // for every CNF from random set
 		value_index = 0;
-		for ( unsigned i = 1; i < FULL_MASK_LEN; i++ ) { // for every 32-bit group of vars
+		for ( unsigned i = 0; i < FULL_MASK_LEN; i++ ) { // for every 32-bit group of vars
 			for( unsigned j = 0; j < UINT_LEN; j++ ) {
 				mask = ( 1 << j );
 				if ( part_mask[i] & mask ) { // if part_mask bit is 1
@@ -1569,13 +1569,6 @@ bool MPI_Predicter :: GetRandomValuesArray( unsigned shortcnf_count, std::vector
 	} 
 
 	rand_arr.clear();
-
-	for( unsigned uint = 0; uint < shortcnf_count; uint++ ) {
-		for( unsigned i = 1; i < FULL_MASK_LEN; i++ ) {
-			if ( values_arr[uint][i] )
-				values_arr[uint][0] += 1 << ( i-1 );
-		}
-	}
 	
 	return true;
 }

@@ -28,13 +28,13 @@
 #include "addit_func.h"
 using namespace Addit_func;
 
-const int      MAX_CORE_LEN = 100000;
+const int      MAX_CORE_LEN = 10000;
 const double   MIN_SOLVE_TIME = 0.000001;
 const unsigned RECOMMEND_BATCH_VAR_COUNT = 21;
 const unsigned MAX_BATCH_VAR_COUNT = 31;
 const unsigned MAX_PART_MASK_VAR_COUNT = 24;
 const unsigned UINT_LEN = 32;
-const unsigned FULL_MASK_LEN = 33;
+const unsigned FULL_MASK_LEN = 100;
 const unsigned SOLVING_TIME_LEN = 15; // info about time of solving tasks
 const double   SOLVER_PARSE_SIMP_TIME = 0.03; // solver parse time + simplification time
 const long double HUGE_DOUBLE = 1e+308;

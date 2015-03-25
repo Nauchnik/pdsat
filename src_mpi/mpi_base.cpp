@@ -93,26 +93,14 @@ bool MPI_Base :: GetMainMasksFromVarChoose( std::vector<int> &var_choose_order )
 	for ( unsigned i = 0; i < var_choose_order.size(); ++i ) {
 		var_index = var_choose_order[i] - 1;
 		cur_uint_ind = var_index / UINT_LEN;
-		full_mask[cur_uint_ind + 1] += 1 << ( var_index % UINT_LEN );
+		full_mask[cur_uint_ind] += 1 << ( var_index % UINT_LEN );
 	}
 
 	// get first full_mask_var_count vars from  array var_choose_order
 	for ( unsigned i = 0; i < part_mask_var_count; ++i ) {
 		var_index = var_choose_order[i] - 1;
 		cur_uint_ind = var_index / UINT_LEN;
-		part_mask[cur_uint_ind + 1] += 1 << ( var_index % UINT_LEN );
-	}
-
-	// full_mask[0] is mask of existing all 32 uint values
-	for ( unsigned i = 1; i < FULL_MASK_LEN; ++i ) // fill full_mask[0]
-		if ( full_mask[i] ) full_mask[0] += 1 << ( i-1 );
-	
-	for ( unsigned i = 1; i < FULL_MASK_LEN; ++i ) // fill part_mask[0]
-		if ( part_mask[i] ) part_mask[0] += 1 << ( i-1 );
-
-	if ( ( !full_mask[0] ) && ( full_mask_var_count != 0 ) ) {
-		std::cout << "Error. full_mask[0] == 0. full_mask_var_count != 0";
-		return false;
+		part_mask[cur_uint_ind] += 1 << ( var_index % UINT_LEN );
 	}
 	
 	if ( verbosity > 1 ) {
@@ -121,7 +109,7 @@ bool MPI_Base :: GetMainMasksFromVarChoose( std::vector<int> &var_choose_order )
 			std::cout << part_mask[i] << " ";
 		std::cout << std::endl;
 		unsigned bit_count = 0;
-		for ( unsigned j=1; j < FULL_MASK_LEN; ++j )
+		for ( unsigned j=0; j < FULL_MASK_LEN; ++j )
 			bit_count += BitCount( part_mask[j] );
 		std::cout << "part_mask bit_count " << bit_count << std::endl;
 	}
@@ -242,7 +230,7 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask,
 // for predict with minisat2.2. convert masks to vector of Literals
 	unsigned variate_vars_count = 0;
 	full_mask_var_count = 0;
-	for ( unsigned i = 1; i < FULL_MASK_LEN; i++ ) {
+	for ( unsigned i = 0; i < FULL_MASK_LEN; i++ ) {
 		variate_vars_count  += BitCount( full_mask[i] ^ part_mask[i] );
 		full_mask_var_count += BitCount( full_mask[i] );
 	}
@@ -263,7 +251,7 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask,
 		range_mask = 1;
 		range_mask_ind = 1;
 		index = 0;
-		for ( unsigned i = 1; i < FULL_MASK_LEN; i++ ) {
+		for ( unsigned i = 0; i < FULL_MASK_LEN; i++ ) {
 			for ( unsigned j = 0; j < UINT_LEN; j++ ) {
 				mask = ( 1 << j );
 				cur_var_ind = ( i-1 ) * UINT_LEN + j;
@@ -296,7 +284,7 @@ bool MPI_Base :: GetValuesFromVarChoose( unsigned &part_var_power )
 	unsigned mask2;
 	for( unsigned lint = 0; lint < part_var_power; lint++ ) {
 		value_index = 0;
-		for( unsigned i = 1; i < FULL_MASK_LEN; i++ ) {
+		for( unsigned i = 0; i < FULL_MASK_LEN; i++ ) {
 			for( unsigned j = 0; j < UINT_LEN; j++ ) {
 				mask  = ( 1 << j );
 				mask2 = 1 << value_index;
@@ -308,14 +296,6 @@ bool MPI_Base :: GetValuesFromVarChoose( unsigned &part_var_power )
 			} // for( j = 0; j < UINT_LEN; j++ )
 		}
 	} // for( lint = 0; lint < part_var_power; lint++ )
-
-	// set values_arr[lint][0] and values_arr[lint][i]
-	for( unsigned lint = 0; lint < part_var_power; lint++ ) {
-		for( unsigned i = 1; i < FULL_MASK_LEN; i++ ) { // fill part_mask[0]
-			if ( values_arr[lint][i] )
-				values_arr[lint][0] += 1 << ( i-1 );
-		}
-	}
 
 	return true;
 }
