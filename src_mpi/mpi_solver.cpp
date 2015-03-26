@@ -218,7 +218,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 	MakeAssignsFromMasks( full_mask, part_mask, mask_value, dummy_vec );
 	
 	if ( ( verbosity > 1 ) && ( rank == 1 ) ) {
-		std::cout << "dummy_vec size" << dummy_vec.size() << std::endl;
+		std::cout << "dummy_vec size " << dummy_vec.size() << std::endl;
 		for ( int i = 0; i < dummy_vec.size(); ++i ) {
 			for ( int j=0; j < dummy_vec[i].size(); ++j )
 				std::cout << dummy_vec[i][j].x << " ";

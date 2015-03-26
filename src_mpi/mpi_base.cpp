@@ -254,7 +254,7 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask,
 		for ( unsigned i = 0; i < FULL_MASK_LEN; i++ ) {
 			for ( unsigned j = 0; j < UINT_LEN; j++ ) {
 				mask = ( 1 << j );
-				cur_var_ind = ( i-1 ) * UINT_LEN + j;
+				cur_var_ind = i * UINT_LEN + j;
 				IsAddingLiteral = false;
 				if ( part_mask[i] & mask ) { // one common vector send by control process
 					IsPositiveLiteral = ( mask_value[i] & mask ) ? true : false;
