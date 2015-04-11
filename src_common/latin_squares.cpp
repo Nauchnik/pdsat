@@ -67,19 +67,6 @@ bool latin_square :: ReadLiteralsFromFile( FILE *infile, string &error_msg )
 	str2 = word2;
 	if ( !( strcmp( word1, "c" ) ) && !( strcmp( word2, "diag_start" ) ) )
 		problem_type = "diag";
-	else if ( !( strcmp( word1, "c" ) ) && !( strcmp( word2, "ls_10_3_inc0" ) ) )
-		problem_type = "inc0";
-	else if ( !( strcmp( word1, "c" ) ) && !( strcmp( word2, "ls_10_3_inc60" ) ) )
-		problem_type = "inc60";                               
-	else if ( !( strcmp( word1, "c" ) ) && !( strcmp( word2, "ls_10_3_inc70" ) ) )
-		problem_type = "inc70";
-	else if ( !( strcmp( word1, "c" ) ) && !( strcmp( word2, "ls_10_3_inc70m" ) ) )
-		problem_type = "inc70";
-	else if ( !( strcmp( word1, "c" ) ) && !( strcmp( word2, "ls_10_3_inc80" ) ) )
-		problem_type = "inc80";
-	else if ( !( strcmp( word1, "c" ) ) && !( strcmp( word2, "ls_10_3_inc90" ) ) )
-		problem_type = "inc90";
-	else
 	{
 		error_msg += "impossible head of file " + str1 + " " + str2;
         return false;

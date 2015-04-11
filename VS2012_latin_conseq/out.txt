@@ -1,3 +1,0 @@
-positive_literals.size() 100
-
-CNFfile  N 5 K 3 rows_count 3

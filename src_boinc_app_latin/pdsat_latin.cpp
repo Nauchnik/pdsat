@@ -27,7 +27,7 @@ using namespace std;
 #define INPUT_FILENAME "in"
 #define OUTPUT_FILENAME "out"
 
-const int MAX_NOF_RESTARTS_INC        = 4050;
+const int MAX_NOF_RESTARTS              = 3000;
 const int MIN_CHECKPOINT_INTERVAL_SEC = 2;
 const int POSITIVE_LITERALS_MIN_SIZE  = 8;
 
@@ -35,9 +35,8 @@ int last_iteration_done = 0;
 int total_problems_count = 0;
 string previous_results_str = "";
 
-int LS_10_3_inc72_cnf_array[] = {
-#include "inc72.inc"
-//#include "test_10_72.inc"
+int diag10_2_cnf_array[] = {
+#include "diag10_2.inc"
 };
 
 bool do_work( FILE *infile, string &final_result_str );
@@ -86,7 +85,7 @@ int main(int argc, char **argv) {
 			previous_results_str += string_input;
         fclose( chpt_file );
     }
-
+	
 	retval = outfile.open(output_path, "w");
     if (retval) {
         fprintf(stderr, "%s APP: app output open failed:\n",
@@ -145,17 +144,14 @@ bool do_work( FILE *infile, string &final_result_str )
 		total_problems_count = ls.positive_literals.size();
 	
 	if ( ls.problem_type == "diag" ) {
-		/*ls.cnf_array.resize( sizeof(diag10_2_cnf_array)  / sizeof(diag10_2_cnf_array[0]) );
+		ls.cnf_array.resize( sizeof(diag10_2_cnf_array)  / sizeof(diag10_2_cnf_array[0]) );
 		for ( unsigned i = 0; i < ls.cnf_array.size(); i++ ) 
-			ls.cnf_array[i] = diag10_2_cnf_array[i];*/
+			ls.cnf_array[i] = diag10_2_cnf_array[i];
 		fprintf(stderr, " diag ");
-		return false;
 	}
-	else if ( ls.problem_type.find("inc") != string::npos ) {
-		ls.cnf_array.resize( sizeof(LS_10_3_inc72_cnf_array)  / sizeof(LS_10_3_inc72_cnf_array[0]) );
-		for ( unsigned i = 0; i < ls.cnf_array.size(); i++ ) 
-			ls.cnf_array[i] = LS_10_3_inc72_cnf_array[i];
-		fprintf(stderr, ls.problem_type.c_str() );
+	else {
+		fprintf(stderr, " not diag ");
+		return false;
 	}
 	
 	minisat22_wrapper m22_wrapper;
@@ -168,25 +164,14 @@ bool do_work( FILE *infile, string &final_result_str )
 	double current_time = 0, time_last_checkpoint = 0;
 	clock_t clk_start = clock( );
 	time_last_checkpoint = (double)(clock( ) - clk_start)/(double)(CLOCKS_PER_SEC);
-
-	int max_nof_restarts;
-	//if ( ls.problem_type == "diag" )
-	//	max_nof_restarts = MAX_NOF_RESTARTS_DIAG;
-	//else 
-	if ( ls.problem_type.find("inc") != string::npos )
-		max_nof_restarts = MAX_NOF_RESTARTS_INC;
-	else {
-		fprintf(stderr, "S->max_nof_restarts == 0\n");
-		return false;
-	}
 	
-	fprintf( stderr, " %d ", max_nof_restarts );
+	fprintf(stderr, " %d ", MAX_NOF_RESTARTS );
 	
 	for ( positive_literals_it = ls.positive_literals.begin() + last_iteration_done; 
 		  positive_literals_it != ls.positive_literals.end(); positive_literals_it++ ) 
 	{
 		S = new Solver();
-		S->max_nof_restarts = max_nof_restarts;
+		S->max_nof_restarts = MAX_NOF_RESTARTS;
 
 		S->addProblem( cnf ); // add initial CNF every time
 		if ( !ls.SolveOneProblem( S, positive_literals_it, clk_start ) ) {
