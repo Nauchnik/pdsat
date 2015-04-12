@@ -24,7 +24,7 @@ const int PROBLEMS_IN_WU = 20;
 #define OUTPUT_FILENAME	"out"
 
 int diag10_2_cnf_array[] = {
-#include "../src_common/diag10_2.inc"
+#include "../src_common/ls10_2_diag.inc"
 };
 
 fstream infile;
