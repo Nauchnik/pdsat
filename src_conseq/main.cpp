@@ -50,7 +50,7 @@ int main( int argc, char* argv[] )
 	argc = 5;
 	argv[1] = "10";
 	argv[2] = "2";
-	argv[3] = "9";
+	argv[3] = "5";
 	argv[4] = "diag";
 	//argv[5] = "values.txt";
 	//argv[6] = "tasks.txt";

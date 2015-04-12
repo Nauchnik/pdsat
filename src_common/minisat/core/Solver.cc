@@ -110,7 +110,9 @@ Solver::Solver() :
   , rank               ( -1 )
   , pdsat_verbosity    ( 0 )
   , nullLevelVarsCount ( 0 )
-{}
+{
+	problem_type = "";
+}
 
 Solver::~Solver()
 {}
@@ -722,6 +724,10 @@ lbool Solver::search(int nof_conflicts)
     vec<Lit>    learnt_clause;
     starts++;
 
+	// BOINC mode - added to speedup solving Latin square problems and decreasie using RAM
+	if ( problem_type == "diag" )
+		reduceDB();
+	
     for (;;){
         CRef confl = propagate();
         if (confl != CRef_Undef){

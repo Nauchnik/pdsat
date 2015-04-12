@@ -67,6 +67,7 @@ bool latin_square :: ReadLiteralsFromFile( FILE *infile, string &error_msg )
 	str2 = word2;
 	if ( !( strcmp( word1, "c" ) ) && !( strcmp( word2, "diag_start" ) ) )
 		problem_type = "diag";
+	else
 	{
 		error_msg += "impossible head of file " + str1 + " " + str2;
         return false;
@@ -242,7 +243,7 @@ bool latin_square :: SolveOneProblem( Solver *&S, vector< vector<int> > :: itera
 void latin_square :: SolveLatinProblems( )
 {
 	cout << "Start FindLatinSquares()" << endl;
-	all_problems = positive_literals.size();
+	all_problems = (unsigned)positive_literals.size();
 	cout << "all_problems " << all_problems << endl; 
 
 	if ( verbosity > 0 ) {
@@ -266,8 +267,8 @@ void latin_square :: SolveLatinProblems( )
 	S->addProblem( cnf ); // add initial CNF every time
 	S->max_nof_restarts = max_nof_restarts;
 
-	if ( problem_type == "incall" ) // disable reduceDB() each restart
-		S->core_len = S->nVars();
+	if ( problem_type == "diag" ) // disable reduceDB() each restart
+		S->problem_type = problem_type;
 	
 	for ( positive_literals_it = positive_literals.begin(); positive_literals_it != positive_literals.end(); positive_literals_it++ ) {
 		if ( !SolveOneProblem( S, positive_literals_it, clk_start ) ) {
@@ -441,9 +442,9 @@ bool latin_square :: IsPossibleValue( vector<char> cur_vec )
 		extd_cur_vec_added = 0;
 		for ( unsigned i=0; i < known_rows.size(); ++i ) {
 			copy( known_rows[i].begin(), known_rows[i].end(), extd_cur_vec.begin() + extd_cur_vec_added );
-			extd_cur_vec_added += known_rows[i].size();
+			extd_cur_vec_added += (unsigned)known_rows[i].size();
 			copy( cur_cartesian[i].begin(), cur_cartesian[i].end(), extd_cur_vec.begin() + extd_cur_vec_added );
-			extd_cur_vec_added += cur_cartesian[i].size();
+			extd_cur_vec_added += (unsigned)cur_cartesian[i].size();
 		}
 
 		IsSkip = false;

@@ -54,6 +54,7 @@ public:
 	int rank;
 	int pdsat_verbosity;
 	bool print_learnts;
+	std::string problem_type;
 	void clearDB();
 	void clearPolarity();
 	void clearParams();

@@ -27,7 +27,7 @@ using namespace std;
 #define INPUT_FILENAME "in"
 #define OUTPUT_FILENAME "out"
 
-const int MAX_NOF_RESTARTS              = 3000;
+const int MAX_NOF_RESTARTS              = 3500;
 const int MIN_CHECKPOINT_INTERVAL_SEC = 2;
 const int POSITIVE_LITERALS_MIN_SIZE  = 8;
 
@@ -172,6 +172,7 @@ bool do_work( FILE *infile, string &final_result_str )
 	{
 		S = new Solver();
 		S->max_nof_restarts = MAX_NOF_RESTARTS;
+		S->problem_type = ls.problem_type;
 
 		S->addProblem( cnf ); // add initial CNF every time
 		if ( !ls.SolveOneProblem( S, positive_literals_it, clk_start ) ) {
