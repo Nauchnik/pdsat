@@ -27,7 +27,7 @@ using namespace std;
 #define INPUT_FILENAME "in"
 #define OUTPUT_FILENAME "out"
 
-const int MAX_NOF_RESTARTS              = 3500;
+const int MAX_NOF_RESTARTS            = 5000;
 const int MIN_CHECKPOINT_INTERVAL_SEC = 2;
 const int POSITIVE_LITERALS_MIN_SIZE  = 8;
 
@@ -43,12 +43,12 @@ bool do_work( FILE *infile, string &final_result_str );
 int do_checkpoint( unsigned current_solved, unsigned total_tasks, string &final_result_str );
 
 int main(int argc, char **argv) {
-    int c, nchars = 0, retval, n;
+    int nchars = 0, retval, n;
     double fsize;
     char input_path[512], output_path[512], chkpt_path[512], buf[256];
     MFILE outfile;
     FILE *chpt_file, *infile;
-
+	
     retval = boinc_init();
     if (retval) {
         fprintf(stderr, "%s boinc_init returned %d\n",
@@ -147,7 +147,7 @@ bool do_work( FILE *infile, string &final_result_str )
 		ls.cnf_array.resize( sizeof(diag10_2_cnf_array)  / sizeof(diag10_2_cnf_array[0]) );
 		for ( unsigned i = 0; i < ls.cnf_array.size(); i++ ) 
 			ls.cnf_array[i] = diag10_2_cnf_array[i];
-		fprintf(stderr, " diag ");
+		fprintf(stderr, " ls.problem_type diag\n ");
 	}
 	else {
 		fprintf(stderr, " not diag ");
@@ -165,11 +165,16 @@ bool do_work( FILE *infile, string &final_result_str )
 	clock_t clk_start = clock( );
 	time_last_checkpoint = (double)(clock( ) - clk_start)/(double)(CLOCKS_PER_SEC);
 	
-	fprintf(stderr, " %d ", MAX_NOF_RESTARTS );
+	fprintf(stderr, " restarts %d \n", MAX_NOF_RESTARTS );
+	fprintf(stderr, " ls.positive_literals size %d \n", ls.positive_literals.size() );
 	
 	for ( positive_literals_it = ls.positive_literals.begin() + last_iteration_done; 
 		  positive_literals_it != ls.positive_literals.end(); positive_literals_it++ ) 
 	{
+		//for ( unsigned i = 0; i < positive_literals_it->size(); i++ )
+		//	fprintf(stderr, " %d ", positive_literals_it->at(i) );
+		//fprintf(stderr, " \n " );
+
 		S = new Solver();
 		S->max_nof_restarts = MAX_NOF_RESTARTS;
 		S->problem_type = ls.problem_type;

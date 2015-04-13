@@ -50,7 +50,7 @@ latin_square :: latin_square() :
 	sat_file_name( "sat_sets.txt" ),
 	solver_type( 0 ),
 	final_values_index( 0 ),
-	problem_type ( "inc72" )
+	problem_type ( "diag" )
 { }
 
 bool latin_square :: ReadLiteralsFromFile( FILE *infile, string &error_msg )

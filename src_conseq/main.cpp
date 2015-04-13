@@ -15,7 +15,7 @@
 
 #include "latin_squares.h"
 
-const int MAX_NOF_RESTARTS = 1000;
+const int MAX_NOF_RESTARTS = 3000;
 const int PROBLEMS_IN_WU = 20;
 
 #pragma warning( disable : 4996 )
@@ -24,7 +24,7 @@ const int PROBLEMS_IN_WU = 20;
 #define OUTPUT_FILENAME	"out"
 
 int diag10_2_cnf_array[] = {
-#include "../src_common/ls10_2_diag.inc"
+#include "../src_common/diag10_2.inc"
 };
 
 fstream infile;
