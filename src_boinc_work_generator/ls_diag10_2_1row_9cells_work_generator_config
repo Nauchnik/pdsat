@@ -1,0 +1,15 @@
+problem_type ls_diag10_2_10N2R9K
+settings_file no
+data_file no
+cnf_variables 2000
+cnf_clauses 434450
+N 10
+rows_count 2
+K 9
+skip_values 0
+problems_in_wu 30
+unsent_needed_wus 1000
+total_wus 1057109
+seconds_between_launches 3600
+credits_per_wu 105
+created_wus 0

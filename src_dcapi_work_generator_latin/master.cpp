@@ -397,7 +397,6 @@ bool do_work( vector<int> &wu_id_vec )
 void create_wus( latin_square &ls, stringstream &config_sstream, config_params &config_p, 
 	             string cnf_head, int wus_for_creation_count, vector<int> &wu_id_vec, bool &IsLastGenerating )
 {
-	int index = 0;
 	DC_Workunit *wu;
 	ofstream output;
 	string wu_tag_str;
@@ -447,6 +446,7 @@ void create_wus( latin_square &ls, stringstream &config_sstream, config_params &
 	bool IsAddingWUneeded;
 	bool IsFastExit = false;
 	unsigned new_created_wus = 0;
+	int index = 0;
 	for( index = config_p.created_wus; index < config_p.created_wus + wus_for_creation_count; index++ ) {
 		if ( IsFastExit )
 			break;

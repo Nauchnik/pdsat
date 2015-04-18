@@ -203,6 +203,8 @@ extern bool Addit_func :: bool_rand( boost::random::mt19937 &gen ) {
 
 // ececute command via system process
 extern std::string Addit_func :: exec( std::string cmd_str ) {
+	std::string result = "";
+#ifndef _BOINC
 	char* cmd = new char[cmd_str.size() + 1];
 	for( unsigned i=0; i < cmd_str.size(); i++ )
 		cmd[i] = cmd_str[i];
@@ -216,7 +218,6 @@ extern std::string Addit_func :: exec( std::string cmd_str ) {
 	delete[] cmd;
     if (!pipe) return "ERROR";
     char buffer[128];
-    std::string result = "";
     while(!feof(pipe)) {
     	if(fgets(buffer, 128, pipe) != NULL)
     		result += buffer;
@@ -225,6 +226,7 @@ extern std::string Addit_func :: exec( std::string cmd_str ) {
     _pclose(pipe);
 #else
 	pclose(pipe);
+#endif
 #endif
     return result;
 }
