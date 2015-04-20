@@ -932,18 +932,18 @@ lbool Solver::solve_()
 				std::cout << "iprobe_message " << iprobe_message << std::endl;
 			if ( iprobe_message ) {
 				MPI_Get_count(&mpi_status, MPI_UNSIGNED, &size);
-			if ( size == 1 ) {
-				MPI_Irecv( &irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request );
-				MPI_Test( &mpi_request, &test_message, &mpi_status );
-				if ( test_message ) {
-					if ( pdsat_verbosity > 0 )
-						std::cout << "m2.2 interrupted after " << conflicts << " conflicts" << std::endl;
-					cancelUntil(0);
-					return l_Undef;
+				if ( size == 1 ) {
+					MPI_Irecv( &irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request );
+					MPI_Test( &mpi_request, &test_message, &mpi_status );
+					if ( test_message ) {
+						if ( pdsat_verbosity > 0 )
+							std::cout << "m2.2 interrupted after " << conflicts << " conflicts" << std::endl;
+						cancelUntil(0);
+						return l_Undef;
+					}
 				}
-			}
-			else
-				std::cerr << "In Solver() MPI_Get_count(&status, MPI_UNSIGNED, &size); " << size << std::endl;
+				else
+					std::cerr << "In Solver() MPI_Get_count(&status, MPI_UNSIGNED, &size); " << size << std::endl;
 			}
 		}
 #endif
