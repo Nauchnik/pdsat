@@ -67,7 +67,7 @@ public:
 	string cnf_head_str;
 	unsigned final_values_index;
 
-	bool ReadLiteralsFromFile( FILE *infile, string &error_msg );
+	bool ReadLiteralsFromFile( string &input_path, string &error_msg );
 	void WriteCurrentState( ofstream &out_file, double current_time );
 	void Show_Values( );
 

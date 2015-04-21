@@ -53,54 +53,44 @@ latin_square :: latin_square() :
 	problem_type ( "diag" )
 { }
 
-bool latin_square :: ReadLiteralsFromFile( FILE *infile, string &error_msg )
+bool latin_square :: ReadLiteralsFromFile( string &input_path, string &error_msg )
 {
-	char word1[100], word2[100];
-	vector<int> cur_vec;
-	int string_count = 0;
-	string str1, str2;
-	stringstream sstream, total_sstream;
-
-	// read and check head of file
-	fscanf( infile, "%s %s", &word1, &word2 );
-	str1 = word1;
-	str2 = word2;
-	if ( !( strcmp( word1, "c" ) ) && !( strcmp( word2, "diag_start" ) ) )
+	string str;
+	ifstream ifile( input_path.c_str() );
+	getline(ifile, str);
+	if ( str.find("diag_start") != string::npos )
 		problem_type = "diag";
 	else
 	{
-		error_msg += "impossible head of file " + str1 + " " + str2;
+		error_msg += "impossible head of file " + str;
         return false;
     }
 	
-	// read from FILE (except head string) to strinstream
-	char c = 0;
-	while ( c != EOF ) {
-		c = fgetc( infile );
-		total_sstream << c;
-	}
-	fclose( infile );
-
+	// read and parse string from from file
 	string word;
 	int val;
-	while ( !total_sstream.eof() ) {
-		total_sstream >> word;
-		if ( ( word.find( "cnf" )      != std::string::npos ) ||
-		     ( word.find( "diag_end" ) != std::string::npos ) )
+	vector<int> cur_vec;
+	stringstream sstream;
+	while (getline(ifile, str)) {
+		sstream << str;
+		if ((str.find("p cnf") != std::string::npos) ||
+			(str.find("diag_end") != std::string::npos))
 		{
 			break;
 		}
-		if ( ( word == "c" ) || ( word == "p" ) ) {
-			if ( cur_vec.size() == 0 )
-				continue;
-			positive_literals.push_back( cur_vec );
+		sstream >> word;
+		if (word == "c") { // read literals
+			while (sstream >> word) {
+				istringstream(word) >> val;
+				cur_vec.push_back(val);
+			}
+			positive_literals.push_back(cur_vec);
 			cur_vec.clear();
 		}
-		else {
-			istringstream( word ) >> val;
-			cur_vec.push_back( val );
-		}
+		sstream.str(""); sstream.clear();
 	}
+
+	ifile.close();
 
 	return true;
 }
