@@ -56,19 +56,19 @@ int main( int argc, char *argv[] )
 		isCorrectFile = false;
 		while ( getline( ifile, str ) ) {
 			// check if file contain result SAT@home info
-			if ( ( str.find( "SAT" ) != std::string::npos ) && ( str.find( "max_time" ) != std::string::npos ) )
+			if ( ( str.find( "SAT" ) != std::string::npos ) && ( str.find( "INTERRUPTED" ) != std::string::npos ) )
 				isCorrectFile = true;
 			if ( str.find( " SAT" ) != std::string::npos ) {
 				std::cout << "SAT found" << std::endl;
 				std::ofstream sat_out("sat_output", std::ios_base::app );
-				sat_out << str << std::endl;
+				sat_out << file_names[i] << " " << str << std::endl;
 				sat_out.close(); sat_out.clear();
 			}
 			sstream << str;
 		}
 		ifile.close(); ifile.clear();
 		if ( isCorrectFile ) {
-			final_sstream << sstream.str() << std::endl;
+			final_sstream << file_names[i] << " " << sstream.str() << std::endl;
 			system_str = "rm ";
 			system_str += file_names[i];
 			std::cout << "system_str " << system_str << std::endl;
