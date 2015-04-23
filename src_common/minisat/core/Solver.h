@@ -66,6 +66,7 @@ public:
 	double getEstimation();
 	unsigned getNullLevelVarsCount(); // added pdsat
 	unsigned nullLevelVarsCount;
+	unsigned long long watch_scans;
 	
     // Problem specification:
     //

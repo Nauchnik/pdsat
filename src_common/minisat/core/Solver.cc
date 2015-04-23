@@ -110,6 +110,7 @@ Solver::Solver() :
   , rank               ( -1 )
   , pdsat_verbosity    ( 0 )
   , nullLevelVarsCount ( 0 )
+  , watch_scans        ( 0 )
 {
 	problem_type = "";
 }
@@ -603,7 +604,8 @@ CRef Solver::propagate()
             }else
                 uncheckedEnqueue(first, cr);
 
-        NextClause:;
+		NextClause:;
+		watch_scans++; // added
         }
         ws.shrink(i - j);
     }

@@ -716,9 +716,11 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 		std::cout << "After S->solveLimited( dummy )" << std::endl;
 	if ( evaluation_type == "time" )
 		cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
-	else if ( evaluation_type == "propagation" )
+	else if (evaluation_type == "propagation")
 		cnf_time_from_node = (double)S->propagations;
-			
+	else if (evaluation_type == "watch_scans")
+		cnf_time_from_node = (double)S->watch_scans;
+
 	if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) )
 		isSolvedOnPreprocessing = 1;  // solved by BCP
 	
