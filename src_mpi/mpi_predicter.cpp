@@ -724,13 +724,6 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) )
 		isSolvedOnPreprocessing = 1;  // solved by BCP
 	
-	// write to a file info about time, propagations, learnts, starts and confiicts
-	if (!isSolvedOnPreprocessing) {
-		std::ofstream ofile("comparison_solver_out_parameters", std::ios_base::app);
-		ofile << cnf_time_from_node << " " << S->conflicts << " " << S->propagations << std::endl;
-		ofile.close(); ofile.clear();
-	}
-	
 	if ( ( te > 0 ) && ( ret == l_False ) ) { // in ro es te mode all instances are satisfiable
 		std::cerr << "( te > 0 ) && ( ret == l_False ) " << std::endl;
 		exit(1);
@@ -872,9 +865,6 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		S->start_activity   = start_activity;
 		if ( solver_name.find("minigolf") != std::string::npos )
 			S->cur_hack_type = hack_minigolf;*/
-		std::ofstream ofile("comparison_solver_out_parameters", std::ios_base::app);
-		ofile << "seconds conflicts propagations" << std::endl;
-		ofile.close(); ofile.clear();
 	}
 	
 	if ( te > 0 ) { // ro es te mode
