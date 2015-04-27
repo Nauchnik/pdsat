@@ -12,17 +12,16 @@
 #endif
 
 const unsigned MAX_STEP_CNF_IN_SET		   = 30;
-const int    MAX_WORD_LENGTH			   = 64;
-const int    MAX_LINE_LENGTH               = 524288;
-const int    MAX_LINE_LENGTH_2             = 8192;
-const int    MEDIUM_STRING_LEN             = 256;
-const double TRANSP_COAST                  = 0.000001;
-const int    NUM_KEY_BITS                  = 64;
-const int    MAX_VAR_FOR_RANDOM            = 60;
-const double MIN_STOP_TIME				   = 0.01;
-const int    MAX_DISTANCE_TO_RECORD        = 20;
-const int    PREDICT_TIMES_COUNT           = 6;
-const int    TS2_POINTS_COUNT              = 100;
+const int      MAX_WORD_LENGTH			   = 64;
+const int      MAX_LINE_LENGTH             = 524288;
+const int      MAX_LINE_LENGTH_2           = 8192;
+const int      MEDIUM_STRING_LEN           = 256;
+const int      NUM_KEY_BITS                = 64;
+const int      MAX_VAR_FOR_RANDOM          = 60;
+const double   MIN_STOP_TIME			   = 0.01;
+const int      MAX_DISTANCE_TO_RECORD      = 20;
+const int      PREDICT_TIMES_COUNT         = 6;
+const int      TS2_POINTS_COUNT            = 100;
 const unsigned MAX_POW_VALUE               = 1000;
 
 struct unchecked_area
@@ -113,7 +112,6 @@ public:
 	double start_sample_variance_limit;
 	double prev_area_best_predict_time;
 	double predict_time_limit_step;
-	double solver_progress_estimation;
 	
 	Problem cnf;
 	//unsigned prev_best_decomp_set_power;
@@ -125,6 +123,8 @@ public:
 	std::string current_cnf_out_name;
 	long long template_cnf_size;
 	std::stringstream template_sstream;
+	bool IsFirstStage;
+	unsigned max_L2_hamming_distance;
 	
 	std::vector< std::vector<bool> > stream_vec_vec;
 	std::vector< std::vector<bool> > state_vec_vec;
@@ -157,10 +157,6 @@ public:
 		                  unsigned &cur_decomp_set_index );
 	std::vector<int> BitsetToIntVecPredict( boost::dynamic_bitset<> &bs );
 	boost::dynamic_bitset<> IntVecToBitsetPredict( std::vector<int> &variables_vec );
-	
-	bool IsFirstStage;
-	unsigned max_L2_hamming_distance;
-
 private:
 	std::vector<decomp_set> decomp_set_arr;
 	std::vector<double> cnf_real_time_arr;

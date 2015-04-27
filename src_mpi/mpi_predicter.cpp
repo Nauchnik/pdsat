@@ -54,8 +54,7 @@ MPI_Predicter :: MPI_Predicter( ) :
 	best_solved_in_time ( 0 ),
 	best_time_limit ( 0.0 ),
 	predict_time_limit_step ( 0 ),
-	template_cnf_size ( 0 ),
-	solver_progress_estimation ( 0.0 )
+	template_cnf_size ( 0 )
 {
 	array_message = NULL;
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
@@ -352,9 +351,9 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 	std::cout << "Sending of first tasks done" << std::endl;
 	
 	int task_index_from_node = -1,
-	   stop_message = -1,
-	   iprobe_message = 0,
-	   all_skip_count = 0;
+	    stop_message = -1,
+	    iprobe_message = 0,
+	    all_skip_count = 0;
 	double whole_time_sec = 0.0;
 	int total_sat_count = 0;
 	MPI_Status status,
@@ -366,8 +365,6 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 	int int_cur_time = 0, prev_int_cur_time = 0;
 	double get_predict_time;
 	unsigned cur_get_predict_count = 0;
-	std::vector<double> solver_progress_estimation_vec; // estimations of stopped solvers
-	solver_progress_estimation_vec.resize(all_tasks_count);
 	// send tasks if needed
 	while ( solved_tasks_count < all_tasks_count ) {
 		for( ; ; ) { // get predict every PREDICT_EVERY_SEC seconds	
@@ -433,8 +430,6 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 		// then get 1 more mes
 		MPI_Recv( &process_sat_count,          1, MPI_INT,    current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		MPI_Recv( &cnf_time_from_node,         1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		MPI_Recv( &solver_progress_estimation, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		solver_progress_estimation_vec[task_index_from_node] = solver_progress_estimation;
 		if ( !isSolverSystemCalling ) {
 			MPI_Recv( &isSolvedOnPreprocessing,    1, MPI_INT, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 			MPI_Recv( var_activity, activity_vec_len, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
@@ -519,31 +514,6 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 	sstream_control << "solved_tasks_count " << solved_tasks_count << std::endl;
 	sstream_control << "global_deep_point_index " << global_deep_point_index << std::endl;
 	sstream_control << "total_decomp_set_count " << global_deep_point_index << std::endl;
-	
-	double min_not_null_solver_estimation = 0.0, max_not_null_solver_estimation = 0.0, 
-		   med_not_null_solver_estimation = 0.0, sum_not_null_solver_estimation = 0.0;
-	unsigned not_null_estimation_count = 0;
-	for ( auto &x : solver_progress_estimation_vec ) {
-		if ( x > 0.0 ) {
-			not_null_estimation_count++;
-			sum_not_null_solver_estimation += x;
-		}
-		else continue;
-		if ( min_not_null_solver_estimation == 0.0 )
-			min_not_null_solver_estimation = x;
-		else
-			min_not_null_solver_estimation = min_not_null_solver_estimation > x ? x : min_not_null_solver_estimation;
-		if ( max_not_null_solver_estimation == 0.0 )
-			max_not_null_solver_estimation = x;
-		else
-			max_not_null_solver_estimation = max_not_null_solver_estimation < x ? x : max_not_null_solver_estimation;
-	}
-	med_not_null_solver_estimation = not_null_estimation_count > 0 ? sum_not_null_solver_estimation / not_null_estimation_count : 0.0;
-	std::cout << "solver_progress_estimation_vec.size() " << solver_progress_estimation_vec.size() << std::endl;
-	std::cout << "not_null_estimation_count " << not_null_estimation_count << std::endl;
-	std::cout << "min_not_null_solver_estimation " << min_not_null_solver_estimation << std::endl;
-	std::cout << "max_not_null_solver_estimation " << max_not_null_solver_estimation << std::endl;
-	std::cout << "med_not_null_solver_estimation " << med_not_null_solver_estimation << std::endl;
 	
 	if ( verbosity > 2 )
 		std::cout << sstream_control.str() << std::endl;
@@ -702,16 +672,12 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	isSolvedOnPreprocessing = 0;
 	
 	S->resetVarActivity();
-
+	
 	cnf_time_from_node = MPI_Wtime( );
 	if ( ( verbosity > 2 ) && ( rank == 1 ) )
-		std::cout << "Before S->solveLimited( dummy )" << std::endl;
-	//ret = S->solveLimited( dummy );
+		std::cout << "Before S->solve()" << std::endl;
 	ret = S->solve();
-	solver_progress_estimation = ret == l_Undef ? (double)S->getNullLevelVarsCount() - (double)known_vars_count : 0; // skip solved problems
 	
-	if ( solver_progress_estimation < 0.0 )
-		solver_progress_estimation = 0.0;
 	if ( ( verbosity > 2 ) && ( rank == 1 ) )
 		std::cout << "After S->solveLimited( dummy )" << std::endl;
 	if ( evaluation_type == "time" )
@@ -748,18 +714,8 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 				return false;
 			}
 		}
-		/*if ( var_choose_order.size() <= 30 ) { // write activity of hard SAT instance
-			S->getActivity( all_vars_set, all_var_activity, all_vars_set.size() );
-			ofstream ofile( "bkv_activity" );
-			for ( unsigned i=0; i < all_vars_set.size(); i++)
-				ofile << all_var_activity[i] << " ";
-			ofile.close();
-		}*/
 	}
 	delete S;
-	/*S->clearDB();
-	S->clearPolarity();
-	S->clearParams();*/
 
 	return true;
 }
@@ -1089,7 +1045,6 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		MPI_Send( &current_task_index,         1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &process_sat_count,          1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &cnf_time_from_node,         1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
-		MPI_Send( &solver_progress_estimation, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
 		if ( !isSolverSystemCalling ) {
 			MPI_Send( &isSolvedOnPreprocessing,    1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 			MPI_Send( var_activity, activity_vec_len, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
@@ -1100,7 +1055,6 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	}
 	
 	delete[] var_activity;
-	//delete[] all_var_activity;
  	delete[] array_message;
 	MPI_Finalize();
 	return true;
@@ -1826,17 +1780,6 @@ double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_
 	unsigned cur_solved_in_time, point_best_solved_in_time = 0;
 	std::vector<double> predict_times;
 	predict_times.resize( predict_time_limites.size() );
-	
-	/*string temp_file_name = "temp_file";
-	ofstream ofile( temp_file_name, std::ios::out );
-	ofile << "time_limit predict solved_in_time probability cur_cnf_in_set_count" << std::endl;*/
-	
-	/*for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ )
-		if ( cnf_real_time_arr[j] < 0.0001 ) {
-			//std::cout << "cnf_real_time_arr[j] " << cnf_real_time_arr[j] << " changed to " << 0.0001 << std::endl;
-			cnf_real_time_arr[j] = 0.0001;
-			cnf_issat_arr[j] = false; // TODO remove
-		}*/
 	
 	//unsigned index = 0, point_best_index = 0;
 	for ( auto &cur_time_limit : predict_time_limites ) {

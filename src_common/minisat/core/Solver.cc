@@ -109,7 +109,6 @@ Solver::Solver() :
   , max_solving_time   ( 0 )
   , rank               ( -1 )
   , pdsat_verbosity    ( 0 )
-  , nullLevelVarsCount ( 0 )
   , watch_scans        ( 0 )
 {
 	problem_type = "";
@@ -779,9 +778,9 @@ lbool Solver::search(int nof_conflicts)
             if (nof_conflicts >= 0 && conflictC >= nof_conflicts || !withinBudget()){
                 // Reached bound on number of conflicts:
                 progress_estimate = progressEstimate();
-				nullLevelVarsCount = trail_lim[0];
                 cancelUntil(0);
-                return l_Undef; }
+                return l_Undef; 
+			}
 			
             // Simplify the set of problem clauses:
             if (decisionLevel() == 0 && !simplify())
@@ -902,11 +901,11 @@ lbool Solver::solve_()
     }
 
 	double cur_time = 0.0;
-
+	
     // Search:
     int curr_restarts = 0;
     while (status == l_Undef){
-		// added pdsat
+	// added pdsat
 #ifdef _MPI
 		cur_time = MPI_Wtime() - start_solving_time;
 #else
@@ -917,7 +916,6 @@ lbool Solver::solve_()
 			 )
 		{
 			 progress_estimate = progressEstimate();
-			 nullLevelVarsCount = trail_lim[0];
 			 cancelUntil(0);
 			 return l_Undef;
 		}
