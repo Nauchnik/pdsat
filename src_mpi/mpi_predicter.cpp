@@ -351,7 +351,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 	std::cout << "Sending of first tasks done" << std::endl;
 	
 	int task_index_from_node = -1,
-	    stop_message = -1,
+	    //stop_message = -1,
 	    iprobe_message = 0,
 	    all_skip_count = 0;
 	double whole_time_sec = 0.0;
@@ -386,7 +386,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 				}
 				
 				// send stop-messages to compute nodes
-				if ( !isSolverSystemCalling ) {
+				/*if ( !isSolverSystemCalling ) {
 					if ( ( verbosity > 0 ) && ( cnf_to_stop_arr.size() > 0 ) )
 						std::cout << "cnf_to_stop_count " << cnf_to_stop_arr.size() << std::endl;
 					for ( unsigned i = 0; i < cnf_to_stop_arr.size(); i++ ) {
@@ -396,7 +396,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 							std::cout << "stop-message was send to node # " 
 								      << node_list[cnf_to_stop_arr[i]] << std::endl;
 					}
-				}
+				}*/
 				
 				get_predict_time = MPI_Wtime() - get_predict_time;
 				
@@ -951,10 +951,6 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 					std::cout << var_choose_order[i] << " ";
 				std::cout << std::endl;
 			}
-			/*if ( solver_type == 4 ) {
-				if ( isFirstDecompSetReceived ) // if not first time, delete old data
-					delete S;
-			}*/
 			isFirstDecompSetReceived = true;
 		}
 		
@@ -1362,7 +1358,7 @@ bool MPI_Predicter :: DeepPredictMain( )
 	// make renadom init point for 1st iteration
 	// for other ones as init use best point of prev iteration
 	int ProcessListNumber = 0;
-	int stop_message = -1;
+	//int stop_message = -1;
 	std::fstream deep_predict_file;
 	std::stringstream sstream;
 	whole_deep_time = MPI_Wtime();

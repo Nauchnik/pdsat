@@ -919,7 +919,8 @@ lbool Solver::solve_()
 			 cancelUntil(0);
 			 return l_Undef;
 		}
-
+		
+		/*
 #ifdef _MPI
 		if ( isPredict ) {
 			if ( ( pdsat_verbosity > 0 ) && ( rank == 1 ) ) {
@@ -937,7 +938,7 @@ lbool Solver::solve_()
 					MPI_Test( &mpi_request, &test_message, &mpi_status );
 					if ( test_message ) {
 						if ( pdsat_verbosity > 0 )
-							std::cout << "m2.2 interrupted after " << conflicts << " conflicts" << std::endl;
+							std::cout << "minisat interrupted after " << curr_restarts << " restarts" << std::endl;
 						cancelUntil(0);
 						return l_Undef;
 					}
@@ -947,7 +948,7 @@ lbool Solver::solve_()
 			}
 		}
 #endif
-		
+		*/
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
         status = search(rest_base * restart_first);
         if (!withinBudget()) break;
