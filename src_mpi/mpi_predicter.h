@@ -23,6 +23,7 @@ const int      MAX_DISTANCE_TO_RECORD      = 20;
 const int      PREDICT_TIMES_COUNT         = 6;
 const int      TS2_POINTS_COUNT            = 100;
 const unsigned MAX_POW_VALUE               = 1000;
+const double   MIN_PERCENT_SOLVED_IN_TIME  = 1.0;
 
 struct unchecked_area
 {

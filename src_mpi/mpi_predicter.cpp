@@ -1776,7 +1776,8 @@ double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_
 	unsigned cur_solved_in_time, point_best_solved_in_time = 0;
 	std::vector<double> predict_times;
 	predict_times.resize( predict_time_limites.size() );
-	
+	double cur_percent_solved_in_time;
+
 	//unsigned index = 0, point_best_index = 0;
 	for ( auto &cur_time_limit : predict_time_limites ) {
 		//ofile << cur_time_limit << " ";
@@ -1784,7 +1785,8 @@ double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_
 		for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ )
 			if ( ( cnf_issat_arr[j] ) && ( cnf_real_time_arr[j] > 0.0 ) && ( cnf_real_time_arr[j] <= cur_time_limit ) )
 				cur_solved_in_time++;
-		if ( !cur_solved_in_time )
+		cur_percent_solved_in_time = (double)cur_solved_in_time * 100 / (double)cur_cnf_in_set_count;
+		if (cur_percent_solved_in_time <= MIN_PERCENT_SOLVED_IN_TIME)
 			continue;
 		else {
 			cur_probability = (double)cur_solved_in_time / (double)cur_cnf_in_set_count;
@@ -1793,28 +1795,9 @@ double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_
 				point_best_predict_time   = point_cur_predict_time;
 				point_best_solved_in_time = cur_solved_in_time;
 				point_best_time_limit     = cur_time_limit;
-				//point_best_index          = index;
 			}
-			//index++;
-			/*ofile << point_cur_predict_time << " " << cur_solved_in_time << " " << 
-					 cur_probability << " " << cur_cnf_in_set_count << std::endl;*/
 		}
 	}
-	
-	//ofile.close();
-	
-	// increase range if best value in right limit 
-	/*double last_value = predict_time_limites[predict_time_limites.size()-1];
-	if ( point_best_index == predict_time_limites.size() - 1 ) {
-		predict_time_limites.push_back( last_value + predict_time_limit_step );
-		te = predict_time_limites[predict_time_limites.size()-1];
-		ofstream deep_predict_file( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
-		deep_predict_file << std::endl << "predict_time_limites updated" <<std::endl;
-		for ( auto &x : predict_time_limites )
-			deep_predict_file << x << " ";
-		deep_predict_file << "te " << te << std::endl;
-		deep_predict_file.close();
-	}*/
 	
 	solved_in_time_arr[i] = point_best_solved_in_time;
 	time_limit_arr[i]     = point_best_time_limit;
