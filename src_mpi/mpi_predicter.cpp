@@ -390,9 +390,9 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 				get_predict_time = MPI_Wtime();
 				prev_int_cur_time = int_cur_time;
 				if ( !GetPredict( ) ) { 
-					std::cout << "Error in GetPredict " << std::endl; return false; 
+					std::cerr << "Error in GetPredict " << std::endl; return false; 
 				}
-
+				
 				if ( IsRestartNeeded ) {
 					std::cout << "Fast exit in ControlProcessPredict cause of IsRestartNeeded" << std::endl;
 					IsRestartNeeded = false;
@@ -681,10 +681,14 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	
 	S->pdsat_verbosity  = verbosity;
 	S->isPredict        = isPredict;
-	S->max_solving_time = max_solving_time;
 	S->rank             = rank;
 	S->core_len         = core_len;
 	S->start_activity   = start_activity;
+	S->evaluation_type  = evaluation_type;
+	if (evaluation_type == "time")
+		S->max_solving_time = max_solving_time;
+	else if (evaluation_type == "watch_scans")
+		S->max_nof_watch_scans = te;
 	
 	prev_starts    = S->starts;
 	prev_conflicts = S->conflicts;
@@ -1432,9 +1436,12 @@ bool MPI_Predicter :: DeepPredictMain( )
 		if ( !ControlProcessPredict( ProcessListNumber++, sstream_control ) )
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 		
-		if ( verbosity > 0 )
+		if (verbosity > 0) {
 			std::cout << "ControlProcessPredict() done" << std::endl;
-
+			std::cout << "solved_tasks_count " << solved_tasks_count << std::endl; 
+			std::cout << "all_tasks_count " << all_tasks_count << std::endl;
+		}
+		
 		deep_predict_file.open( deep_predict_file_name.c_str(), std::ios_base::out | std::ios_base::app );
 		sstream.str( "" ); sstream.clear( );
 		
@@ -1955,8 +1962,10 @@ bool MPI_Predicter :: GetPredict()
 			//if ( IsRestartNeeded ) // don't stop immidiatly, new record can be found in calculated points
 			//	return true;
 		}
-		else if ( ( best_predict_time > 0.0 ) && ( predict_time_arr[i] >= best_predict_time  ) && 
-			      ( predict_time_arr[i] != HUGE_DOUBLE ) && ( !isSolverSystemCalling) ) { // stop, predict >= best
+		else if ( ( best_predict_time > 0.0 ) && ( predict_time_arr[i] >= best_predict_time ) && 
+			      ( predict_time_arr[i] != HUGE_DOUBLE ) && ( !isSolverSystemCalling) 
+				  && (evaluation_type == "time") )
+		{ // stop, predict >= best
 			if ( ( deep_predict == 5 ) && 
 			     ( predict_time_arr[i] < best_predict_time * (1 + point_admission_koef) ) ) // new point can be worst for simalation annealing
 			{
@@ -1979,7 +1988,7 @@ bool MPI_Predicter :: GetPredict()
 					cur_cnf_to_stop_count++;
 					cnf_status_arr[j] = 1; // set status STOPPED to CNF
 					if ( verbosity > 0 )
-						std::cout << "\n marked STOP to CNF # " << j << std::endl;
+						std::cout << std::endl << " marked STOP to CNF # " << j << std::endl;
 				}
 				else if ( cnf_start_time_arr[j] == 0.0 ) { // skip sat-problem if solving wasn't started
 					cur_cnf_to_skip_count++;

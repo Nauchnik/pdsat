@@ -110,8 +110,10 @@ Solver::Solver() :
   , rank               ( -1 )
   , pdsat_verbosity    ( 0 )
   , watch_scans        ( 0 )
+  , max_nof_watch_scans ( 0 )
 {
 	problem_type = "";
+	evaluation_type = "time";
 }
 
 Solver::~Solver()
@@ -912,16 +914,17 @@ lbool Solver::solve_()
 		cur_time = cpuTime() - start_solving_time;
 #endif
 		if ( ( ( max_nof_restarts ) && ( curr_restarts >= max_nof_restarts ) ) ||
-		     ( ( max_solving_time > 0.0 ) && ( cur_time > max_solving_time ) )
+		     ( ( max_solving_time > 0.0 ) && ( cur_time >= max_solving_time ) ) ||
+			 ( ( max_nof_watch_scans ) && ( watch_scans >= max_nof_watch_scans ) )
 			 )
 		{
-			 progress_estimate = progressEstimate();
+			 //progress_estimate = progressEstimate();
 			 cancelUntil(0);
 			 return l_Undef;
 		}
 		
 #ifdef _MPI
-		if ( isPredict ) {
+		if ( (isPredict) && (evaluation_type == "time") ) {
 			if ( ( pdsat_verbosity > 0 ) && ( rank == 1 ) ) {
 				std::cout << "try to MPI_Iprobe()" << std::endl;
 				std::cout << "rank " << rank << std::endl;
@@ -929,8 +932,8 @@ lbool Solver::solve_()
 			int size;
 			iprobe_message = 0;
 			MPI_Iprobe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &iprobe_message, &mpi_status);
-			if ( pdsat_verbosity > 0 )
-				std::cout << "iprobe_message " << iprobe_message << std::endl;
+			//if ( pdsat_verbosity > 0 )
+			//	std::cout << "iprobe_message " << iprobe_message << std::endl;
 			if ( iprobe_message ) {
 				MPI_Get_count(&mpi_status, MPI_INT, &size);
 				if ( size == 1 ) {
