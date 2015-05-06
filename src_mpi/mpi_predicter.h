@@ -80,6 +80,7 @@ public:
 	bool IsDecDecomp;
 	bool isSimulatedGranted;
 	bool isFirstPoint;
+	int stop_message;
 
 	double cur_temperature;
 	double min_temperature;
@@ -154,7 +155,7 @@ public:
 	bool GetRandomValuesArray( unsigned shortcnf_count,std:: vector< std::vector<unsigned> > &values_arr );
 	bool checkSimulatedGranted( double predict_time );
 	bool WritePredictToFile( int all_skip_count, double whole_time_sec );
-	void SendPredictTask( int ProcessListNumber, int process_number_to_send, int &cur_task_index, 
+	void SendPredictTask( int ProcessListNumber, unsigned process_number_to_send, int &cur_task_index, 
 		                  unsigned &cur_decomp_set_index );
 	std::vector<int> BitsetToIntVecPredict( boost::dynamic_bitset<> &bs );
 	boost::dynamic_bitset<> IntVecToBitsetPredict( std::vector<int> &variables_vec );
@@ -179,8 +180,6 @@ private:
 	int best_cnf_in_set_count;
 	unsigned best_solved_in_time;
 	long double best_time_limit;
-	int *array_message; // for sending via MPI
-	unsigned array_message_size;
 	
 	unsigned total_decomp_set_count;
 	unsigned solved_tasks_count;
@@ -189,16 +188,19 @@ private:
 	bool IsRecordUpdated;
 	double *var_activity;
 
+	int *array_message;
+	unsigned array_message_size;
+
 	int real_best_var_num;
 	long double real_best_predict_time;
 	long double best_predict_time_last_area; // best time from previous area of points
 	std::vector<int> real_var_choose_order;
 	
 	std::vector<unsigned> set_len_arr; // array of indexes of sets
-	std::vector<int> cnf_to_stop_arr;  
+	std::vector<unsigned> cnf_to_stop_arr;  
 	std::vector<unsigned > set_index_arr;
 	std::vector<int> set_status_arr;
-	std::vector<int> node_list;
+	std::vector<unsigned> node_list;
 	std::vector<int> stopped_cnf_count_arr;				
 	std::vector<int> skipped_cnf_count_arr; 
 	std::vector<int> solved_cnf_count_arr;	

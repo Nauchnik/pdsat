@@ -920,7 +920,6 @@ lbool Solver::solve_()
 			 return l_Undef;
 		}
 		
-		/*
 #ifdef _MPI
 		if ( isPredict ) {
 			if ( ( pdsat_verbosity > 0 ) && ( rank == 1 ) ) {
@@ -928,11 +927,12 @@ lbool Solver::solve_()
 				std::cout << "rank " << rank << std::endl;
 			}
 			int size;
-			MPI_Iprobe( 0, 0, MPI_COMM_WORLD, &iprobe_message, &mpi_status );
+			iprobe_message = 0;
+			MPI_Iprobe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &iprobe_message, &mpi_status);
 			if ( pdsat_verbosity > 0 )
 				std::cout << "iprobe_message " << iprobe_message << std::endl;
 			if ( iprobe_message ) {
-				MPI_Get_count(&mpi_status, MPI_UNSIGNED, &size);
+				MPI_Get_count(&mpi_status, MPI_INT, &size);
 				if ( size == 1 ) {
 					MPI_Irecv( &irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request );
 					MPI_Test( &mpi_request, &test_message, &mpi_status );
@@ -943,12 +943,14 @@ lbool Solver::solve_()
 						return l_Undef;
 					}
 				}
-				else
+				else {
 					std::cerr << "In Solver() MPI_Get_count(&status, MPI_UNSIGNED, &size); " << size << std::endl;
+					exit(1);
+				}
 			}
 		}
 #endif
-		*/
+	
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
         status = search(rest_base * restart_first);
         if (!withinBudget()) break;

@@ -15,7 +15,7 @@ MPI_Predicter :: MPI_Predicter( ) :
 	IsDecDecomp         ( false ),
 	isSimulatedGranted  ( false ),
 	deep_predict_file_name ( "deep_predict" ),
-	var_activity_file_name ( "var_activity" ),
+	//var_activity_file_name ( "var_activity" ),
 	cur_temperature ( 0 ),
 	min_temperature ( 20 ),
 	temperature_multiply_koef ( 0.9 ),
@@ -54,9 +54,10 @@ MPI_Predicter :: MPI_Predicter( ) :
 	best_solved_in_time ( 0 ),
 	best_time_limit ( 0.0 ),
 	predict_time_limit_step ( 0 ),
-	template_cnf_size ( 0 )
+	template_cnf_size ( 0 ),
+	array_message_size ( 0 ),
+	stop_message (-1)
 {
-	array_message = NULL;
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
 		best_predict_time_arr[i] = 0.0;
 }
@@ -211,8 +212,6 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			delete[] state_arr;
 		}
 		
-		array_message = NULL;
-		
 		std::cout << "verbosity "     << verbosity           << std::endl;
 		std::cout << "solver_name "   << solver_name         << std::endl;
 		std::cout << "schema_type "   << schema_type         << std::endl;
@@ -257,11 +256,12 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	return true;
 }
 
-void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number_to_send, int &cur_task_index, unsigned &cur_decomp_set_index )
+void MPI_Predicter :: SendPredictTask( int ProcessListNumber, unsigned process_number_to_send, int &cur_task_index, unsigned &cur_decomp_set_index )
 {
 	if ( verbosity > 1 )
 		std::cout << "SendPredictTask() start" << std::endl;
 	
+	// for every decompopisiton set vec_IsDecompSetSendedToProcess to false for all processes
 	if ( ( !cur_task_index ) || ( cur_task_index % (int)cnf_in_set_count == 0 ) ) { // if new sample then new set to all precesses
 		if ( verbosity > 1 ) {
 			std::cout << "In SendPredictTask() new decomp set" << std::endl; 
@@ -272,7 +272,14 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 			std::cerr << cur_decomp_set_index << " > " << decomp_set_arr.size() - 1 << std::endl;
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
-		if ( array_message )
+
+		for (auto &x : decomp_set_arr[cur_decomp_set_index].var_choose_order) {
+			if ((x <= 0) || ((unsigned)x > var_count)) {
+				std::cerr << "wrong decomp_set_arr[cur_decomp_set_index].var_choose_order element " << x << std::endl;
+				exit(1);
+			}
+		}
+		if (array_message_size)
 			delete[] array_message;
 		array_message_size = decomp_set_arr[cur_decomp_set_index].var_choose_order.size() + 1; // first cell for index
 		array_message = new int[array_message_size];
@@ -280,9 +287,8 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 			array_message[i] = decomp_set_arr[cur_decomp_set_index].var_choose_order[i-1];
 		for ( unsigned i=0; i < vec_IsDecompSetSendedToProcess.size(); ++i ) 
 			vec_IsDecompSetSendedToProcess[i] = false;
-		if ( verbosity > 1 ) {
+		if ( verbosity > 1 ) 
 			std::cout << "Ready to send array_message with size " << array_message_size << std::endl;
-		}
 		cur_decomp_set_index++;
 	}
 
@@ -292,6 +298,16 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, int process_number
 	// send decomp_set if needed
 	if ( vec_IsDecompSetSendedToProcess[process_number_to_send-1] == false ) {
 		array_message[0] = cur_task_index;
+		for (unsigned i = 1; i < array_message_size; i++) {
+			if ((array_message[i] <= 0) || ((unsigned)array_message[i] > var_count)) {
+				std::cerr << "before sending wrong array_message element " << array_message[i] << std::endl;
+				std::cerr << "array_message" << std::endl;
+				for (unsigned i = 0; i < array_message_size; i++)
+					std::cerr << array_message[i] << " ";
+				std::cerr << std::endl;
+				exit(1);
+			}
+		}
 		MPI_Send( array_message, array_message_size, MPI_INT, process_number_to_send, ProcessListNumber, MPI_COMM_WORLD );
 		vec_IsDecompSetSendedToProcess[process_number_to_send-1] = true;
 		if ( verbosity > 1 )
@@ -351,14 +367,13 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 	std::cout << "Sending of first tasks done" << std::endl;
 	
 	int task_index_from_node = -1,
-	    //stop_message = -1,
 	    iprobe_message = 0,
 	    all_skip_count = 0;
 	double whole_time_sec = 0.0;
 	int total_sat_count = 0;
 	MPI_Status status,
 		       current_status;
-	MPI_Request request;
+	MPI_Request mpi_request;
 	solved_tasks_count = 0;
 	cnf_time_from_node = 0.0;
 	double start_sec = MPI_Wtime( ); // get init time
@@ -385,18 +400,22 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 					return true;
 				}
 				
-				// send stop-messages to compute nodes
-				/*if ( !isSolverSystemCalling ) {
+				// send stop-messages to computing processes
+				if ( !isSolverSystemCalling ) {
 					if ( ( verbosity > 0 ) && ( cnf_to_stop_arr.size() > 0 ) )
 						std::cout << "cnf_to_stop_count " << cnf_to_stop_arr.size() << std::endl;
 					for ( unsigned i = 0; i < cnf_to_stop_arr.size(); i++ ) {
-						MPI_Isend( &stop_message, 1, MPI_INT, node_list[cnf_to_stop_arr[i]], 0, 
-								   MPI_COMM_WORLD, &request ); // stop_message == -1
+						if (cnf_to_stop_arr[i] >= node_list.size()) {
+							std::cerr << "cnf_to_stop_arr[i] >= node_list.size()" << std::endl;
+							return false;
+						}
+						MPI_Isend(&stop_message, 1, MPI_INT, node_list[cnf_to_stop_arr[i]], 0,
+								   MPI_COMM_WORLD, &mpi_request );
 						if ( verbosity > 0 )
 							std::cout << "stop-message was send to node # " 
 								      << node_list[cnf_to_stop_arr[i]] << std::endl;
 					}
-				}*/
+				}
 				
 				get_predict_time = MPI_Wtime() - get_predict_time;
 				
@@ -832,7 +851,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		int stream_char_len, state_char_len;
 		unsigned stream_vec_len, state_vec_len;
 		MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		MPI_Get_count( &status, MPI_CHAR, &stream_char_len );
+		MPI_Get_count(&status, MPI_CHAR, &stream_char_len);
 		if ( rank == 1 )
 			std::cout << "stream_char_len " << stream_char_len << std::endl;
 		char *stream_arr = new char[stream_char_len];
@@ -882,7 +901,6 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	int ProcessListNumber;
 	var_activity = new double[activity_vec_len];
 	//all_var_activity = new double[all_vars_set.size()];
-	bool isFirstDecompSetReceived = false, isNewDecompSetReceived = false;
 	unsigned large_message_count = 0, small_message_count = 0;
 	std::string polarity_file_name;
 	isSolvedOnPreprocessing = 0;
@@ -897,10 +915,8 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			}
 			if ( ( verbosity > 0 ) && ( rank == 1 ) )
 				std::cout << "recv message_size " << message_size << std::endl;
-			if ( message_size == 1 ) {
-				MPI_Recv( &current_task_index, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-				isNewDecompSetReceived = false;
-			}
+			if ( message_size == 1 )
+				MPI_Recv(&current_task_index, message_size, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 			else if ( message_size > 1 )
 				break; // stop and recv array message
 			else if ( ( message_size > 1 ) && ( current_task_index == -1 ) ) {
@@ -929,12 +945,9 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			small_message_count++;
 		else if ( message_size > 1 ) {
 			large_message_count++;
-			if ( isFirstDecompSetReceived )
-				delete[] array_message;
 			array_message = new int[message_size];
 			MPI_Recv( array_message, message_size, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 			cur_point_number++;
-			isNewDecompSetReceived = true;
 			if ( ( verbosity > 2 ) && ( rank == 1 ) ) {
 				std::cout << "Received array_message" << std::endl;
 				for ( int i = 0; i < message_size; ++i )
@@ -943,30 +956,36 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			}
 			current_task_index = array_message[0];
 			var_choose_order.resize( message_size - 1 );
-			for ( int i=1; i < message_size; ++i )
+			for (int i = 1; i < message_size; ++i)
 				var_choose_order[i-1] = array_message[i];
-			if ( ( verbosity > 2 ) && ( rank == 1 ) ) {
+			delete[] array_message;
+			for (auto &x : var_choose_order) {
+				if ((x <= 0) || ((unsigned)x > var_count)) {
+					std::cerr << "received wrong var_choose_order element " << x << std::endl;
+					std::cerr << "message_size " << message_size << std::endl;
+					std::cerr << "var_choose_order " << std::endl;
+					for (auto &y : var_choose_order)
+						std::cerr << y << " ";
+					std::cout << std::endl;
+					return false;
+				}
+			}
+			if ( ( verbosity > 2 ) && ( rank == 1 )) {
 				std::cout << "Received var_choose_order" << std::endl;
 				for ( unsigned i = 0; i < var_choose_order.size(); ++i )
 					std::cout << var_choose_order[i] << " ";
 				std::cout << std::endl;
 			}
-			isFirstDecompSetReceived = true;
 		}
 		
-		if ( ( verbosity > 0 ) && ( rank == 1 ) )
+		if ((verbosity > 0) && (rank == 1))
 			std::cout << "current_task_index " << current_task_index << std::endl;
-
-		if ( !isFirstDecompSetReceived ) {
-			std::cerr << "!IsFirstDecompSetReceived before solving" << std::endl;
-			return false;
-		}
-
+		
 		// get array of assignments
 		vec<Lit> dummy;
 		unsigned cur_var_ind;
-		int sat_sample_index;
-		int cur_stream_index;
+		unsigned sat_sample_index;
+		unsigned cur_stream_index;
 		int val;
 		
 		if ( te > 0 ) { // make satisfiable instanse by known state and keystream
@@ -987,12 +1006,18 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			}
 			prev_sat_sample_index = sat_sample_index;
 			prev_set_size = var_choose_order.size();*/
-				
+			
 			for ( auto &x : var_choose_order ) {
 				cur_var_ind = x-1;
-				if ( cur_var_ind > state_vec_vec[sat_sample_index].size()-1 ) {
-					std::cerr << "cur_var_ind > state_vec_vec[sat_sample_index].size()-1" << std::endl;
-					exit(1);
+				if (sat_sample_index >= state_vec_vec.size()) {
+					std::cerr << "sat_sample_index >= state_vec_vec.size()" << std::endl;
+					std::cerr << sat_sample_index << " >= " << state_vec_vec.size() << std::endl;
+					return false;
+				}
+				if ( cur_var_ind >= state_vec_vec[sat_sample_index].size() ) {
+					std::cerr << "cur_var_ind >= state_vec_vec[sat_sample_index].size()" << std::endl;
+					std::cerr << cur_var_ind << " >= " << state_vec_vec[sat_sample_index].size() << std::endl;
+					return false;
 				}
 				dummy.push( (state_vec_vec[sat_sample_index][cur_var_ind]) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
 			}
@@ -1051,7 +1076,6 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	}
 	
 	delete[] var_activity;
- 	delete[] array_message;
 	MPI_Finalize();
 	return true;
 }
@@ -1100,10 +1124,10 @@ void MPI_Predicter :: GetInitPoint( )
 	for ( unsigned i = 0; i < var_choose_order.size(); i++ )
 		sstream << var_choose_order[i] << " ";
 
-	unsigned array_message_size = var_choose_order.size() + 1;
+	/*unsigned array_message_size = var_choose_order.size() + 1;
 	array_message = new int[array_message_size];
 	for ( unsigned i=1; i < array_message_size; ++i )
-		array_message[i] = var_choose_order[i-1];
+		array_message[i] = var_choose_order[i-1];*/
 	
 	sstream << std::endl << std::endl;
 	deep_predict_file.open( deep_predict_file_name.c_str(), std::ios_base::out | std::ios_base::app );
@@ -1358,7 +1382,6 @@ bool MPI_Predicter :: DeepPredictMain( )
 	// make renadom init point for 1st iteration
 	// for other ones as init use best point of prev iteration
 	int ProcessListNumber = 0;
-	//int stop_message = -1;
 	std::fstream deep_predict_file;
 	std::stringstream sstream;
 	whole_deep_time = MPI_Wtime();
@@ -1372,9 +1395,13 @@ bool MPI_Predicter :: DeepPredictMain( )
 		global_count_var_changing[i] = 0;
 	
 	// read from file if one exists. if not, get random vector
-	GetInitPoint( );
+	GetInitPoint();
 	double current_time = 0;
 	std::string str;
+
+#ifdef _MPI
+	MPI_Request mpi_request;
+#endif
 	
 	while (
 		   ( ( deep_predict == 5 ) && 
@@ -1442,15 +1469,15 @@ bool MPI_Predicter :: DeepPredictMain( )
 		sstream.str( "" ); sstream.clear( );
 		
 		// stop all current tasks if not first stage (in this stage all problems must be solved)
-		/*if ( !IsFirstStage ) {
+		if ( !IsFirstStage ) {
 			if ( verbosity > 1 )
 				std::cout << "Extra stop sending " << std::endl;
 			for ( int i = 1; i < corecount; i++ ) {
-				MPI_Isend( &stop_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &request );
+				MPI_Isend(&stop_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_request);
 				if ( verbosity > 0 )
 					std::cout << "stop-message was send to node # " << i << std::endl;
 			}
-		}*/
+		}
 	} // while
 	
 	if ( ( deep_predict <= 2 ) && ( best_predict_time == real_best_predict_time ) ) {
@@ -1688,23 +1715,23 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		if ( deep_predict == 5 ) // simulated annealing
 			graph_file << " cur_temperature";
 		graph_file << std::endl;
-		if ( !isSolverSystemCalling ) 
-			var_activity_file.open( var_activity_file_name.c_str(), std::ios_base::out );
+		//if ( !isSolverSystemCalling ) 
+		//	var_activity_file.open( var_activity_file_name.c_str(), std::ios_base::out );
 	}
 	else {
 		graph_file.open( "graph_file", std::ios_base::app );
-		if ( !isSolverSystemCalling )
-			var_activity_file.open( var_activity_file_name.c_str(), std::ios_base::app );
+		//if ( !isSolverSystemCalling )
+		//	var_activity_file.open( var_activity_file_name.c_str(), std::ios_base::app );
 	}
 
-	if ( !isSolverSystemCalling ) {
+	/*if ( !isSolverSystemCalling ) {
 		var_activity_file << record_count << std::endl;
 		//for( auto &x : total_var_activity )
 		//	var_activity_file << x << " ";
 		for( std::vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it )
 			var_activity_file << *it << " ";
 		var_activity_file << std::endl;
-	}
+	}*/
 	
 	graph_file << record_count << " " << best_var_num << " " << best_predict_time << " ";
 	if ( te == 0.0 )
@@ -1726,8 +1753,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	graph_file << " time_limit=" << best_time_limit << std::endl;
 	
 	graph_file.close();
-	if ( !isSolverSystemCalling )
-		var_activity_file.close();
+	//var_activity_file.close();
 }
 
 bool MPI_Predicter :: checkSimulatedGranted( double predict_time )
