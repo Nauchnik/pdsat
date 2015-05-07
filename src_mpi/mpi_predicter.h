@@ -130,6 +130,7 @@ public:
 	
 	std::vector< std::vector<bool> > stream_vec_vec;
 	std::vector< std::vector<bool> > state_vec_vec;
+	std::vector< std::vector<bool> > addit_vec_vec;
 	std::vector< std::string > oneliteral_string_vec;
 	
 	bool MPI_Predict( int argc, char **argv );

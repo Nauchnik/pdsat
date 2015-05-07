@@ -128,7 +128,9 @@ public:
 	bool GetMainMasksFromVarChoose( std::vector<int> &var_choose_order );
 	bool GetValuesFromVarChoose( unsigned &part_var_power );
 
-	void MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec, std::vector< std::vector<bool> > &stream_vec_vec );
+	void MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec, 
+		                std::vector< std::vector<bool> > &stream_vec_vec,
+						std::vector< std::vector<bool> > &addit_vec_vec );
 	
 	bool AnalyzeSATset( double cnf_time_from_node );
 	bool CheckSATset( std::vector<int> &lit_SAT_set_array );

@@ -171,7 +171,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			first_stream_var_index = var_count - keystream_len;
 			std::cout << "first_stream_var_index " << first_stream_var_index << std::endl;
 
-			MakeSatSample( state_vec_vec, stream_vec_vec );
+			MakeSatSample(state_vec_vec, stream_vec_vec, addit_vec_vec);
 			stream_char_len = stream_vec_vec.size() * stream_vec_vec[0].size();
 			state_char_len  = state_vec_vec.size()  * state_vec_vec[0].size();
 			std::cout << "stream_vec_vec.size() " << stream_vec_vec.size() << std::endl;

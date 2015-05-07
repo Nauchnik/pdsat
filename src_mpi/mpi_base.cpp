@@ -951,13 +951,16 @@ void MPI_Base :: MakeUniqueRandArr( std::vector<unsigned> &rand_arr, unsigned ra
 }
 
 
-void MPI_Base :: MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec, std::vector< std::vector<bool> > &stream_vec_vec )
+void MPI_Base::MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec, 
+	                          std::vector< std::vector<bool> > &stream_vec_vec, 
+							  std::vector< std::vector<bool> > &addit_vec_vec )
 {
 	std::fstream file( "known_sat_sample", std::ios_base::in );
-	std::vector<bool> state_vec, stream_vec;
+	std::vector<bool> state_vec, stream_vec, addit_vec;
 	std::string str;
 	std::stringstream sstream;
 	getline( file, str );
+	bool isPlainText = false;
 	
 	if ( ( isMakeSatSampleAnyWay ) || ( str.size() == 0 ) ) { // empty file
 	//if ( file.peek() == fstream::traits_type::eof() ) { // if file is empty
@@ -970,6 +973,30 @@ void MPI_Base :: MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec,
 			for ( unsigned j=0; j < input_var_num; j++ )
 				state_vec[j] = bool_rand(gen);
 			state_vec_vec.push_back( state_vec );
+		}
+		
+		// additionally plaintext is nedded 
+		if (input_cnf_name.find("des") != std::string::npos) {
+			isPlainText = true;
+			int des_ciphertext_len = 0;
+			if (input_cnf_name.find("64") != std::string::npos)
+				des_ciphertext_len = 64;
+			else if (input_cnf_name.find("128") != std::string::npos)
+				des_ciphertext_len = 128;
+			else {
+				std::cerr << "des_ciphertext_len == 0" << std::endl;
+				exit(1);
+			}
+			addit_vec.resize(des_ciphertext_len);
+			for (unsigned i = 0; i < cnf_in_set_count; i++) {
+				for (unsigned j = 0; j < des_ciphertext_len; j++)
+					addit_vec[j] = bool_rand(gen);
+				addit_vec_vec.push_back(addit_vec);
+			}
+
+			for (unsigned i = 0; i < addit_vec_vec.size(); i++)
+				for (auto &x : addit_vec_vec[i])
+					state_vec_vec[i].push_back(x);
 		}
 		
 		// get state of additional variables
@@ -1054,6 +1081,10 @@ void MPI_Base :: MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec,
 	}
 	std::cout << std::endl;
 	file.close();
+	
+	if (isPlainText) // return size of input vectors
+		for (auto &x : state_vec_vec)
+			x.resize(input_var_num);
 }
 
 std::string MPI_Base :: make_solver_launch_str( std::string solver_name, std::string cnf_name, 
