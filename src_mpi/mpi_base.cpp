@@ -54,7 +54,8 @@ MPI_Base :: MPI_Base( ) :
 	input_var_num ( 0 ),
 	isSolverSystemCalling ( false ),
 	process_sat_count ( 0 ),
-	known_vars_count ( 0 )
+	known_vars_count ( 0 ),
+	isPlainText (false)
 {
 	full_mask  = new unsigned[FULL_MASK_LEN];
 	part_mask  = new unsigned[FULL_MASK_LEN];
@@ -741,10 +742,8 @@ bool MPI_Base :: ReadIntCNF()
 				} // if ( ( line_str[i] == ' ' ) ...
 			} // for ( i = 0; i < line_str.length( ) - 1; i++ )
 			
-			if ( ( te > 0 ) && ( current_lit_count == 1 ) ) {
-				std::cerr << "( te > 0 ) && ( current_lit_count == 1 ). change CNF file to template one" << std::endl;
-				exit(1);
-			}
+			if ( ( te > 0 ) && ( current_lit_count == 1 ) )
+				std::cout << "Warning. ( te > 0 ) && ( current_lit_count == 1 ). change CNF file to template one" << std::endl;
 
 			if ( current_lit_count == 1 )
 				known_vars_count++;
@@ -953,14 +952,13 @@ void MPI_Base :: MakeUniqueRandArr( std::vector<unsigned> &rand_arr, unsigned ra
 
 void MPI_Base::MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec, 
 	                          std::vector< std::vector<bool> > &stream_vec_vec, 
-							  std::vector< std::vector<bool> > &addit_vec_vec )
+							  std::vector< std::vector<bool> > &plain_text_vec_vec )
 {
 	std::fstream file( "known_sat_sample", std::ios_base::in );
-	std::vector<bool> state_vec, stream_vec, addit_vec;
+	std::vector<bool> state_vec, stream_vec, plain_text_vec;
 	std::string str;
 	std::stringstream sstream;
 	getline( file, str );
-	bool isPlainText = false;
 	
 	if ( ( isMakeSatSampleAnyWay ) || ( str.size() == 0 ) ) { // empty file
 	//if ( file.peek() == fstream::traits_type::eof() ) { // if file is empty
@@ -976,8 +974,7 @@ void MPI_Base::MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec,
 		}
 		
 		// additionally plaintext is nedded 
-		if (input_cnf_name.find("des") != std::string::npos) {
-			isPlainText = true;
+		if (isPlainText) {
 			int des_ciphertext_len = 0;
 			if (input_cnf_name.find("64") != std::string::npos)
 				des_ciphertext_len = 64;
@@ -987,16 +984,23 @@ void MPI_Base::MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec,
 				std::cerr << "des_ciphertext_len == 0" << std::endl;
 				exit(1);
 			}
-			addit_vec.resize(des_ciphertext_len);
+			std::cout << "des_ciphertext_len " << des_ciphertext_len << std::endl;
+			plain_text_vec.resize(des_ciphertext_len);
 			for (unsigned i = 0; i < cnf_in_set_count; i++) {
 				for (unsigned j = 0; j < des_ciphertext_len; j++)
-					addit_vec[j] = bool_rand(gen);
-				addit_vec_vec.push_back(addit_vec);
+					plain_text_vec[j] = bool_rand(gen);
+				plain_text_vec_vec.push_back(plain_text_vec);
 			}
+			
+			std::cout << "plain_text_vec_vec.size() " << plain_text_vec_vec.size() << std::endl;
+			std::cout << "plain_text_vec_vec[0].size() " << plain_text_vec_vec[0].size() << std::endl;
+			
+			for (unsigned i = 0; i < plain_text_vec_vec.size(); i++)
+				for (unsigned j = 0; j < plain_text_vec_vec[i].size(); j++)
+					state_vec_vec[i].push_back(plain_text_vec_vec[i][j]);
 
-			for (unsigned i = 0; i < addit_vec_vec.size(); i++)
-				for (auto &x : addit_vec_vec[i])
-					state_vec_vec[i].push_back(x);
+			std::cout << "state_vec_vec.size() " << state_vec_vec.size() << std::endl;
+			std::cout << "state_vec_vec[0].size() " << state_vec_vec[0].size() << std::endl;
 		}
 		
 		// get state of additional variables
@@ -1082,7 +1086,7 @@ void MPI_Base::MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec,
 	std::cout << std::endl;
 	file.close();
 	
-	if (isPlainText) // return size of input vectors
+	if (isPlainText) // return size of input vectors without plain text data
 		for (auto &x : state_vec_vec)
 			x.resize(input_var_num);
 }

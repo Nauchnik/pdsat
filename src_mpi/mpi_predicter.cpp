@@ -110,10 +110,14 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	if ( te > 0 )
 		max_solving_time = te; // for (ro, es, te) predict mode
 
-	int stream_char_len, state_char_len;
+	int stream_char_len, state_char_len, plain_text_char_len;
+	
+	if (input_cnf_name.find("des") != std::string::npos)
+		isPlainText = true;
 	
 	if ( rank == 0 ) { // control node
 		std::cout << "MPI_Predict is running " << std::endl;
+		std::cout << "isPlainText " << isPlainText << std::endl;
 		
 		if ( !ReadIntCNF( ) ) { 
 			std::cerr << "Error in ReadIntCNF" << std::endl; 
@@ -171,7 +175,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			first_stream_var_index = var_count - keystream_len;
 			std::cout << "first_stream_var_index " << first_stream_var_index << std::endl;
 
-			MakeSatSample(state_vec_vec, stream_vec_vec, addit_vec_vec);
+			MakeSatSample(state_vec_vec, stream_vec_vec, plain_text_vec_vec);
 			stream_char_len = stream_vec_vec.size() * stream_vec_vec[0].size();
 			state_char_len  = state_vec_vec.size()  * state_vec_vec[0].size();
 			std::cout << "stream_vec_vec.size() " << stream_vec_vec.size() << std::endl;
@@ -180,7 +184,26 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			std::cout << "state_char_len "        << state_char_len        << std::endl;
 			char *stream_arr = new char[stream_char_len];
 			char *state_arr  = new char[state_char_len];
+			char *plain_text_arr;
 			int k = 0;
+
+			if (isPlainText) {
+				plain_text_char_len = plain_text_vec_vec.size() * plain_text_vec_vec[0].size();
+				std::cout << "plain_text_vec_vec.size() " << plain_text_vec_vec.size() << std::endl;
+				std::cout << "plain_text_char_len " << plain_text_char_len << std::endl;
+				plain_text_arr = new char[plain_text_char_len];
+				for (auto &x : plain_text_vec_vec)
+					for (auto y = x.begin(); y != x.end(); y++)
+						plain_text_arr[k++] = *y ? 1 : 0;
+				std::cout << "plain_text_arr size " << k << std::endl;
+				if (k != plain_text_char_len) {
+					std::cerr << "k != plain_text_char_len" << std::endl;
+					std::cerr << k << " != " << plain_text_char_len << std::endl;
+					exit(1);
+				}
+			}
+			
+			k = 0;
 			for ( auto &x : stream_vec_vec )
 				for ( auto y = x.begin(); y != x.end(); y++ )
 					stream_arr[k++] = *y ? 1 : 0;
@@ -205,11 +228,15 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 				MPI_Send( &first_stream_var_index,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 				MPI_Send( stream_arr, stream_char_len, MPI_CHAR,     i + 1, 0, MPI_COMM_WORLD );
 				MPI_Send( state_arr,  state_char_len,  MPI_CHAR,     i + 1, 0, MPI_COMM_WORLD );
+				if (isPlainText)
+					MPI_Send(plain_text_arr, plain_text_char_len, MPI_CHAR, i + 1, 0, MPI_COMM_WORLD);
 			}
 			std::cout << "stream_arr and state_arr sended" << std::endl;
 			
 			delete[] stream_arr;
 			delete[] state_arr;
+			if (isPlainText)
+				delete[] plain_text_arr;
 		}
 		
 		std::cout << "verbosity "     << verbosity           << std::endl;
@@ -852,8 +879,9 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		MPI_Recv( &first_stream_var_index,  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		if ( rank == 1 )
 			std::cout << "received first_stream_var_index " << first_stream_var_index << std::endl;
-		int stream_char_len, state_char_len;
-		unsigned stream_vec_len, state_vec_len;
+		int stream_char_len, state_char_len, plain_text_char_len;
+		unsigned stream_vec_len, state_vec_len, plain_text_vec_len;
+		
 		MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		MPI_Get_count(&status, MPI_CHAR, &stream_char_len);
 		if ( rank == 1 )
@@ -870,6 +898,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 			std::cout << "stream_vec_len " << stream_vec_len << std::endl; 
 			std::cout << "stream_vec_vec.size() " << stream_vec_vec.size() << std::endl;
 		}
+
 		MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		MPI_Get_count( &status, MPI_CHAR, &state_char_len );
 		if ( rank == 1 )
@@ -885,6 +914,25 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		if ( rank == 1 ) {
 			std::cout << "state_vec_len " << state_vec_len << std::endl;
 			std::cout << "state_vec_vec.size() " << state_vec_vec.size() << std::endl;
+		}
+		
+		if (isPlainText) {
+			MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+			MPI_Get_count(&status, MPI_CHAR, &stream_char_len);
+			if (rank == 1)
+				std::cout << "plain_text_char_len " << plain_text_char_len << std::endl;
+			char *plain_text_arr = new char[plain_text_char_len];
+			MPI_Recv(plain_text_arr, plain_text_char_len, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+			plain_text_vec_len = plain_text_char_len / cnf_in_set_count;
+			plain_text_vec_vec.resize(cnf_in_set_count);
+			for (unsigned i = 0; i < cnf_in_set_count; i++)
+				for (unsigned j = 0; j < plain_text_vec_len; j++)
+					plain_text_vec_vec[i].push_back(plain_text_arr[i*plain_text_vec_len + j] ? true : false);
+			delete[] plain_text_arr;
+			if (rank == 1) {
+				std::cout << "plain_text_vec_len " << plain_text_vec_len << std::endl;
+				std::cout << "plain_text_vec_vec.size() " << plain_text_vec_vec.size() << std::endl;
+			}
 		}
 	}
 	
@@ -1024,6 +1072,22 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 					return false;
 				}
 				dummy.push( (state_vec_vec[sat_sample_index][cur_var_ind]) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
+			}
+			if (isPlainText) {
+				for (unsigned cur_plain_text_index = 0; cur_plain_text_index < plain_text_vec_vec[0].size(); cur_plain_text_index++) {
+					cur_var_ind = cur_plain_text_index + state_vec_vec[0].size();
+					if (sat_sample_index >= plain_text_vec_vec.size()) {
+						std::cerr << "sat_sample_index >= plain_text_vec_vec.size()" << std::endl;
+						std::cerr << sat_sample_index << " >= " << plain_text_vec_vec.size() << std::endl;
+						return false;
+					}
+					if (cur_plain_text_index >= plain_text_vec_vec[sat_sample_index].size()) {
+						std::cerr << "cur_plain_text_index >= state_vec_vec[sat_sample_index].size()" << std::endl;
+						std::cerr << cur_plain_text_index << " >= " << plain_text_vec_vec[sat_sample_index].size() << std::endl;
+						return false;
+					}
+					dummy.push((plain_text_vec_vec[sat_sample_index][cur_plain_text_index]) ? mkLit(cur_var_ind) : ~mkLit(cur_var_ind));
+				}
 			}
 			if ( known_last_bits ) { // add some last known bits
 				for ( unsigned i=0; i < known_last_bits; i++ ) {

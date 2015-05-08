@@ -102,6 +102,7 @@ public:
 	int current_task_index; 
 	int process_sat_count;
 	double cnf_time_from_node;
+	bool isPlainText;
 
 	int sat_count;
 	int verbosity;
