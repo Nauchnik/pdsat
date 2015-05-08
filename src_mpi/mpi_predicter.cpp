@@ -918,7 +918,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		
 		if (isPlainText) {
 			MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			MPI_Get_count(&status, MPI_CHAR, &stream_char_len);
+			MPI_Get_count(&status, MPI_CHAR, &plain_text_char_len);
 			if (rank == 1)
 				std::cout << "plain_text_char_len " << plain_text_char_len << std::endl;
 			char *plain_text_arr = new char[plain_text_char_len];
