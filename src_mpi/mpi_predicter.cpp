@@ -982,7 +982,7 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 		
 		ProcessListNumber = status.MPI_TAG;
 		
-		if ( message_size-1 > (int)full_var_choose_order.size() ) {
+		if ( (!known_last_bits) && ( message_size-1 > (int)full_var_choose_order.size() ) ) {
 			std::cerr << "message_size > full_var_choose_order.size()" << std::endl;
 			std::cerr << message_size << " > " << full_var_choose_order.size() << std::endl;
 			return false;
@@ -1148,10 +1148,14 @@ bool MPI_Predicter :: ComputeProcessPredict( )
 	return true;
 }
 
-void MPI_Predicter :: GetInitPoint( )
+void MPI_Predicter :: GetInitPoint()
 {
 // read point from previous launches
 	std::cout << "GetInitPoint() started" << std::endl;
+	std::cout << "predict_to " << predict_to << std::endl;
+	std::cout << "core_len " << core_len << std::endl;
+	std::cout << "var_choose_order.size() " << var_choose_order.size() << std::endl;
+	
 	std::fstream deep_predict_file;
 	std::ifstream known_point_file;
 	std::stringstream temp_sstream, sstream;
@@ -1187,6 +1191,7 @@ void MPI_Predicter :: GetInitPoint( )
 			rand_arr.clear();
 		}
 	}
+	std::cout << "var_choose_order.size() " << var_choose_order.size() << std::endl;
 	sort( var_choose_order.begin(), var_choose_order.end() );
 	sstream << "var_choose_order" << std::endl;
 	for ( unsigned i = 0; i < var_choose_order.size(); i++ )
@@ -1197,6 +1202,7 @@ void MPI_Predicter :: GetInitPoint( )
 	for ( unsigned i=1; i < array_message_size; ++i )
 		array_message[i] = var_choose_order[i-1];*/
 	
+	std::cout << "full_mask_var_count " << full_mask_var_count << std::endl;
 	sstream << std::endl << std::endl;
 	deep_predict_file.open( deep_predict_file_name.c_str(), std::ios_base::out | std::ios_base::app );
 	deep_predict_file << sstream.rdbuf();
@@ -1445,7 +1451,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 	return true;
 }
 
-bool MPI_Predicter :: DeepPredictMain( )
+bool MPI_Predicter :: DeepPredictMain()
 {
 	// make renadom init point for 1st iteration
 	// for other ones as init use best point of prev iteration

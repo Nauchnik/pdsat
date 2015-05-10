@@ -785,6 +785,7 @@ bool MPI_Base :: ReadIntCNF()
 			exit(1);
 		}
 		core_len -= known_last_bits;
+		full_var_choose_order.resize(core_len);
 		std::cout << "new core_len (less to known_last_bits) " << core_len << std::endl;
 	}
 	
