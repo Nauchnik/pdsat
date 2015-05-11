@@ -40,6 +40,12 @@ struct checked_area
 	int radius;
 };
 
+struct var_with_activity
+{
+	int var;
+	double activity;
+};
+
 struct decomp_set
 {
 	std::vector<int> var_choose_order; // indexes of variables in decomp set 

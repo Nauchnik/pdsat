@@ -81,6 +81,11 @@ bool ds_compareByDiffActivity(const decomp_set &a, const decomp_set &b)
 	return a.diff_variable_activity < b.diff_variable_activity;
 }
 
+bool var_compareByActivity(const var_with_activity &a, const var_with_activity &b)
+{
+	return a.activity < b.activity;
+}
+
 //---------------------------------------------------------
 bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 {
@@ -1278,6 +1283,23 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 		unupdated_count = 0;
 	} else { // if there were no better points in checked area
 		sstream << std::endl << "---Record not updated---" << std::endl;
+		if (ts_strategy == 3) { // restart - choose new first point 
+			isFirstPoint = true;
+			best_predict_time = HUGE_DOUBLE;
+			std::vector<var_with_activity> var_with_activity_vec;
+			var_with_activity vwa;
+			for (unsigned i = 0; i < total_var_activity.size(); i++) {
+				vwa.var = i + 1;
+				vwa.activity = total_var_activity[i];
+				var_with_activity_vec.push_back(vwa);
+				sort(var_with_activity_vec.begin(), var_with_activity_vec.end(), var_compareByActivity);
+			}
+			var_choose_order = real_var_choose_order;
+			for (unsigned i = 0; i < 30; i++) // add most active vars to current record and restart from it
+				var_choose_order.push_back(var_with_activity_vec[i].var);
+			return true;
+		}
+
 		checked_area c_a;
 		unupdated_count++;
 		// for "window" mode - mark current center point as checked point
@@ -1546,7 +1568,7 @@ bool MPI_Predicter :: DeepPredictMain()
 		sstream.str( "" ); sstream.clear( );
 		
 		// stop all current tasks if not first stage (in this stage all problems must be solved)
-		if ( !IsFirstStage ) {
+		if ( ( !IsFirstStage ) || ( ts_strategy == 3 ) ) {
 			if ( verbosity > 1 )
 				std::cout << "Extra stop sending " << std::endl;
 			for ( int i = 1; i < corecount; i++ ) {
@@ -2582,7 +2604,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 		decomp_set_arr.push_back( d_s ); // add new decomp set
 	} // for ( int i = 0; i < decomp_set_count; i++ )
 	
-	if ( ts_strategy == 0 )
+	if ((ts_strategy == 0) || (ts_strategy == 3))
 		random_shuffle( decomp_set_arr.begin(), decomp_set_arr.end() );
 	else if ( ts_strategy == 1 ) {
 		// sort decomp sets by activity
