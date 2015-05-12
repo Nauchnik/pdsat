@@ -55,7 +55,8 @@ MPI_Base :: MPI_Base( ) :
 	isSolverSystemCalling ( false ),
 	process_sat_count ( 0 ),
 	known_vars_count ( 0 ),
-	isPlainText (false)
+	isPlainText (false),
+	evaluation_type("time")
 {
 	full_mask  = new unsigned[FULL_MASK_LEN];
 	part_mask  = new unsigned[FULL_MASK_LEN];

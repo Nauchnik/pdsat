@@ -681,12 +681,12 @@ bool MPI_Solver :: ComputeProcessSolve()
 		
 		IsFirstTaskRecieved = false;
 		var_choose_order_int = new int[MAX_CORE_LEN];
-		MPI_Recv( &core_len,                 1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
-		MPI_Recv( &all_tasks_count,          1, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
-		MPI_Recv( &solving_iteration_count,  1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
-		MPI_Recv( &max_solving_time,         1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
-		MPI_Recv( &start_activity,           1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
-		MPI_Recv( var_choose_order_int,      MAX_CORE_LEN, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( &core_len,                1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( &all_tasks_count,         1, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( &solving_iteration_count, 1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( &max_solving_time,        1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( &start_activity,          1, MPI_DOUBLE,   0, 0, MPI_COMM_WORLD, &status );
+		MPI_Recv( var_choose_order_int,	    MAX_CORE_LEN, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );
 		
 		var_choose_order.resize(0);
 		for( unsigned i=0; i < MAX_CORE_LEN; ++i ) {
@@ -712,13 +712,22 @@ bool MPI_Solver :: ComputeProcessSolve()
 			std::cout << std::endl;
 		}
 		
+		S->evaluation_type = evaluation_type;
+		if (evaluation_type == "time")
+			S->max_solving_time = max_solving_time;
+		else if (evaluation_type == "watch_scans")
+			S->max_nof_watch_scans = te;
 		S->core_len         = core_len;
-		S->max_solving_time = max_solving_time;
 		S->start_activity   = start_activity;
 		S->resetVarActivity();
-		
-		if ( rank == 1 )
+
+		if (rank == 1) {
+			std::cout << "S->evaluation_type " << S->evaluation_type << std::endl;
+			std::cout << "S->max_solving_time " << S->max_solving_time << std::endl;
+			std::cout << "S->max_nof_watch_scans " << S->max_nof_watch_scans << std::endl;
 			std::cout << "before loop of recv tasks" << std::endl;
+		}
+			
 		for (;;) {
 			// get index of current task
 			MPI_Recv( &current_task_index, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );

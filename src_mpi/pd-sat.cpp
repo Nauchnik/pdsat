@@ -202,6 +202,10 @@ int main( int argc, char** argv )
 			mpi_s.max_nof_restarts = myflags.max_nof_restarts;
 		if ( myflags.max_solving_time_koef > 0 )
 			mpi_s.max_solving_time_koef = myflags.max_solving_time_koef;
+		if (myflags.evaluation_type != "")
+			mpi_s.evaluation_type = myflags.evaluation_type;
+		if (myflags.te > 0)
+			mpi_s.te = myflags.te;
 		mpi_s.rslos_table_name = myflags.rslos_table_name;
 		mpi_s.no_increm = myflags.no_increm;
 

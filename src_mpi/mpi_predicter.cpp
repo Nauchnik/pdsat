@@ -43,7 +43,6 @@ MPI_Predicter :: MPI_Predicter( ) :
 	predict_every_sec ( 2 ),
 	max_L2_hamming_distance ( 2 ),
 	start_sample_variance_limit ( 0.000000001 ),
-	evaluation_type ( "time" ),
 	best_cnf_in_set_count ( 0 ),
 	unupdated_count ( 0 ),
 	prev_area_best_predict_time ( 0 ),

@@ -103,6 +103,7 @@ public:
 	int process_sat_count;
 	double cnf_time_from_node;
 	bool isPlainText;
+	std::string evaluation_type;
 
 	int sat_count;
 	int verbosity;
