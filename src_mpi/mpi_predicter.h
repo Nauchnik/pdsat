@@ -147,7 +147,7 @@ public:
 	bool solverSystemCalling( Minisat::vec<Minisat::Lit> &dummy );
 	double getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_set_count, unsigned i );
 	
-	bool DeepPredictMain( );
+	bool DeepPredictMain();
 	bool DeepPredictFindNewUncheckedArea( std::stringstream &sstream );
 	bool GetDeepPredictTasks();
 	void GetInitPoint();

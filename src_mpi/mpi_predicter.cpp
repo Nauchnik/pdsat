@@ -1286,6 +1286,9 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 		if (ts_strategy == 3) { // restart - choose new first point 
 			isFirstPoint = true;
 			best_predict_time = HUGE_DOUBLE;
+			L1.clear();
+			L2.clear();
+			global_deep_point_index = 0;
 			std::vector<var_with_activity> var_with_activity_vec;
 			var_with_activity vwa;
 			for (unsigned i = 0; i < total_var_activity.size(); i++) {
@@ -1295,8 +1298,19 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 				sort(var_with_activity_vec.begin(), var_with_activity_vec.end(), var_compareByActivity);
 			}
 			var_choose_order = real_var_choose_order;
-			for (unsigned i = 0; i < 30; i++) // add most active vars to current record and restart from it
-				var_choose_order.push_back(var_with_activity_vec[i].var);
+			unsigned added_var_count = 0;
+			unsigned var_index = 0;
+			while ( (var_index < var_with_activity_vec.size()) && (added_var_count < 30) ) { // add most active vars to current record and restart from it
+				if (std::find(var_choose_order.begin(), var_choose_order.end(), var_with_activity_vec[var_index].var) == var_choose_order.end()) {
+					var_choose_order.push_back(var_with_activity_vec[var_index].var);
+					added_var_count++;
+				}
+				var_index++;
+			}
+			sstream << "var_choose_order.size() " << var_choose_order.size() << std::endl;
+			for (auto &x : var_choose_order)
+				sstream << x << " ";
+			sstream << std::endl;
 			return true;
 		}
 
@@ -1541,11 +1555,13 @@ bool MPI_Predicter :: DeepPredictMain()
 		
 		if ( ( isFirstPoint ) && ( global_deep_point_index == total_decomp_set_count ) ) {
 			sstream << "First point" << std::endl;
+			sstream << "L2.size() " << L2.size() << std::endl;
 			// set new unchecked area
 			current_unchecked_area = *L2.begin();
 			to_string( current_unchecked_area.center, str );
 			str = std::string( str.rbegin(), str.rend() );
 			sstream << "current_unchecked_area center " << std::endl << str << std::endl;
+			sstream << "current_unchecked_area center count " << current_unchecked_area.center.count() << std::endl;
 			to_string( current_unchecked_area.checked_points, str );
 			str = std::string( str.rbegin(), str.rend() );
 			sstream << "current_unchecked_area checked_points " << std::endl << str << std::endl;
@@ -1805,7 +1821,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	predict_file_name = "predict";
 	
 	std::ofstream graph_file, var_activity_file;
-	if ( isFirstPoint ) {
+	if ( ( isFirstPoint ) && ( ts_strategy != 3 ) ) {
 		graph_file.open( "graph_file", std::ios_base::out ); // erase info from previous launches 
 		if ( te == 0.0 )
 			graph_file << "# best_var_num best_predict_time best_sum_time cnf_in_set_count last_predict_record_time current_predict_time";
@@ -2701,6 +2717,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 		std::cout << sstream.str();
 	
 	global_deep_point_index += decomp_set_arr.size() + current_skipped;
+	sstream << "global_deep_point_index " << global_deep_point_index << std::endl;
 	
 	sstream << std::endl;
 	std::fstream deep_predict_file( deep_predict_file_name.c_str(), std::ios_base::out | std::ios_base::app );
