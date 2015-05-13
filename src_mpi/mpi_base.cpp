@@ -977,19 +977,21 @@ void MPI_Base::MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec,
 		
 		// additionally plaintext is nedded 
 		if (isPlainText) {
-			int des_ciphertext_len = 0;
-			if (input_cnf_name.find("64") != std::string::npos)
-				des_ciphertext_len = 64;
+			int ciphertext_len = 0;
+			if (input_cnf_name.find("32") != std::string::npos)
+				ciphertext_len = 32;
+			else if (input_cnf_name.find("64") != std::string::npos)
+				ciphertext_len = 64;
 			else if (input_cnf_name.find("128") != std::string::npos)
-				des_ciphertext_len = 128;
+				ciphertext_len = 128;
 			else {
-				std::cerr << "des_ciphertext_len == 0" << std::endl;
+				std::cerr << "ciphertext_len == 0" << std::endl;
 				exit(1);
 			}
-			std::cout << "des_ciphertext_len " << des_ciphertext_len << std::endl;
-			plain_text_vec.resize(des_ciphertext_len);
+			std::cout << "des_ciphertext_len " << ciphertext_len << std::endl;
+			plain_text_vec.resize(ciphertext_len);
 			for (unsigned i = 0; i < cnf_in_set_count; i++) {
-				for (unsigned j = 0; j < des_ciphertext_len; j++)
+				for (unsigned j = 0; j < ciphertext_len; j++)
 					plain_text_vec[j] = bool_rand(gen);
 				plain_text_vec_vec.push_back(plain_text_vec);
 			}

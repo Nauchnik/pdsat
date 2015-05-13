@@ -116,7 +116,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 
 	int stream_char_len, state_char_len, plain_text_char_len;
 	
-	if (input_cnf_name.find("des") != std::string::npos)
+	if ((input_cnf_name.find("des") != std::string::npos) || (input_cnf_name.find("keeloq") != std::string::npos))
 		isPlainText = true;
 	
 	if ( rank == 0 ) { // control node
