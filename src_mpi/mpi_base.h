@@ -29,7 +29,7 @@
 using namespace Addit_func;
 
 const int      MAX_CORE_LEN = 10000;
-const double   MIN_SOLVE_TIME = 0.000001;
+const double   MIN_SOLVE_TIME = 0.0000001;
 const unsigned RECOMMEND_BATCH_VAR_COUNT = 21;
 const unsigned MAX_BATCH_VAR_COUNT = 31;
 const unsigned MAX_PART_MASK_VAR_COUNT = 24;

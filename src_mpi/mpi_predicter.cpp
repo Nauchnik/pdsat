@@ -15,7 +15,7 @@ MPI_Predicter :: MPI_Predicter( ) :
 	IsDecDecomp         ( false ),
 	isSimulatedGranted  ( false ),
 	deep_predict_file_name ( "deep_predict" ),
-	//var_activity_file_name ( "var_activity" ),
+	var_activity_file_name ( "sorted_var_activity" ),
 	cur_temperature ( 0 ),
 	min_temperature ( 20 ),
 	temperature_multiply_koef ( 0.9 ),
@@ -709,6 +709,12 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	S->addProblem(cnf); // add clauses of template CNF
 	for( int i=0; i < dummy.size(); i++ ) // add oneliteral clauses
 		S->addClause( dummy[i] );
+
+	if (!(S->simplify())){
+		printf("UNSATISFIABLE, solved by unit propagation\n");
+		ret = l_False;
+		cnf_time_from_node = MIN_SOLVE_TIME;
+	}
 	
 	S->pdsat_verbosity  = verbosity;
 	S->isPredict        = isPredict;
@@ -735,7 +741,7 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	if ( ( verbosity > 2 ) && ( rank == 1 ) )
 		std::cout << "After S->solveLimited( dummy )" << std::endl;
 	if ( evaluation_type == "time" )
-		cnf_time_from_node = MPI_Wtime( ) - cnf_time_from_node;
+		cnf_time_from_node = MPI_Wtime() - cnf_time_from_node;
 	else if (evaluation_type == "propagation")
 		cnf_time_from_node = (double)S->propagations;
 	else if (evaluation_type == "watch_scans")
@@ -748,7 +754,7 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 		std::cerr << "( te > 0 ) && ( ret == l_False ) " << std::endl;
 		exit(1);
 	}
-			
+	
 	S->getActivity( full_var_choose_order, var_activity, activity_vec_len ); // get activity of Solver
 
 	if ( ( verbosity > 2 ) && ( rank == 1 ) )
@@ -1834,8 +1840,6 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	}
 	else {
 		graph_file.open( "graph_file", std::ios_base::app );
-		//if ( !isSolverSystemCalling )
-		//	var_activity_file.open( var_activity_file_name.c_str(), std::ios_base::app );
 	}
 
 	/*if ( !isSolverSystemCalling ) {
@@ -1865,9 +1869,47 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		graph_file << " first stage done";
 	}
 	graph_file << " time_limit=" << best_time_limit << std::endl;
-	
 	graph_file.close();
-	//var_activity_file.close();
+	
+	if (!isSolverSystemCalling) {
+		// print most active variables on the current moment
+		std::vector<var_with_activity> var_with_activity_vec;
+		std::vector<int> tmp_var_choose_order;
+		var_with_activity vwa;
+		for (unsigned i = 0; i < total_var_activity.size(); i++) {
+			vwa.var = i + 1;
+			vwa.activity = total_var_activity[i];
+			var_with_activity_vec.push_back(vwa);
+			sort(var_with_activity_vec.begin(), var_with_activity_vec.end(), var_compareByActivity);
+		}
+		
+		tmp_var_choose_order = real_var_choose_order;
+		unsigned added_var_count = 0;
+		unsigned var_index = 0;
+		while ((var_index < var_with_activity_vec.size()) && (added_var_count < 30)) { // add most active vars to current record and restart from it
+			if (std::find(tmp_var_choose_order.begin(), tmp_var_choose_order.end(), var_with_activity_vec[var_index].var) == tmp_var_choose_order.end()) {
+				tmp_var_choose_order.push_back(var_with_activity_vec[var_index].var);
+				added_var_count++;
+			}
+			var_index++;
+		}
+
+		var_activity_file.open(var_activity_file_name.c_str(), std::ios_base::app);
+		var_activity_file << std::endl << "***" << std::endl;
+		for ( auto &x : var_with_activity_vec )
+			var_activity_file << " " << x.var << " " << x.activity;
+		var_activity_file << std::endl << "real_var_choose_order and then + most active vars one by one " << std::endl;
+		unsigned cur_print_set_power = real_var_choose_order.size();
+		
+		for (unsigned i = 0; i < 32; i++) {
+			for (unsigned j = 0; j < cur_print_set_power + i; j++) {
+				if (j < tmp_var_choose_order.size() )
+					var_activity_file << tmp_var_choose_order[j] << " ";
+			}
+			var_activity_file << std::endl;
+		}
+		var_activity_file.close();
+	}
 }
 
 bool MPI_Predicter :: checkSimulatedGranted( double predict_time )
