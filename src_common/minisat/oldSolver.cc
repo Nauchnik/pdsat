@@ -18,28 +18,19 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **************************************************************************************************/
 
-/**************************************************************************************************
-This is a patched version of Minisat 2.2. [Marijn Heule, April 17, 2013]
-
-The patch includes:
-- The output of the solver is modified following to the SAT Competition 2013 output requirements
-- The solver optionally emits a DRUP proof in the file speficied in argv[2]
-**************************************************************************************************/
-
 #ifdef _MPI
 #include <mpi.h>
 #endif
 
 #include <math.h>
-
 #include "mtl/Sort.h"
 #include "core/Solver.h"
+#include "utils/System.h"
 
 using namespace Minisat;
 
 //=================================================================================================
 // Options:
-
 
 static const char* _cat = "CORE";
 
@@ -55,10 +46,8 @@ static IntOption     opt_restart_first     (_cat, "rfirst",      "The base resta
 static DoubleOption  opt_restart_inc       (_cat, "rinc",        "Restart interval increase factor", 2, DoubleRange(1, false, HUGE_VAL, false));
 static DoubleOption  opt_garbage_frac      (_cat, "gc-frac",     "The fraction of wasted memory allowed before a garbage collection is triggered",  0.20, DoubleRange(0, false, HUGE_VAL, false));
 
-
 //=================================================================================================
 // Constructor/Destructor:
-
 
 Solver::Solver() :
 
@@ -92,7 +81,6 @@ Solver::Solver() :
   , solves(0), starts(0), decisions(0), rnd_decisions(0), propagations(0), conflicts(0)
   , dec_vars(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
 
-  , up (0)
   , ok                 (true)
   , cla_inc            (1)
   , var_inc            (1)
@@ -109,51 +97,49 @@ Solver::Solver() :
   , conflict_budget    (-1)
   , propagation_budget (-1)
   , asynch_interrupt   (false)
+
   // added pdsat:
   //
-  , print_learnts(false)
-  , max_nof_restarts(0)
-  , start_activity(0)
-  , core_len(0)
-  , isPredict(false)
-  , start_solving_time(0)
-  , max_solving_time(0)
-  , rank(-1)
-  , pdsat_verbosity(0)
-  , watch_scans(0)
-  , max_nof_watch_scans(0)
-  , problem_type("")
-  , evaluation_type("time")
-{}
-
-
-Solver::~Solver()
+  , print_learnts      (false)
+  , max_nof_restarts   ( 0 )
+  , start_activity     ( 0 )
+  , core_len           ( 0 )
+  , isPredict          ( false )
+  , start_solving_time ( 0 )
+  , max_solving_time   ( 0 )
+  , rank               ( -1 )
+  , pdsat_verbosity    ( 0 )
+  , watch_scans        ( 0 )
+  , max_nof_watch_scans ( 0 )
 {
+	problem_type = "";
+	evaluation_type = "time";
 }
 
+Solver::~Solver()
+{}
 
 //=================================================================================================
 // Minor methods:
 
-
 // remove all learnt clauses and set initial values of some parameters
 void Solver::clearDB()
 {
-	for (int i = 0; i < learnts.size(); ++i)
-		removeClause(learnts[i]);
+    for (int i = 0; i < learnts.size(); ++i)
+        removeClause(learnts[i]);
 
-	learnts.clear();
+    learnts.clear();
 	conflicts = 0;
 	max_literals = 0;
 	tot_literals = 0;
 
-	checkGarbage();
+    checkGarbage();
 }
 
 
-void Solver::clearPolarity()
+void Solver::clearPolarity() 
 {
-	for (int i = 0; i < nVars(); i++)
+	for ( int i=0; i < nVars(); i++ )
 		polarity[i] = true;
 	checkGarbage();
 }
@@ -161,56 +147,56 @@ void Solver::clearPolarity()
 void Solver::clearParams()
 {
 	starts = 0;
-	decisions = 0;
+    decisions = 0;
 	rnd_decisions = 0;
-	propagations = 0;
+    propagations = 0;
 	ok = true;
-
+	
 	//dec_vars = 0;
-
+	
 	/*for ( int i=0; i < nVars(); i++ )
-	polarity[i] = true;
+		polarity[i] = true;
 	for (int i=0; i<nVars(); i++){
-	activity[i]=i;
+		activity[i]=i;
 	}
 	rebuildOrderHeap();
 	for (int i=0; i<nVars(); i++){
-	activity[i]=0;
+		activity[i]=0;
 	}
 	var_inc=1;
 	for (int i = 0; i < learnts.size(); i++){
-	ca[learnts[i]].activity() =0;
+        ca[learnts[i]].activity() =0;
 	}
-	cla_inc = 1;
+    cla_inc = 1;
 	for (int i=0; i<clauses.size(); i++){
-	Clause& c = ca[clauses[i]];
-	if (c.size()>1)
-	detachClause(clauses[i], true);
-	std::sort(&c[0],&c[c.size()-1], compare_lits);
+		Clause& c = ca[clauses[i]];
+		if (c.size()>1)
+			detachClause(clauses[i], true);
+		std::sort(&c[0],&c[c.size()-1], compare_lits);
 	}
 
 	for (int i=0; i<clauses.size(); i++){
-	if (ca[clauses[i]].size()>1)
-	attachClause(clauses[i]);
+		if (ca[clauses[i]].size()>1)
+			attachClause(clauses[i]);
 	}*/
 }
 
-void Solver::getActivity(std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len)
+void Solver :: getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len )
 {
-	for (unsigned i = 0; i < activity_vec_len; ++i)
-		var_activity[i] = activity[full_var_choose_order[i] - 1];
-	for (unsigned i = 0; i < activity_vec_len; ++i)
-		if (var_activity[i] > 1e100)
-			for (unsigned j = 0; j < activity_vec_len; ++j) // Rescale:
+	for( unsigned i=0; i < activity_vec_len; ++i )
+		var_activity[i] = activity[full_var_choose_order[i]-1];
+	for( unsigned i=0; i < activity_vec_len; ++i )
+		if( var_activity[i] > 1e100 )
+			for( unsigned j=0; j < activity_vec_len; ++j ) // Rescale:
 				var_activity[j] *= 1e-100;
 }
 
 // added
-void Solver::resetVarActivity()
+void Solver :: resetVarActivity()
 {
-	if ((core_len <= nVars()) && (start_activity > 0)) {
+	if ( ( core_len <= nVars() ) && ( start_activity > 0 ) ) {
 		// set default minisat values
-		for (int i = 0; i < activity.size(); ++i)
+		for( int i=0; i < activity.size(); ++i )
 			activity[i] = 0.0;
 		for (int v = 0; v < core_len; ++v)
 			varBumpActivity(v, start_activity);
@@ -219,11 +205,11 @@ void Solver::resetVarActivity()
 	}
 }
 
-void Solver::resetIntervalVarActivity(unsigned var_from, unsigned var_to)
+void Solver :: resetIntervalVarActivity( unsigned var_from, unsigned var_to )
 {
-	if ((var_to <= nVars()) && (start_activity > 0)) {
+	if ( ( var_to <= nVars() ) && ( start_activity > 0 ) ) {
 		// set default minisat values
-		for (int i = 0; i < activity.size(); ++i)
+		for( int i=0; i < activity.size(); ++i )
 			activity[i] = 0.0;
 		for (int v = var_from; v < var_to; ++v)
 			varBumpActivity(v, start_activity);
@@ -247,7 +233,6 @@ Var Solver::newVar(bool sign, bool dvar)
     decision .push();
     trail    .capacity(v+1);
     setDecisionVar(v, dvar);
-    t.push(0);
     return v;
 }
 
@@ -259,14 +244,13 @@ bool Solver::addClause_(vec<Lit>& ps)
 
     // Check if clause is satisfied and remove false/duplicate literals:
     sort(ps);
-
-	Lit p; int i, j;
-	for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
-		if (value(ps[i]) == l_True || ps[i] == ~p)
-			return true;
-		else if (value(ps[i]) != l_False && ps[i] != p)
-			ps[j++] = p = ps[i];
-	ps.shrink(i - j);
+    Lit p; int i, j;
+    for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
+        if (value(ps[i]) == l_True || ps[i] == ~p)
+            return true;
+        else if (value(ps[i]) != l_False && ps[i] != p)
+            ps[j++] = p = ps[i];
+    ps.shrink(i - j);
 
     if (ps.size() == 0)
         return ok = false;
@@ -311,7 +295,6 @@ void Solver::detachClause(CRef cr, bool strict) {
 
 void Solver::removeClause(CRef cr) {
     Clause& c = ca[cr];
-
     detachClause(cr);
     // Don't leave pointers to free'd memory!
     if (locked(c)) vardata[var(c[0])].reason = CRef_Undef;
@@ -352,29 +335,20 @@ Lit Solver::pickBranchLit()
     Var next = var_Undef;
 
     // Random decision:
-   /*
     if (drand(random_seed) < random_var_freq && !order_heap.empty()){
         next = order_heap[irand(random_seed,order_heap.size())];
         if (value(next) == l_Undef && decision[next])
             rnd_decisions++; }
-   */
-    if (order_heap.empty()) return lit_Undef;
-    next = order_heap.removeMin();
-   
+
     // Activity based decision:
-    while (value(next) != l_Undef || !decision[next])
+    while (next == var_Undef || value(next) != l_Undef || !decision[next])
         if (order_heap.empty()){
-           // next = var_Undef;
-           // break;
-           return lit_Undef;
+            next = var_Undef;
+            break;
         }else
             next = order_heap.removeMin();
-    
-    if(bitN>=0){
-          int dl=decisionLevel();
-          if(dl<12) polarity[next]=(bitN>>(dl%4)) & 1;
-    }
-    return mkLit(next, rnd_pol ? drand(random_seed) < 0.5 : polarity[next]);
+
+    return next == var_Undef ? lit_Undef : mkLit(next, rnd_pol ? drand(random_seed) < 0.5 : polarity[next]);
 }
 
 
@@ -409,8 +383,8 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
         assert(confl != CRef_Undef); // (otherwise should be UIP)
         Clause& c = ca[confl];
 
-       //if (c.learnt())
-            //claBumpActivity(c);
+        if (c.learnt())
+            claBumpActivity(c);
 
         for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++){
             Lit q = c[j];
@@ -630,7 +604,6 @@ CRef Solver::propagate()
                     *j++ = *i++;
             }else
                 uncheckedEnqueue(first, cr);
-            if(c.learnt()) c.activity() = LBD(c);
 
 		NextClause:;
 		watch_scans++; // added
@@ -642,7 +615,6 @@ CRef Solver::propagate()
 
     return confl;
 }
-
 
 /*_________________________________________________________________________________________________
 |
@@ -656,7 +628,7 @@ struct reduceDB_lt {
     ClauseAllocator& ca;
     reduceDB_lt(ClauseAllocator& ca_) : ca(ca_) {}
     bool operator () (CRef x, CRef y) { 
-        return ca[x].size() > 2 && (ca[y].size() == 2 || ca[x].activity() > ca[y].activity() || (ca[x].activity() == ca[y].activity() && ca[x].size() > ca[y].size())); } 
+        return ca[x].size() > 2 && (ca[y].size() == 2 || ca[x].activity() < ca[y].activity()); } 
 };
 void Solver::reduceDB()
 {
@@ -666,20 +638,15 @@ void Solver::reduceDB()
     sort(learnts, reduceDB_lt(ca));
     // Don't delete binary or locked clauses. From the rest, delete clauses from the first half
     // and clauses with activity smaller than 'extra_lim':
-    static int d=0,m=0;
-    if(max_learnts>=391879) m++,d=0;
-    else if(nFreeVars() < 1000) d++;
     for (i = j = 0; i < learnts.size(); i++){
         Clause& c = ca[learnts[i]];
-        if (c.size() > 2 && !locked(c) && (i < learnts.size() / 2 || d%13==12 || m==1) && c.activity() > 3) 
+        if (c.size() > 2 && !locked(c) && (i < learnts.size() / 2 || c.activity() < extra_lim))
             removeClause(learnts[i]);
         else
             learnts[j++] = learnts[i];
     }
     learnts.shrink(i - j);
     checkGarbage();
-    if(max_learnts < 300000) max_learnts *= 1.08;
-    else max_learnts += 5000;
 }
 
 
@@ -761,9 +728,9 @@ lbool Solver::search(int nof_conflicts)
     starts++;
 
 	// BOINC mode - added to speedup solving Latin square problems and decreasie using RAM
-	if (problem_type == "diag")
+	if ( problem_type == "diag" )
 		reduceDB();
-
+	
     for (;;){
         CRef confl = propagate();
         if (confl != CRef_Undef){
@@ -774,36 +741,35 @@ lbool Solver::search(int nof_conflicts)
             learnt_clause.clear();
             analyze(confl, learnt_clause, backtrack_level);
             cancelUntil(backtrack_level);
-
+			
             if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
             }else{
 				/*if ( print_learnts ) { // added pdsat
-				for ( unsigned i = 0; i < learnt_clause.size(); i++ ) {
-				if ( sign(learnt_clause[i]) )
-				printf( "-" );
-				printf( "%d ", var(learnt_clause[i]) + 1 );
-				}
-				printf("0 \n");
+					for ( unsigned i = 0; i < learnt_clause.size(); i++ ) {
+						if ( sign(learnt_clause[i]) )
+							printf( "-" );
+						printf( "%d ", var(learnt_clause[i]) + 1 );
+					}
+					printf("0 \n");
 				}*/
                 CRef cr = ca.alloc(learnt_clause, true);
                 learnts.push(cr);
                 attachClause(cr);
-                //claBumpActivity(ca[cr]);
-                ca[cr].activity() = LBD(ca[cr]);
+                claBumpActivity(ca[cr]);
                 uncheckedEnqueue(learnt_clause[0], cr);
             }
-
+			
             varDecayActivity();
             claDecayActivity();
 
             if (--learntsize_adjust_cnt == 0){
                 learntsize_adjust_confl *= learntsize_adjust_inc;
                 learntsize_adjust_cnt    = (int)learntsize_adjust_confl;
-               // max_learnts             *= learntsize_inc;
+                max_learnts             *= learntsize_inc;
 
                 if (verbosity >= 1)
-                    printf("c | %9d | %7d %8d %8d | %8d %8d %6.0f | %6.3f %% |\n", 
+                    printf("| %9d | %7d %8d %8d | %8d %8d %6.0f | %6.3f %% |\n", 
                            (int)conflicts, 
                            (int)dec_vars - (trail_lim.size() == 0 ? trail.size() : trail_lim[0]), nClauses(), (int)clauses_literals, 
                            (int)max_learnts, nLearnts(), (double)learnts_literals/nLearnts(), progressEstimate()*100);
@@ -815,8 +781,9 @@ lbool Solver::search(int nof_conflicts)
                 // Reached bound on number of conflicts:
                 progress_estimate = progressEstimate();
                 cancelUntil(0);
-                return l_Undef; }
-
+                return l_Undef; 
+			}
+			
             // Simplify the set of problem clauses:
             if (decisionLevel() == 0 && !simplify())
                 return l_False;
@@ -857,7 +824,6 @@ lbool Solver::search(int nof_conflicts)
         }
     }
 }
-
 
 double Solver::progressEstimate() const
 {
@@ -914,10 +880,10 @@ lbool Solver::solve_()
 	MPI_Status mpi_status;
 	MPI_Request mpi_request;
 	int iprobe_message,
-		test_message,
-		irecv_message;
+	test_message,
+	irecv_message;
 #endif
-
+	
     model.clear();
     conflict.clear();
     if (!ok) return l_False;
@@ -925,47 +891,41 @@ lbool Solver::solve_()
     solves++;
 
     max_learnts               = nClauses() * learntsize_factor;
-    max_learnts=30000;
     learntsize_adjust_confl   = learntsize_adjust_start_confl;
     learntsize_adjust_cnt     = (int)learntsize_adjust_confl;
     lbool   status            = l_Undef;
 
     if (verbosity >= 1){
-        printf("c ============================[ Search Statistics ]==============================\n");
-        printf("c | Conflicts |          ORIGINAL         |          LEARNT          | Progress |\n");
-        printf("c |           |    Vars  Clauses Literals |    Limit  Clauses Lit/Cl |          |\n");
-        printf("c ===============================================================================\n");
+        printf("============================[ Search Statistics ]==============================\n");
+        printf("| Conflicts |          ORIGINAL         |          LEARNT          | Progress |\n");
+        printf("|           |    Vars  Clauses Literals |    Limit  Clauses Lit/Cl |          |\n");
+        printf("===============================================================================\n");
     }
 
 	double cur_time = 0.0;
-
+	
     // Search:
     int curr_restarts = 0;
     while (status == l_Undef){
-        int n=nFreeVars();
-        if(n>280 && n < 1000 || n <220) luby_restart=0;
-        if( n>1000 && (int)max_learnts <= 391879 && ((conflicts/30000)%2 || n<4000)) bitN++;
-        else bitN=-1;
-
-		// added pdsat
+	// added pdsat
 #ifdef _MPI
 		cur_time = MPI_Wtime() - start_solving_time;
 #else
 		cur_time = cpuTime() - start_solving_time;
 #endif
-		if (((max_nof_restarts) && (curr_restarts >= max_nof_restarts)) ||
-			((max_solving_time > 0.0) && (cur_time >= max_solving_time)) ||
-			((max_nof_watch_scans) && (watch_scans >= max_nof_watch_scans))
-			)
+		if ( ( ( max_nof_restarts ) && ( curr_restarts >= max_nof_restarts ) ) ||
+		     ( ( max_solving_time > 0.0 ) && ( cur_time >= max_solving_time ) ) ||
+			 ( ( max_nof_watch_scans ) && ( watch_scans >= max_nof_watch_scans ) )
+			 )
 		{
-			//progress_estimate = progressEstimate();
-			cancelUntil(0);
-			return l_Undef;
+			 //progress_estimate = progressEstimate();
+			 cancelUntil(0);
+			 return l_Undef;
 		}
-
+		
 #ifdef _MPI
-		if ((isPredict) && (evaluation_type == "time")) {
-			if ((pdsat_verbosity > 0) && (rank == 1)) {
+		if ( (isPredict) && (evaluation_type == "time") ) {
+			if ( ( pdsat_verbosity > 0 ) && ( rank == 1 ) ) {
 				std::cout << "try to MPI_Iprobe()" << std::endl;
 				std::cout << "rank " << rank << std::endl;
 			}
@@ -974,13 +934,13 @@ lbool Solver::solve_()
 			MPI_Iprobe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &iprobe_message, &mpi_status);
 			//if ( pdsat_verbosity > 0 )
 			//	std::cout << "iprobe_message " << iprobe_message << std::endl;
-			if (iprobe_message) {
+			if ( iprobe_message ) {
 				MPI_Get_count(&mpi_status, MPI_INT, &size);
-				if (size == 1) {
-					MPI_Irecv(&irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request);
-					MPI_Test(&mpi_request, &test_message, &mpi_status);
-					if (test_message) {
-						if (pdsat_verbosity > 0)
+				if ( size == 1 ) {
+					MPI_Irecv( &irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request );
+					MPI_Test( &mpi_request, &test_message, &mpi_status );
+					if ( test_message ) {
+						if ( pdsat_verbosity > 0 )
 							std::cout << "minisat interrupted after " << curr_restarts << " restarts" << std::endl;
 						cancelUntil(0);
 						return l_Undef;
@@ -993,16 +953,15 @@ lbool Solver::solve_()
 			}
 		}
 #endif
-		
+	
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
         status = search(rest_base * restart_first);
         if (!withinBudget()) break;
         curr_restarts++;
     }
-
+	
     if (verbosity >= 1)
-        printf("c ===============================================================================\n");
-
+        printf("===============================================================================\n");
 
     if (status == l_True){
         // Extend & copy model:
@@ -1040,7 +999,6 @@ void Solver::toDimacs(FILE* f, Clause& c, vec<Var>& map, Var& max)
     fprintf(f, "0\n");
 }
 
-
 void Solver::toDimacs(const char *file, const vec<Lit>& assumps)
 {
     FILE* f = fopen(file, "wr");
@@ -1049,7 +1007,6 @@ void Solver::toDimacs(const char *file, const vec<Lit>& assumps)
     toDimacs(f, assumps);
     fclose(f);
 }
-
 
 void Solver::toDimacs(FILE* f, const vec<Lit>& assumps)
 {
@@ -1140,7 +1097,7 @@ void Solver::garbageCollect()
 
     relocAll(to);
     if (verbosity >= 2)
-        printf("c |  Garbage collection:   %12d bytes => %12d bytes             |\n", 
+        printf("|  Garbage collection:   %12d bytes => %12d bytes             |\n", 
                ca.size()*ClauseAllocator::Unit_Size, to.size()*ClauseAllocator::Unit_Size);
     to.moveTo(ca);
 }

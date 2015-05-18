@@ -28,19 +28,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #   include <sys/int_fmtio.h>
 #   include <sys/int_limits.h>
 
-// win mode
-/*#else 
-
-#   include <stdint.h>
-#   include <inttypes.h>
-
-#endif*/
-
-#elif _MSC_VER
-
-#define __STDC_LIMIT_MACROS
-#   include <stdint.h>
-
 #else
 
 #   include <stdint.h>

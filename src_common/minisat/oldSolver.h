@@ -26,19 +26,23 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "mtl/Alg.h"
 #include "utils/Options.h"
 #include "core/SolverTypes.h"
-#include <string>
 #include <vector>
 
 namespace Minisat {
 
-	typedef Minisat::vec<Minisat::Lit> Disjunct;
-	typedef std::vector< Disjunct* > Problem;
+typedef Minisat::vec<Minisat::Lit> Disjunct;
+typedef std::vector< Disjunct* > Problem;
 
 //=================================================================================================
 // Solver -- the main class:
 
 class Solver {
 public:
+
+    // Constructor/Destructor:
+    //
+    Solver();
+    virtual ~Solver();
 
 	// added pdsat
 	int max_nof_restarts; // restarts limit
@@ -63,12 +67,7 @@ public:
 	double getEstimation();
 	unsigned long long watch_scans;
 	std::string evaluation_type;
-
-    // Constructor/Destructor:
-    //
-    Solver();
-    virtual ~Solver();
-
+	
     // Problem specification:
     //
     Var     newVar    (bool polarity = true, bool dvar = true); // Add a new variable with parameters specifying variable mode.
@@ -165,8 +164,6 @@ public:
     //
     uint64_t solves, starts, decisions, rnd_decisions, propagations, conflicts;
     uint64_t dec_vars, clauses_literals, learnts_literals, max_literals, tot_literals;
-    int bitN,up;
-    vec<int> t;
 
 protected:
 
@@ -284,15 +281,6 @@ protected:
     int      level            (Var x) const;
     double   progressEstimate ()      const; // DELETE THIS ?? IT'S NOT VERY USEFUL ...
     bool     withinBudget     ()      const;
-    int      LBD(Clause& c){
-         int x = 0;
-         up++;
-         for(int k=0;k<c.size();k++){
-            int l = level(var(c[k]));
-            if(t[l] != up){ t[l] = up; x++;}
-         }
-         return x;
-     }
 
     // Static helpers:
     //
@@ -392,7 +380,7 @@ inline lbool    Solver::solve         ()                    { budgetOff(); assum
 inline bool     Solver::solve         (Lit p)               { budgetOff(); assumptions.clear(); assumptions.push(p); return solve_() == l_True; }
 inline bool     Solver::solve         (Lit p, Lit q)        { budgetOff(); assumptions.clear(); assumptions.push(p); assumptions.push(q); return solve_() == l_True; }
 inline bool     Solver::solve         (Lit p, Lit q, Lit r) { budgetOff(); assumptions.clear(); assumptions.push(p); assumptions.push(q); assumptions.push(r); return solve_() == l_True; }
-inline lbool    Solver::solve(const vec<Lit>& assumps){ budgetOff(); assumps.copyTo(assumptions); return solve_(); }
+inline lbool    Solver::solve         (const vec<Lit>& assumps){ budgetOff(); assumps.copyTo(assumptions); return solve_(); }
 inline lbool    Solver::solveLimited  (const vec<Lit>& assumps){ assumps.copyTo(assumptions); return solve_(); }
 inline bool     Solver::okay          ()      const   { return ok; }
 
@@ -404,15 +392,15 @@ inline void     Solver::toDimacs     (const char* file, Lit p, Lit q, Lit r){ ve
 // added pdsat
 inline bool Solver::addProblem(const Problem& p)
 {
-	for (size_t i = 0; i < p.size(); i++) {
+	for(size_t i = 0; i < p.size(); i++) {
 		// add variables if needed
-		for (int j = 0; j < p[i]->size(); j++) {
+		for(int j = 0; j < p[i]->size(); j++) {
 			Lit& lit = (*p[i])[j];
 			while (var(lit) >= nVars()) newVar();
 			//while(var(lit) >= nVars()) (size_actitity ? newVar(temp_activity[var(lit)]) : newVar());
 		}
 		p[i]->copyTo(add_tmp);
-		if (!addClause_(add_tmp))
+		if(!addClause_(add_tmp))
 			return false;
 	}
 	return true;
@@ -422,9 +410,9 @@ inline bool Solver::addProblem_modified(const Problem& p, int num_of_variables)
 {
 	if (num_of_variables > 0){
 		for (int j = 0; j < num_of_variables; j++)
-			newVar();
+			newVar();		
 	}
-	for (size_t i = 0; i < p.size(); i++) {
+	for (size_t i = 0; i < p.size(); i++) {		
 		p[i]->copyTo(add_tmp);
 		if (!addClause_(add_tmp))
 			return false;

@@ -951,10 +951,10 @@ void MPI_Base :: MakeUniqueRandArr( std::vector<unsigned> &rand_arr, unsigned ra
 	}
 }
 
-
-void MPI_Base::MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec, 
-	                          std::vector< std::vector<bool> > &stream_vec_vec, 
-							  std::vector< std::vector<bool> > &plain_text_vec_vec )
+void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
+							 std::vector< std::vector<bool> > &stream_vec_vec,
+							 std::vector< std::vector<bool> > &plain_text_vec_vec,
+							 int rank)
 {
 	std::fstream file( "known_sat_sample", std::ios_base::in );
 	std::vector<bool> state_vec, stream_vec, plain_text_vec;
@@ -977,7 +977,7 @@ void MPI_Base::MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec,
 		
 		// additionally plaintext is nedded 
 		if (isPlainText) {
-			int ciphertext_len = 0;
+			unsigned ciphertext_len = 0;
 			if (input_cnf_name.find("32") != std::string::npos)
 				ciphertext_len = 32;
 			else if (input_cnf_name.find("64") != std::string::npos)
@@ -1052,7 +1052,8 @@ void MPI_Base::MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec,
 			sstream << std::endl;
 		}
 		file.close(); file.clear();
-		file.open( "known_sat_sample", std::ios_base::out );
+		if ( rank == 0 ) 
+			file.open("known_sat_sample", std::ios_base::out);
 		file << sstream.rdbuf();
 		delete S;
 	}

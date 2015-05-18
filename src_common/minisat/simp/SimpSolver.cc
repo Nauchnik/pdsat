@@ -18,6 +18,14 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **************************************************************************************************/
 
+/**************************************************************************************************
+This is a patched version of Minisat 2.2. [Marijn Heule, April 17, 2013]
+
+The patch includes:
+- The output of the solver is modified following to the SAT Competition 2013 output requirements
+- The solver optionally emits a DRUP proof in the file speficied in argv[2]
+**************************************************************************************************/
+
 #include "mtl/Sort.h"
 #include "simp/SimpSolver.h"
 #include "utils/System.h"
@@ -117,7 +125,7 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
     if (result == l_True)
         result = Solver::solve_();
     else if (verbosity >= 1)
-        printf("===============================================================================\n");
+        printf("c ===============================================================================\n");
 
     if (result == l_True)
         extendModel();
@@ -146,6 +154,12 @@ bool SimpSolver::addClause_(vec<Lit>& ps)
 
     if (!Solver::addClause_(ps))
         return false;
+
+    if(!parsing && output != NULL) {
+      for (int i = 0; i < ps.size(); i++)
+        fprintf(output, "%i " , (var(ps[i]) + 1) * (-2 * sign(ps[i]) + 1) );
+      fprintf(output, "0\n");
+    }
 
     if (use_simplification && clauses.size() == nclauses + 1){
         CRef          cr = clauses.last();
@@ -197,10 +211,23 @@ bool SimpSolver::strengthenClause(CRef cr, Lit l)
     // if (!find(subsumption_queue, &c))
     subsumption_queue.insert(cr);
 
+    if (output != NULL) {
+      for (int i = 0; i < c.size(); i++)
+        if (c[i] != l) fprintf(output, "%i " , (var(c[i]) + 1) * (-2 * sign(c[i]) + 1) );
+      fprintf(output, "0\n");
+    }
+
     if (c.size() == 2){
         removeClause(cr);
         c.strengthen(l);
     }else{
+        if (output != NULL) {
+          fprintf(output, "d ");
+          for (int i = 0; i < c.size(); i++)
+            fprintf(output, "%i " , (var(c[i]) + 1) * (-2 * sign(c[i]) + 1) );
+          fprintf(output, "0\n");
+        }
+
         detachClause(cr, true);
         c.strengthen(l);
         attachClause(cr);
@@ -351,7 +378,7 @@ bool SimpSolver::backwardSubsumptionCheck(bool verbose)
         if (c.mark()) continue;
 
         if (verbose && verbosity >= 2 && cnt++ % 1000 == 0)
-            printf("subsumption left: %10d (%10d subsumed, %10d deleted literals)\r", subsumption_queue.size(), subsumed, deleted_literals);
+            printf("c subsumption left: %10d (%10d subsumed, %10d deleted literals)\r", subsumption_queue.size(), subsumed, deleted_literals);
 
         assert(c.size() > 1 || value(c[0]) == l_True);    // Unit-clauses should have been propagated before this point.
 
@@ -507,15 +534,15 @@ bool SimpSolver::eliminateVar(Var v)
         mkElimClause(elimclauses, ~mkLit(v));
     }
 
-    for (int i = 0; i < cls.size(); i++)
-        removeClause(cls[i]); 
-
     // Produce clauses in cross product:
     vec<Lit>& resolvent = add_tmp;
     for (int i = 0; i < pos.size(); i++)
         for (int j = 0; j < neg.size(); j++)
             if (merge(ca[pos[i]], ca[neg[j]], v, resolvent) && !addClause_(resolvent))
                 return false;
+
+    for (int i = 0; i < cls.size(); i++)
+        removeClause(cls[i]);
 
     // Free occurs list for this variable:
     occurs[v].clear(true);
@@ -550,10 +577,10 @@ bool SimpSolver::substitute(Var v, Lit x)
             subst_clause.push(var(p) == v ? x ^ sign(p) : p);
         }
 
-        removeClause(cls[i]);
-
         if (!addClause_(subst_clause))
             return ok = false;
+
+        removeClause(cls[i]);
     }
 
     return true;
@@ -611,7 +638,7 @@ bool SimpSolver::eliminate(bool turn_off_elim)
             if (isEliminated(elim) || value(elim) != l_Undef) continue;
 
             if (verbosity >= 2 && cnt % 100 == 0)
-                printf("elimination left: %10d\r", elim_heap.size());
+                printf("c elimination left: %10d\r", elim_heap.size());
 
             if (use_asymm){
                 // Temporarily freeze variable. Otherwise, it would immediately end up on the queue again:
@@ -655,7 +682,7 @@ bool SimpSolver::eliminate(bool turn_off_elim)
     }
 
     if (verbosity >= 1 && elimclauses.size() > 0)
-        printf("|  Eliminated clauses:     %10.2f Mb                                      |\n", 
+        printf("c |  Eliminated clauses:     %10.2f Mb                                      |\n", 
                double(elimclauses.size() * sizeof(uint32_t)) / (1024*1024));
 
     return ok;
@@ -711,7 +738,7 @@ void SimpSolver::garbageCollect()
     relocAll(to);
     Solver::relocAll(to);
     if (verbosity >= 2)
-        printf("|  Garbage collection:   %12d bytes => %12d bytes             |\n", 
+        printf("c |  Garbage collection:   %12d bytes => %12d bytes             |\n", 
                ca.size()*ClauseAllocator::Unit_Size, to.size()*ClauseAllocator::Unit_Size);
     to.moveTo(ca);
 }

@@ -78,13 +78,11 @@ static void parse_DIMACS_main(B& in, Solver& S) {
 
 // Inserts problem into solver.
 //
-/*
-template<class Solver>
+/*template<class Solver>
 static void parse_DIMACS(gzFile input_stream, Solver& S) {
     StreamBuffer in(input_stream);
-    parse_DIMACS_main(in, S); 
-}
-*/
+    parse_DIMACS_main(in, S); }*/
+
 //=================================================================================================
 }
 

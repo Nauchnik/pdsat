@@ -115,28 +115,25 @@ void vec<T>::growTo(int size) {
     if (sz >= size) return;
     capacity(size);
     for (int i = sz; i < size; i++) new (&data[i]) T();
-    sz = size; 
-}
+    sz = size; }
+
 
 template<class T>
 void vec<T>::clear(bool dealloc) {
     if (data != NULL){
         for (int i = 0; i < sz; i++) data[i].~T();
         sz = 0;
-        if (dealloc) free(data), data = NULL, cap = 0; } 
-}
+        if (dealloc) free(data), data = NULL, cap = 0; } }
 
 template<class T>
 void vec<T>::resize(int size) {
 	if (sz == size) return;
-		if( size - sz > 0 )
-			growTo( size );
-		else
-			shrink( sz - size );
-};
-
-}
+	if (size - sz > 0)
+		growTo(size);
+	else
+		shrink(sz - size); }
 
 //=================================================================================================
+}
 
 #endif

@@ -18,6 +18,14 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **************************************************************************************************/
 
+/**************************************************************************************************
+This is a patched version of Minisat 2.2. [Marijn Heule, April 17, 2013]
+
+The patch includes:
+- The output of the solver is modified following to the SAT Competition 2013 output requirements
+- The solver optionally emits a DRUP proof in the file speficied in argv[2]
+**************************************************************************************************/
+
 #include <errno.h>
 
 #include <signal.h>
@@ -38,13 +46,13 @@ void printStats(Solver& solver)
 {
     double cpu_time = cpuTime();
     double mem_used = memUsedPeak();
-    printf("restarts              : %"PRIu64"\n", solver.starts);
-    printf("conflicts             : %-12"PRIu64"   (%.0f /sec)\n", solver.conflicts   , solver.conflicts   /cpu_time);
-    printf("decisions             : %-12"PRIu64"   (%4.2f %% random) (%.0f /sec)\n", solver.decisions, (float)solver.rnd_decisions*100 / (float)solver.decisions, solver.decisions   /cpu_time);
-    printf("propagations          : %-12"PRIu64"   (%.0f /sec)\n", solver.propagations, solver.propagations/cpu_time);
-    printf("conflict literals     : %-12"PRIu64"   (%4.2f %% deleted)\n", solver.tot_literals, (solver.max_literals - solver.tot_literals)*100 / (double)solver.max_literals);
-    if (mem_used != 0) printf("Memory used           : %.2f MB\n", mem_used);
-    printf("CPU time              : %g s\n", cpu_time);
+    printf("c restarts              : %"PRIu64"\n", solver.starts);
+    printf("c conflicts             : %-12"PRIu64"   (%.0f /sec)\n", solver.conflicts   , solver.conflicts   /cpu_time);
+    printf("c decisions             : %-12"PRIu64"   (%4.2f %% random) (%.0f /sec)\n", solver.decisions, (float)solver.rnd_decisions*100 / (float)solver.decisions, solver.decisions   /cpu_time);
+    printf("c propagations          : %-12"PRIu64"   (%.0f /sec)\n", solver.propagations, solver.propagations/cpu_time);
+    printf("c conflict literals     : %-12"PRIu64"   (%4.2f %% deleted)\n", solver.tot_literals, (solver.max_literals - solver.tot_literals)*100 / (double)solver.max_literals);
+    if (mem_used != 0) printf("c Memory used           : %.2f MB\n", mem_used);
+    printf("c CPU time              : %g s\n", cpu_time);
 }
 
 
@@ -77,7 +85,7 @@ int main(int argc, char** argv)
 #if defined(__linux__)
         fpu_control_t oldcw, newcw;
         _FPU_GETCW(oldcw); newcw = (oldcw & ~_FPU_EXTENDED) | _FPU_DOUBLE; _FPU_SETCW(newcw);
-        printf("WARNING: for repeatability, setting FPU to use double precision\n");
+        printf("c WARNING: for repeatability, setting FPU to use double precision\n");
 #endif
         // Extra options:
         //
@@ -105,7 +113,7 @@ int main(int argc, char** argv)
             if (rl.rlim_max == RLIM_INFINITY || (rlim_t)cpu_lim < rl.rlim_max){
                 rl.rlim_cur = cpu_lim;
                 if (setrlimit(RLIMIT_CPU, &rl) == -1)
-                    printf("WARNING! Could not set resource limit: CPU-time.\n");
+                    printf("c WARNING! Could not set resource limit: CPU-time.\n");
             } }
 
         // Set limit on virtual memory:
@@ -116,32 +124,32 @@ int main(int argc, char** argv)
             if (rl.rlim_max == RLIM_INFINITY || new_mem_lim < rl.rlim_max){
                 rl.rlim_cur = new_mem_lim;
                 if (setrlimit(RLIMIT_AS, &rl) == -1)
-                    printf("WARNING! Could not set resource limit: Virtual memory.\n");
+                    printf("c WARNING! Could not set resource limit: Virtual memory.\n");
             } }
         
         if (argc == 1)
-            printf("Reading from standard input... Use '--help' for help.\n");
+            printf("c Reading from standard input... Use '--help' for help.\n");
         
         gzFile in = (argc == 1) ? gzdopen(0, "rb") : gzopen(argv[1], "rb");
         if (in == NULL)
             printf("ERROR! Could not open file: %s\n", argc == 1 ? "<stdin>" : argv[1]), exit(1);
         
         if (S.verbosity > 0){
-            printf("============================[ Problem Statistics ]=============================\n");
-            printf("|                                                                             |\n"); }
+            printf("c ============================[ Problem Statistics ]=============================\n");
+            printf("c |                                                                             |\n"); }
         
+        S.output = (argc >= 3) ? fopen(argv[2], "wb") : NULL;
         parse_DIMACS(in, S);
         gzclose(in);
-        FILE* res = (argc >= 3) ? fopen(argv[2], "wb") : NULL;
         
         if (S.verbosity > 0){
-            printf("|  Number of variables:  %12d                                         |\n", S.nVars());
-            printf("|  Number of clauses:    %12d                                         |\n", S.nClauses()); }
+            printf("c |  Number of variables:  %12d                                         |\n", S.nVars());
+            printf("c |  Number of clauses:    %12d                                         |\n", S.nClauses()); }
         
         double parsed_time = cpuTime();
         if (S.verbosity > 0){
-            printf("|  Parse time:           %12.2f s                                       |\n", parsed_time - initial_time);
-            printf("|                                                                             |\n"); }
+            printf("c |  Parse time:           %12.2f s                                       |\n", parsed_time - initial_time);
+            printf("c |                                                                             |\n"); }
  
         // Change to signal-handlers that will only notify the solver and allow it to terminate
         // voluntarily:
@@ -149,13 +157,21 @@ int main(int argc, char** argv)
         signal(SIGXCPU,SIGINT_interrupt);
        
         if (!S.simplify()){
-            if (res != NULL) fprintf(res, "UNSAT\n"), fclose(res);
+            if (S.output != NULL) fprintf(S.output, "0\n"), fclose(S.output);
             if (S.verbosity > 0){
-                printf("===============================================================================\n");
-                printf("Solved by unit propagation\n");
+                printf("c ===============================================================================\n");
+                printf("c Solved by unit propagation\n");
                 printStats(S);
-                printf("\n"); }
-            printf("UNSATISFIABLE\n");
+                printf("c \n"); }
+            printf("s UNSATISFIABLE\n");
+            if (S.output != NULL) {
+              int c;
+              printf("o proof DRUP\n");
+              S.output = fopen(argv[2], "r");
+              while((c = getc(S.output)) != EOF)
+                putchar(c);
+              fclose(S.output);
+            }
             exit(20);
         }
         
@@ -163,20 +179,26 @@ int main(int argc, char** argv)
         lbool ret = S.solveLimited(dummy);
         if (S.verbosity > 0){
             printStats(S);
-            printf("\n"); }
-        printf(ret == l_True ? "SATISFIABLE\n" : ret == l_False ? "UNSATISFIABLE\n" : "INDETERMINATE\n");
-        if (res != NULL){
-            if (ret == l_True){
-                fprintf(res, "SAT\n");
-                for (int i = 0; i < S.nVars(); i++)
-                    if (S.model[i] != l_Undef)
-                        fprintf(res, "%s%s%d", (i==0)?"":" ", (S.model[i]==l_True)?"":"-", i+1);
-                fprintf(res, " 0\n");
-            }else if (ret == l_False)
-                fprintf(res, "UNSAT\n");
-            else
-                fprintf(res, "INDET\n");
-            fclose(res);
+            printf("c \n"); }
+        printf(ret == l_True ? "s SATISFIABLE\n" : ret == l_False ? "s UNSATISFIABLE\n" : "s UNKNOWN\n");
+        if (S.output != NULL){
+            int c;
+            if (ret == l_False) {
+                fprintf(S.output, "0\n");
+                fclose(S.output);
+                printf("o proof DRUP\n");
+                S.output = fopen(argv[2], "r");
+	        while((c = getc(S.output)) != EOF)
+		    putchar(c);
+            }
+            fclose(S.output);
+        }
+        if (ret == l_True){
+            printf("v ");
+            for (int i = 0; i < S.nVars(); i++)
+                if (S.model[i] != l_Undef)
+                    printf("%s%s%d", (i==0)?"":" ", (S.model[i]==l_True)?"":"-", i+1);
+            printf(" 0\n");
         }
         
 #ifdef NDEBUG
@@ -185,8 +207,8 @@ int main(int argc, char** argv)
         return (ret == l_True ? 10 : ret == l_False ? 20 : 0);
 #endif
     } catch (OutOfMemoryException&){
-        printf("===============================================================================\n");
-        printf("INDETERMINATE\n");
+        printf("c ===============================================================================\n");
+        printf("s UNKNOWN\n");
         exit(0);
     }
 }
