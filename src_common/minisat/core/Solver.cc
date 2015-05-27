@@ -219,7 +219,7 @@ void Solver::resetVarActivity()
 	}
 }
 
-void Solver::resetIntervalVarActivity(unsigned var_from, unsigned var_to)
+void Solver::resetIntervalVarActivity(int var_from, int var_to)
 {
 	if ((var_to <= nVars()) && (start_activity > 0)) {
 		// set default minisat values
