@@ -17,6 +17,7 @@
 
 #include <mysql.h>
 
+void touchBoincResultFiles();
 void ProcessQuery(MYSQL *conn, std::string str, std::vector< std::vector<std::stringstream *> > &result_vec);
 void MakeHTMLfromWU(MYSQL *conn, std::string wu_id_str);
 int getdir(std::string dir, std::vector<std::string> &files);
@@ -31,13 +32,16 @@ int main( int argc, char *argv[] )
 		std::cerr << "program [DB password]" << std::endl;
 		return 1;
 	}
+
 	
 	//connection params
 	char *host = "localhost";
 	char *db = "boinc_pdsat";
 	char *user = "boinc_pdsat";
 	char *pass = argv[1];
-	
+
+	touchBoincResultFiles(); // touch files from errors files
+									
 	std::vector<std::string> file_names = std::vector<std::string>();
 	getdir( ".", file_names );
 	std::cout << "file_names.size() " << file_names.size() << std::endl;
@@ -111,6 +115,33 @@ int main( int argc, char *argv[] )
 	sat_file.close();
 	
 	std::cout << "*** done" << std::endl;
+}
+
+void touchBoincResultFiles()
+{
+	std::string error_file_name = "errors";
+	std::ifstream error_file(error_file_name.c_str());
+	if (!error_file.is_open()) {
+		std::cerr << "can't open file with name errors";
+		exit(1);
+	}
+	
+	std::vector< std::string > files_names_vec;
+	std::string str, prefix_str, launch_str;
+	prefix_str = "couldn't copy file ";
+	while (getline(error_file, str)) {
+		if (str.find(prefix_str) != std::string::npos) {
+			str = str.substr(prefix_str.size(), str.size() - prefix_str.size());
+			if (std::find(files_names_vec.begin(), files_names_vec.end(), str) == files_names_vec.end()) {
+				files_names_vec.push_back(str);
+				launch_str = "touch " + str;
+				system(launch_str.c_str());
+				std::cout << "system command" << std::endl;
+				std::cout << launch_str << std::endl;
+			}
+		}
+	}
+	error_file.close();
 }
 
 void MakeHTMLfromWU(MYSQL *conn, std::string wu_name_part)
