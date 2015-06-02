@@ -754,9 +754,11 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 		/*std::stringstream tmp_sstream;
 		tmp_sstream << "prepr_dummy_" << rank;
 		std::ofstream ofile(tmp_sstream.str(), std::ios_base::app);
+		ofile << "var_choose_order size " << var_choose_order.size() << std::endl;
 		for (int i = 0; i < var_choose_order.size(); i++)
 			ofile << var_choose_order[i] << " ";
 		ofile << std::endl;
+		ofile << "dummy size " << dummy.size() << std::endl;
 		for (int i = 0; i < dummy.size(); i++)
 			ofile << sign(dummy[i]) ? "0" : "1";
 		ofile << std::endl;
