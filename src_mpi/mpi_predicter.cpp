@@ -740,6 +740,7 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	
 	if ( ( verbosity > 2 ) && ( rank == 1 ) )
 		std::cout << "After S->solveLimited( dummy )" << std::endl;
+
 	if ( evaluation_type == "time" )
 		cnf_time_from_node = MPI_Wtime() - cnf_time_from_node;
 	else if (evaluation_type == "propagation")
@@ -747,8 +748,20 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	else if (evaluation_type == "watch_scans")
 		cnf_time_from_node = (double)S->watch_scans;
 
-	if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) )
+	if ((S->starts - prev_starts <= 1) && (S->conflicts == prev_conflicts)) {
 		isSolvedOnPreprocessing = 1;  // solved by BCP
+		//S->printTrail();
+		/*std::stringstream tmp_sstream;
+		tmp_sstream << "prepr_dummy_" << rank;
+		std::ofstream ofile(tmp_sstream.str(), std::ios_base::app);
+		for (int i = 0; i < var_choose_order.size(); i++)
+			ofile << var_choose_order[i] << " ";
+		ofile << std::endl;
+		for (int i = 0; i < dummy.size(); i++)
+			ofile << sign(dummy[i]) ? "0" : "1";
+		ofile << std::endl;
+		ofile.close(); ofile.clear();*/
+	}							   
 	
 	if ( ( te > 0 ) && ( ret == l_False ) ) { // in ro es te mode all instances are satisfiable
 		std::cerr << "( te > 0 ) && ( ret == l_False ) " << std::endl;

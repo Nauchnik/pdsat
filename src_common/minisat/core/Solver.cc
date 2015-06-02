@@ -135,7 +135,6 @@ Solver::~Solver()
 //=================================================================================================
 // Minor methods:
 
-
 // remove all learnt clauses and set initial values of some parameters
 void Solver::clearDB()
 {
@@ -845,7 +844,7 @@ lbool Solver::search(int nof_conflicts)
                 // New variable decision:
                 decisions++;
                 next = pickBranchLit();
-
+				
                 if (next == lit_Undef)
                     // Model found:
                     return l_True;
