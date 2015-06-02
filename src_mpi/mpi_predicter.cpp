@@ -709,12 +709,6 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	S->addProblem(cnf); // add clauses of template CNF
 	for( int i=0; i < dummy.size(); i++ ) // add oneliteral clauses
 		S->addClause( dummy[i] );
-
-	if (!(S->simplify())){
-		printf("UNSATISFIABLE, solved by unit propagation\n");
-		ret = l_False;
-		cnf_time_from_node = MIN_SOLVE_TIME;
-	}
 	
 	S->pdsat_verbosity  = verbosity;
 	S->isPredict        = isPredict;
