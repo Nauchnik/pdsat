@@ -718,8 +718,17 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	S->core_len         = core_len;
 	S->start_activity   = start_activity;
 	S->evaluation_type  = evaluation_type;
-	if (evaluation_type == "time")
-		S->max_solving_time = max_solving_time;
+	if (evaluation_type == "time") {
+		if (!isMultiSetMode)
+			S->max_solving_time = max_solving_time;
+		else {
+			S->max_solving_time = max_solving_time / ( (1 << (multi_var_choose_order.size() + 1 )) - 1 );
+			if (rank == 1) {
+				std::cout << "max_solving_time " << max_solving_time << std::endl;
+				std::cout << "S->max_solving_time " << S->max_solving_time << std::endl;
+			}
+		}
+	}
 	else if (evaluation_type == "watch_scans")
 		S->max_nof_watch_scans = te;
 	
@@ -732,17 +741,51 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	cnf_time_from_node = MPI_Wtime( );
 	if ( ( verbosity > 2 ) && ( rank == 1 ) )
 		std::cout << "Before S->solve()" << std::endl;
+
 	ret = S->solve();
 	
-	if ( ( verbosity > 2 ) && ( rank == 1 ) )
-		std::cout << "After S->solveLimited( dummy )" << std::endl;
-
+	if ( (isMultiSetMode) && ( ret != l_True ) ) {
+		unsigned total_solves = 1;
+		unsigned solves_cur_iteration;
+		unsigned cur_assumption_count;
+		int cur_var_ind;
+		vec<Lit> cur_dummy;
+		unsigned long long ull;
+		boost::dynamic_bitset<> bs;
+		for (unsigned cur_set_index = 0; cur_set_index < multi_var_choose_order.size(); cur_set_index++) {
+			cur_assumption_count = cur_set_index + 1;
+			solves_cur_iteration = 1 << cur_assumption_count;
+			bs.resize(cur_assumption_count);
+			for (unsigned solve_index = 0; solve_index < solves_cur_iteration; solve_index++) {
+				UllongToBitset((unsigned long long)solve_index, bs);
+				cur_dummy.clear();
+				for (unsigned assumption_index = 0; assumption_index < cur_assumption_count; assumption_index++) {
+					cur_var_ind = multi_var_choose_order[cur_set_index][var_choose_order.size() + assumption_index] - 1;
+					cur_dummy.push((bs[assumption_index] == 1) ? mkLit(cur_var_ind) : ~mkLit(cur_var_ind));
+				}
+				ret = S->solve(cur_dummy);
+				total_solves++;
+				if (ret == l_True)
+					break;
+			}
+			if (ret == l_True)
+				break;
+		}
+		if (ret == l_True) {
+			std::cout << "total_solves " << total_solves << std::endl;
+			std::cout << "ret " << (ret==l_True) << std::endl;
+		}
+	}
+	
 	if ( evaluation_type == "time" )
 		cnf_time_from_node = MPI_Wtime() - cnf_time_from_node;
 	else if (evaluation_type == "propagation")
 		cnf_time_from_node = (double)S->propagations;
 	else if (evaluation_type == "watch_scans")
 		cnf_time_from_node = (double)S->watch_scans;
+
+	if ((verbosity > 2) && (rank == 1))
+		std::cout << "After S->solveLimited( dummy )" << std::endl;
 
 	if ((S->starts - prev_starts <= 1) && (S->conflicts == prev_conflicts)) {
 		isSolvedOnPreprocessing = 1;  // solved by BCP
@@ -761,7 +804,7 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 		ofile.close(); ofile.clear();*/
 	}							   
 	
-	if ( ( te > 0 ) && ( ret == l_False ) ) { // in ro es te mode all instances are satisfiable
+	if ( ( te > 0 ) && ( ret == l_False ) && ( !isMultiSetMode ) ) { // in ro es te mode all instances are satisfiable
 		std::cerr << "( te > 0 ) && ( ret == l_False ) " << std::endl;
 		exit(1);
 	}
@@ -822,7 +865,44 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		std::cerr << "core_len == 0" << std::endl;
 		return false;
 	}
+	
+	// multiset backdoor mode
+	std::ifstream multiset_file;
+	multiset_file.open(multiset_file_name.c_str(), std::ios_base::in);
+	if (multiset_file.is_open()) {
+		isMultiSetMode = true;
+		if ( rank == 1 )
+			std::cout << "multiset_file opened " << multiset_file_name << std::endl;
+		int ival;
+		std::string str;
+		std::stringstream sstream;
+		unsigned count = 0;
+		std::vector<int> tmp_decomp_set;
+		while (getline(multiset_file, str)) {
+			sstream << str;
+			while (sstream >> ival)
+				tmp_decomp_set.push_back(ival);
+			if (!count)
+				var_choose_order = tmp_decomp_set;
+			else
+				multi_var_choose_order.push_back(tmp_decomp_set);
+			tmp_decomp_set.clear();
+			sstream.str(""); sstream.clear();
+			count++;
+		}
+		if (rank == 1) {
+			std::cout << "multi_var_choose_order size " << multi_var_choose_order.size() << std::endl;
+			for (unsigned i = 0; i < multi_var_choose_order.size(); i++) {
+				for (unsigned j = 0; j < multi_var_choose_order[i].size(); j++)
+					std::cout << multi_var_choose_order[i][j] << " ";
+				std::cout << std::endl;
+			}
+		}
 
+		best_var_num = var_choose_order.size();
+		multiset_file.close();
+	}
+	
 	int *full_local_decomp_set = new int[core_len];
 	MPI_Recv( full_local_decomp_set, core_len, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	full_var_choose_order.resize( core_len );
@@ -1181,24 +1261,8 @@ void MPI_Predicter :: GetInitPoint()
 	std::ifstream known_point_file;
 	std::stringstream temp_sstream, sstream;
 	known_point_file.open( known_point_file_name.c_str(), std::ios_base::in );
-	std::ifstream multiset_file;
-	multiset_file.open(multiset_file_name.c_str(), std::ios_base::in);
-
-	if (multiset_file.is_open()) {
-		isMultiSetMode = true;
-		std::cout << "multiset_file opened " << multiset_file_name << std::endl;
-		int ival;
-		std::string str;
-		std::stringstream sstream;
-		var_choose_order.resize(0);
-		getline(multiset_file, str);
-		sstream << str;
-		while (sstream >> ival)
-			var_choose_order.push_back(ival);
-		best_var_num = var_choose_order.size();
-		multiset_file.close();
-	}
-	else if ( known_point_file.is_open() ) { // get known point
+	
+	if ( known_point_file.is_open() ) { // get known point
 		std::cout << "known_point_file opened " << known_point_file_name << std::endl;
 		int ival;
 		var_choose_order.resize(0);

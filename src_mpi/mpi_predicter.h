@@ -89,7 +89,7 @@ public:
 	
 	int stop_message;
 	std::string multiset_file_name;
-	std::vector<int> multi_var_choose_order;
+	std::vector<std::vector<int>> multi_var_choose_order;
 	
 	double cur_temperature;
 	double min_temperature;
