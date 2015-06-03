@@ -85,8 +85,12 @@ public:
 	bool IsDecDecomp;
 	bool isSimulatedGranted;
 	bool isFirstPoint;
+	bool isMultiSetMode;
+	
 	int stop_message;
-
+	std::string multiset_file_name;
+	std::vector<int> multi_var_choose_order;
+	
 	double cur_temperature;
 	double min_temperature;
 	double temperature_multiply_koef;

@@ -55,7 +55,9 @@ MPI_Predicter :: MPI_Predicter( ) :
 	predict_time_limit_step ( 0 ),
 	template_cnf_size ( 0 ),
 	array_message_size ( 0 ),
-	stop_message (-1)
+	stop_message (-1),
+	isMultiSetMode ( false ),
+	multiset_file_name ( "multiset" )
 {
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
 		best_predict_time_arr[i] = 0.0;
@@ -789,7 +791,7 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	return true;
 }
 
-bool MPI_Predicter :: ComputeProcessPredict( )
+bool MPI_Predicter :: ComputeProcessPredict()
 {	
 	MPI_Status status;
 	int message_size;
@@ -1179,8 +1181,24 @@ void MPI_Predicter :: GetInitPoint()
 	std::ifstream known_point_file;
 	std::stringstream temp_sstream, sstream;
 	known_point_file.open( known_point_file_name.c_str(), std::ios_base::in );
-	
-	if ( known_point_file.is_open() ) { // get known point
+	std::ifstream multiset_file;
+	multiset_file.open(multiset_file_name.c_str(), std::ios_base::in);
+
+	if (multiset_file.is_open()) {
+		isMultiSetMode = true;
+		std::cout << "multiset_file opened " << multiset_file_name << std::endl;
+		int ival;
+		std::string str;
+		std::stringstream sstream;
+		var_choose_order.resize(0);
+		getline(multiset_file, str);
+		sstream << str;
+		while (sstream >> ival)
+			var_choose_order.push_back(ival);
+		best_var_num = var_choose_order.size();
+		multiset_file.close();
+	}
+	else if ( known_point_file.is_open() ) { // get known point
 		std::cout << "known_point_file opened " << known_point_file_name << std::endl;
 		int ival;
 		var_choose_order.resize(0);
@@ -1215,7 +1233,7 @@ void MPI_Predicter :: GetInitPoint()
 	sstream << "var_choose_order" << std::endl;
 	for ( unsigned i = 0; i < var_choose_order.size(); i++ )
 		sstream << var_choose_order[i] << " ";
-
+	
 	/*unsigned array_message_size = var_choose_order.size() + 1;
 	array_message = new int[array_message_size];
 	for ( unsigned i=1; i < array_message_size; ++i )
