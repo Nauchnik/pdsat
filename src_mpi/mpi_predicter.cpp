@@ -722,7 +722,7 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 		if (!isMultiSetMode)
 			S->max_solving_time = max_solving_time;
 		else {
-			S->max_solving_time = max_solving_time / ( (1 << (multi_var_choose_order.size() + 1 )) - 1 );
+			S->max_solving_time = max_solving_time / ( (1 << (multi_var_choose_order.size() + 1 )) - 1 ) * 0.9;
 			if (rank == 1) {
 				std::cout << "max_solving_time " << max_solving_time << std::endl;
 				std::cout << "S->max_solving_time " << S->max_solving_time << std::endl;
