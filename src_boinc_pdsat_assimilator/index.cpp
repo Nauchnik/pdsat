@@ -10,23 +10,6 @@ using namespace std;
 
 int main()
 {
-	/*omp_set_num_threads(2);
-	#pragma omp parallel
-	for (long long i = 0; i < 1e50; i++) {
-		int tnum = omp_get_thread_num();
-		if (tnum != 0)
-			system("pause");
-		else
-			exit(0);
-	}*/
-
-	bool isAdding = true;
-	std::vector<double> cws_vi{5,6,3,1};
-	for (unsigned cws_vi_index = 0; cws_vi_index < cws_vi.size() - 1; cws_vi_index++)
-		if (cws_vi[cws_vi_index] < cws_vi[cws_vi_index + 1])
-			isAdding = false;
-	std::cout << isAdding;
-
 	ifstream ifile("sat_output");
 	string str;
 	getline(ifile,str);

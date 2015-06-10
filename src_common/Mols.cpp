@@ -697,7 +697,7 @@ MOLS::MOLS(vector<int> ss, int n, int r){
 	}
 
 }
-void MOLS::print(const char * fn){
+void MOLS::printToFile(const char * fn){
 	ofstream myfile(fn);
 	if (myfile.is_open()){
 		for (int k = 0; k<count; k++){
@@ -708,6 +708,17 @@ void MOLS::print(const char * fn){
 		}
 	}
 }
+
+void MOLS::printToCout()
+{
+	for (int k = 0; k<count; k++){
+		std::cout << Squares[k].tostring() << '\n';
+		std::cout << "reordered version:\n";
+		Squares[k].reorder();
+		std::cout << Squares[k].tostring() << '\n';
+	}
+}
+
 void MOLS::exportLStofile(const char * fn){
 	ofstream myfile(fn);
 	if (myfile.is_open()){

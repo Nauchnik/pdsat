@@ -99,7 +99,8 @@ public:
 	int ortogonalitycheck_withmarkings_tofile(string filename);
 	int check(bool diag);
 	void reorder();
-	void print(const char * fn);
+	void printToFile(const char * fn);
+	void printToCout();
 };
 
 #endif
