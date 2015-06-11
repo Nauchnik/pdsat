@@ -15,6 +15,7 @@ string inttostr(int number)
 	ss << number;//add number to the stream
 	return ss.str();//return a string with the contents of the stream
 }
+
 LS::LS(int * b, int n){
 	lselems = b;
 	order = n;
@@ -29,6 +30,7 @@ LS::LS(int * b, int n){
 	//	report << endl;
 	}
 }
+
 LS::LS(string s, int n){
 	order = n;
 	int *a = new (int[n*n*n]);
@@ -202,6 +204,7 @@ void LS::normalizefirstcolumn(){
 		}
 	}
 }
+
 void LS::reorder(){
 	int *r1 = row(0);
 	int *f = new(int[order]);
@@ -210,7 +213,8 @@ void LS::reorder(){
 	}
 	print(r1);
 	print(f);
-
+	std::cout << endl;
+	
 	int *t = new (int[order*order]);
 	for (int k = 0; k<order*order; k++){
 		t[k] = f[lselems[k]];
@@ -246,6 +250,7 @@ vector<int> MOLS::extractassumptions(int numofsquare, int firstrow, int lastrow,
 	}
 	return a;
 }
+
 void MOLS::import(const char*fn, int n, int r){
 	ifstream myfile(fn);
 	int *b;
@@ -610,6 +615,7 @@ MOLS::MOLS(string s, int n, int r, bool wspaces){
 	int i2 = 0;
 	int k = 0;
 	int g = 0;
+	int ones_count = 0;
 
 	if (wspaces == true){
 		for (unsigned i = 0; i<s.size(); i++){
@@ -619,6 +625,10 @@ MOLS::MOLS(string s, int n, int r, bool wspaces){
 				t = s.substr(i1, i2 - i1);
 				//cout <<t<<" ";
 				a[k] = strtoi(t);
+				if ((a[k] >= n) || (a[k] < 0)){
+					std::cerr << a[k] << std::endl;
+					exit(1);
+				}
 				k++;
 				i1 = i2;
 			}
@@ -628,12 +638,23 @@ MOLS::MOLS(string s, int n, int r, bool wspaces){
 		for (unsigned i = 0; i<s.length(); i++){
 			//a[i]=s[i]-'0';
 			if (s[i] == '0'){ a[i] = 0; }
-			else{ a[i] = 1; }
+			else{ 
+				a[i] = 1; 
+				ones_count++;
+			}
 		}
+	}
+	if (ones_count != n*n*r) {
+		std::cerr << "ones_count " << ones_count << std::endl;
+		exit(1);
 	}
 	for (int i = 0; i<n*n*n*r; i++){
 		if (a[i]>0) {
 			b[g] = i%n;
+			if ((b[g] >= n) || (b[g] < 0)){
+				std::cerr << b[g] << std::endl;
+				exit(1);
+			}
 			g++;
 		}
 	}
@@ -645,6 +666,10 @@ MOLS::MOLS(string s, int n, int r, bool wspaces){
 		int *z = new (int[n*n]);
 		for (int t = 0; t<n*n; t++){
 			z[t] = b[k*n*n + t];
+			if ((z[t] >= n) || (z[t] < 0)){
+				std::cerr << z[t] << std::endl;
+				exit(1);
+			}
 		}
 		LS h = LS(z, order);
 		Squares.push_back(h);
