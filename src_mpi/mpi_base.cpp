@@ -25,29 +25,17 @@ MPI_Base :: MPI_Base( ) :
 	start_activity		 ( 0 ),
 	part_mask_var_count  ( 0 ),
 	all_tasks_count		 ( 0 ),
-	constr_clauses_count ( -1 ),
-	obj_clauses_count    ( -1 ),
-	obj_vars_count       ( -1 ),
-	IsConseq             ( false ),
-	IsPB                 ( false ),
-	PB_mode				 ( 1 ),
-	best_lower_bound	 ( -1 ),
-	upper_bound          ( -1 ),
+	isConseq             ( false ),
 	cnf_in_set_count     ( 100 ),
 	verbosity			 ( 0 ),
-	check_every_conflict ( 2000 ),
 	known_point_file_name ( "known_point" ),
-	IsSolveAll           ( false ),
+	isSolveAll           ( false ),
 	isPredict            ( false ),
 	max_solving_time     ( 0 ),
 	max_nof_restarts     ( 0 ),
-	keybit_count         ( 4 ),
-	rslos_table_name     ( "" ),
 	activity_vec_len	 ( 0 ),
 	first_stream_var_index ( 0 ),
 	te ( 0 ),
-	er ( 1 ),
-	penalty ( 0.5 ),
 	known_last_bits ( 0 ),
 	keystream_len ( 200 ),
 	isMakeSatSampleAnyWay ( false ),
@@ -58,9 +46,6 @@ MPI_Base :: MPI_Base( ) :
 	isPlainText (false),
 	evaluation_type("time")
 {
-	full_mask  = new unsigned[FULL_MASK_LEN];
-	part_mask  = new unsigned[FULL_MASK_LEN];
-	mask_value = new unsigned[FULL_MASK_LEN];
 	for ( unsigned i = 0; i < FULL_MASK_LEN; i++ )
 		full_mask[i] = part_mask[i] = mask_value[i] = 0;
 
@@ -68,11 +53,7 @@ MPI_Base :: MPI_Base( ) :
 }
 
 MPI_Base :: ~MPI_Base( )
-{
-	delete[] full_mask;
-	delete[] part_mask;
-	delete[] mask_value;
-}
+{ }
 
 // Make full_mask and part_mask for sending from order that is set by var choose array
 //---------------------------------------------------------
@@ -649,54 +630,6 @@ bool MPI_Base :: ReadIntCNF()
 				core_len = full_var_choose_order.size();
 				std::cout << "core_len changed to " << core_len << std::endl;
 			}
-			
-			if ( !Is_ConstrLen ) {
-				if ( ( str2 == "constraint" ) && ( str3 == "clauses" ) ) {
-					std::istringstream( str4 ) >> constr_clauses_count; 
-					Is_ConstrLen = true;
-					continue;
-				}
-			}
-			if ( !Is_ObjLen ) {
-				if ( ( ( str2 == "object" ) || ( str2 == "obj" ) ) && ( str3 == "clauses" ) ) {
-					std::istringstream( str4 ) >> obj_clauses_count;
-					Is_ObjLen = true;
-					continue;
-				}
-			}
-			if ( !Is_ObjVars ) {
-				if ( ( str2 == "obj" ) && ( str3 == "vars" ) ) 
-					std::istringstream( str4 ) >> first_obj_var;
-				else if ( ( str2 == "object" ) && ( str3 == "variables" ) ) 
-					std::istringstream( str4 ) >> first_obj_var;
-				if ( first_obj_var > 0 ) {
-					if ( !Is_ConstrLen ) constr_clauses_count = clause_count;
-
-					// read obj vars indexes from string "c obj vars ...")
-					obj_vars_count = 0;
-					line_str += ' ';
-					while ( line_str.length( ) ) {
-						while ( ( line_str.length( ) > 0 ) && ( line_str[0] == ' ' ) ) 
-							line_str.erase( 0, 1 ); // skip spaces
-						if ( !line_str.length( ) )
-							break;
-						int space_pos = line_str.find( " " ); // find space after word
-						word_str = line_str.substr( 0, space_pos ); // get word
-						line_str.erase( 0, space_pos + 1 ); // delete word and space after it
-						int word_value = atoi( word_str.c_str( ) );
-						if ( word_value > 0 ) { // if it is number > 0
-							if ( obj_vars_count < 32 ) {
-								obj_vars[obj_vars_count] = word_value; // add to array
-								obj_vars_count++;
-							}
-							else
-								std::cerr << "String c obj vars ... contains too many values ";
-						}
-					}
-					Is_ObjVars = true;
-					continue;
-				} 
-			}  // if ( !Is_ObjVars )
 		}
 		else // if ( ( line_str[0] != 'p' ) && ( line_str[0] != 'c' ) )
 		{
@@ -1096,8 +1029,7 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 			x.resize(input_var_num);
 }
 
-std::string MPI_Base :: make_solver_launch_str( std::string solver_name, std::string cnf_name, 
-										   double maxtime_solving_time )
+std::string MPI_Base::MakeSolverLaunchString( std::string solver_name, std::string cnf_name, double maxtime_solving_time )
 {
 	std::string time_limit_str, result_str;
 	std::stringstream sstream;

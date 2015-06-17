@@ -69,20 +69,16 @@ public:
     MPI_Predicter( );
     ~MPI_Predicter( );
 
-	int predict_from;
-	int predict_to;
 	int proc_count;
-	int block_count;
+	unsigned predict_to;
 
 	// deep predict params
-	int deep_diff_decomp_set_count;
 	int max_var_deep_predict;
 	int deep_predict;
 	// how many new best points were finded with such count of new vars
 	std::vector<int> global_count_var_changing; // how many points were found with particular Hamming distance
-	int deep_predict_cur_var;
-	bool IsRestartNeeded;
-	bool IsDecDecomp;
+	bool isRestartNeeded;
+	bool isDecDecomp;
 	bool isSimulatedGranted;
 	bool isFirstPoint;
 	bool isMultiSetMode;

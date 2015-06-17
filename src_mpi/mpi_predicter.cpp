@@ -1,18 +1,16 @@
 #include "mpi_predicter.h"
 
 MPI_Predicter :: MPI_Predicter( ) :
-	predict_from           ( 0 ),   
-	predict_to             ( 0 ), 
-	proc_count             ( 1 ),  
+	proc_count             ( 1 ), 
+	predict_to             ( 0 ),
 	max_var_deep_predict   ( 1 ),
 	best_var_num           ( 0 ),
 	best_predict_time      ( 0.0 ),
 	real_best_var_num      ( 0 ),
 	real_best_predict_time ( 0.0 ),
-	block_count         ( 0 ),
 	deep_predict        ( 6 ),
-	IsRestartNeeded     ( false ),
-	IsDecDecomp         ( false ),
+	isRestartNeeded     ( false ),
+	isDecDecomp         ( false ),
 	isSimulatedGranted  ( false ),
 	deep_predict_file_name ( "deep_predict" ),
 	var_activity_file_name ( "sorted_var_activity" ),
@@ -20,7 +18,6 @@ MPI_Predicter :: MPI_Predicter( ) :
 	min_temperature ( 20 ),
 	temperature_multiply_koef ( 0.9 ),
 	start_temperature_koef ( 0.1 ),
-	deep_diff_decomp_set_count ( 100 ),
 	point_admission_koef ( 0.2 ),
 	global_deep_point_index ( 0 ),
 	cur_vars_changing ( 1 ),
@@ -155,10 +152,6 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		for( auto &x : total_var_activity ) x = 0;
 		//for( std::vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it )
 		//	*it = 0;
-		
-		int *full_local_decomp_set = new int[core_len];
-		for( unsigned i=0; i < core_len; ++i )
-			full_local_decomp_set[i] = full_var_choose_order[i];
 
 		unsigned k=0;
 		for ( auto &x : full_var_choose_order )
@@ -173,9 +166,8 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			MPI_Send( &known_vars_count, 1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &input_var_num,    1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &start_activity,   1, MPI_DOUBLE, i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( full_local_decomp_set, core_len, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &full_var_choose_order[0], full_var_choose_order.size(), MPI_INT, i + 1, 0, MPI_COMM_WORLD);
 		}
-		delete[] full_local_decomp_set;
 		
 		if ( te > 0 ) {
 			first_stream_var_index = var_count - keystream_len;
@@ -250,8 +242,6 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		std::cout << "schema_type "   << schema_type         << std::endl;
 		std::cout << "corecount "     << corecount           << std::endl;
 		std::cout << "deep_predict  " << deep_predict        << std::endl;
-		std::cout << "predict_from "  << predict_from        << std::endl;
-		std::cout << "predict_to "    << predict_to          << std::endl;
 		std::cout << "cnf_in_set_count " << cnf_in_set_count << std::endl; 
 		std::cout << "proc_count "    << proc_count          << std::endl;
 		std::cout << "core_len "      << core_len            << std::endl;
@@ -264,11 +254,9 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		std::cout << "IsFirstStage " << IsFirstStage << std::endl;
 		std::cout << "max_L2_hamming_distance " << max_L2_hamming_distance << std::endl;
 		std::cout << "evaluation_type " << evaluation_type << std::endl;
-		std::cout << "te for (ro, es, te) " << te << std::endl;
-		std::cout << "er for (ro, es, te) " << er << std::endl;
+		std::cout << "te for backdoor mode " << te << std::endl;
 		//cout << "penalty for (ro, es, te) " << penalty << std::endl;
 		std::cout << "keystream_len " << keystream_len << std::endl;
-		std::cout << "blob_var_count " << blob_var_count << std::endl;
 		std::cout << "isSolverSystemCalling " << isSolverSystemCalling << std::endl;
 		std::cout << std::endl;
 		
@@ -426,9 +414,9 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 					std::cerr << "Error in GetPredict " << std::endl; return false; 
 				}
 				
-				if ( IsRestartNeeded ) {
+				if ( isRestartNeeded ) {
 					std::cout << "Fast exit in ControlProcessPredict cause of IsRestartNeeded" << std::endl;
-					IsRestartNeeded = false;
+					isRestartNeeded = false;
 					sstream_control << "IsRestartNeeded true" << std::endl;
 					return true;
 				}
@@ -626,7 +614,7 @@ bool MPI_Predicter :: solverSystemCalling( vec<Lit> &dummy )
 		ofile << x;
 	ofile.close();
 	
-	std::string system_str = make_solver_launch_str( solver_name, tmp_cnf_process_name, max_solving_time );
+	std::string system_str = MakeSolverLaunchString(solver_name, tmp_cnf_process_name, max_solving_time);
 	
 	if ( ( rank == 1 ) && ( verbosity > 2 ) )
 		std::cout << "system_str " << system_str << std::endl;
@@ -730,7 +718,7 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 		}
 	}
 	else if (evaluation_type == "watch_scans")
-		S->max_nof_watch_scans = te;
+		S->max_nof_watch_scans = (int)te;
 	
 	prev_starts    = S->starts;
 	prev_conflicts = S->conflicts;
@@ -750,7 +738,6 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 		unsigned cur_assumption_count;
 		int cur_var_ind;
 		vec<Lit> cur_dummy;
-		unsigned long long ull;
 		boost::dynamic_bitset<> bs;
 		for (unsigned cur_set_index = 0; cur_set_index < multi_var_choose_order.size(); cur_set_index++) {
 			cur_assumption_count = cur_set_index + 1;
@@ -1323,8 +1310,8 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 		sstream << "solved tasks " << (double)( ( solved_tasks_count * 100 ) / all_tasks_count ) << " %" << std::endl;
 		sstream << "cur_vars_changing " << cur_vars_changing << std::endl;
 		sstream << "global_deep_point_index " << global_deep_point_index << std::endl;
-		if ( IsRestartNeeded ) {
-			IsRestartNeeded = false;
+		if ( isRestartNeeded ) {
+			isRestartNeeded = false;
 			sstream << "Warning. IsRestartNeeded == true after end of iteration. Changed to false" << std::endl;
 		}
 		IsRecordUpdated = false;
@@ -2291,9 +2278,7 @@ bool MPI_Predicter :: WritePredictToFile( int all_skip_count, double whole_time_
 	{ std::cout << "Error in opening of predict_file " << predict_file_name << std::endl; return false; }
 	
 	std::stringstream sstream;
-	sstream << "Predict from "             << predict_from << std::endl
-		    << "Predict to "               << predict_to << std::endl
-			<< "Processor count "          << proc_count << std::endl
+	sstream << "Processor count "          << proc_count << std::endl
 			<< "Count of CNF in set "      << cnf_in_set_count << std::endl
 			<< "Count of CNF in all sets " << all_tasks_count << std::endl
 			<< "Count of core-variables "  << core_len << std::endl
@@ -2708,9 +2693,6 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	prev_area_best_predict_time = best_predict_time;
 	unsigned cur_index;
 	boost::dynamic_bitset<> new_point;
-
-	//if ( ( deep_predict == 6 ) && ( !isFirstPoint ) )
-	//	deep_predict_cur_var = current_unchecked_area.center.count();
 	
 	if ( verbosity > 1 ) {
 		std::cout << "AllocateDeepArrays() done" << std::endl;

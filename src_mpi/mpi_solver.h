@@ -14,7 +14,7 @@ struct satisfying_assignment
 class MPI_Solver : public MPI_Base
 {
 private:
-	double *solving_times;
+	double solving_times[SOLVING_TIME_LEN];
 	std::vector<double> total_solving_times;
 	unsigned interrupted_count;
 	std::string base_solving_info_file_name;
@@ -27,9 +27,7 @@ public:
 	
 	unsigned solving_iteration_count;
 	std::string solving_info_file_name;
-	int orig_tasks_count;
 	int full_mask_tasks_count;
-	int exch_activ;
 	unsigned skip_tasks;
 	double prev_med_time_sum;
 	double max_solving_time_koef;

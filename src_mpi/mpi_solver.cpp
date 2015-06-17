@@ -13,29 +13,23 @@ const int    NUM_KEY_BITS                  = 64;
 // Constructor/Destructor:
 
 MPI_Solver :: MPI_Solver( ) :
-	orig_tasks_count            ( 0 ),
 	full_mask_tasks_count       ( 0 ),
-	exch_activ			        ( 1 ),
 	skip_tasks                  ( 0 ),
 	base_solving_info_file_name ( "solving_info" ),
 	prev_med_time_sum           ( 0 ),
 	solving_iteration_count     ( 0 ),
 	interrupted_count           ( 0 ),
-	max_solving_time_koef       ( 0 ),
 	finding_first_sat_time      ( 0 ),
 	total_start_time            ( 0 ),
 	no_increm                   ( false )
 {
-	solving_times = new double[SOLVING_TIME_LEN];
 	for( unsigned i=0; i < SOLVING_TIME_LEN; ++i )
 		solving_times[i] = 0;
 	total_solving_times.resize( SOLVING_TIME_LEN );
 }
 
 MPI_Solver :: ~MPI_Solver( )
-{ 
-	delete[] solving_times;
-}
+{}
 
 //---------------------------------------------------------
 bool MPI_Solver :: MPI_Solve( int argc, char **argv )
@@ -66,71 +60,53 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	else { // rank == 0, control process
 		std::cout << "*** MPI_Solve is running ***" << std::endl;
 		total_start_time = MPI_Wtime();
-		//for (;;) {
-			sstream << base_solving_info_file_name << "_" << solving_iteration_count;
-			solving_info_file_name = sstream.str();
-			sstream.clear(); sstream.str("");
-			std::cout << "solving_info_file_name " << solving_info_file_name << std::endl; 
-			
-			iteration_start_time = MPI_Wtime();
-			
-			std::vector<std::vector<bool>> interrupted_problems_var_values;
-			std::vector< satisfying_assignment > satisfying_assignments;
-			ControlProcessSolve( var_choose_order, interrupted_problems_var_values, satisfying_assignments );
-			std::cout << "final interrupted_problems_var_values.size() " << interrupted_problems_var_values.size() << std::endl;
-			std::cout << "final satisfying_assignments.size() " << satisfying_assignments.size() << std::endl;
-			
-			if ( interrupted_problems_var_values.size() > 0 ) {
-				std::ofstream ofile("interrupted_problems");
-				for ( auto &x : interrupted_problems_var_values ) {
-					for ( unsigned j=0; j < x.size(); j++ )
-						ofile << x[j];
-					ofile << std::endl;
-				}
-				ofile.close();
-			}
 
-			unsigned ones_count;
-			std::string tmp_str;
-			if ( satisfying_assignments.size() > 0 ) {
-				std::ofstream ofile("satisfying_assignments");
-				for ( auto &x : satisfying_assignments )
-					ofile << x.str << std::endl;
-				ofile.close(); ofile.clear();
-				ofile.open( "decomp_set_satisfying_assignments" );
-				for ( auto &x : satisfying_assignments ) {
-					ones_count = 0;
-					tmp_str = "";
-					for ( auto &y : var_choose_order ) {
-						if ( x.str[y-1] == '1' ) 
-							ones_count++;
-						tmp_str += x.str[y-1];
-					}
-					ofile << x.solving_time << " s " << "ones " << ones_count << " " << tmp_str << std::endl;
-				}
-				ofile.close();
-			}
+		sstream << base_solving_info_file_name << "_" << solving_iteration_count;
+		solving_info_file_name = sstream.str();
+		sstream.clear(); sstream.str("");
+		std::cout << "solving_info_file_name " << solving_info_file_name << std::endl; 
 			
-			iteration_final_time = MPI_Wtime() - iteration_start_time;
-			WriteTimeToFile( iteration_final_time );
+		iteration_start_time = MPI_Wtime();
 			
-			/*if ( max_solving_time_koef > 0.0 ) { // if increasing time limit for same subproblems
-				if ( ( sat_count && !IsSolveAll ) || ( max_solving_time_koef == 0.0 ) )
-					break; // exit if SAT set found or iterative solving is not needed
-				
-				// send messages for breaking low loop on compute processes
-				if ( interrupted_count ) {
-					std::cout << "sending break messages to all computing processes" << std::endl;
-					for ( int i = 1; i < corecount; i++ )
-						MPI_Send( &break_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
-				}
-				else 
-					break;
-				
-				max_solving_time *= max_solving_time_koef; // increase time limit
+		std::vector<std::vector<bool>> interrupted_problems_var_values;
+		std::vector< satisfying_assignment > satisfying_assignments;
+		ControlProcessSolve( var_choose_order, interrupted_problems_var_values, satisfying_assignments );
+		std::cout << "final interrupted_problems_var_values.size() " << interrupted_problems_var_values.size() << std::endl;
+		std::cout << "final satisfying_assignments.size() " << satisfying_assignments.size() << std::endl;
+			
+		if ( interrupted_problems_var_values.size() > 0 ) {
+			std::ofstream ofile("interrupted_problems");
+			for ( auto &x : interrupted_problems_var_values ) {
+				for ( unsigned j=0; j < x.size(); j++ )
+					ofile << x[j];
+				ofile << std::endl;
 			}
-			else break;*/
-		//}
+			ofile.close();
+		}
+
+		unsigned ones_count;
+		std::string tmp_str;
+		if ( satisfying_assignments.size() > 0 ) {
+			std::ofstream ofile("satisfying_assignments");
+			for ( auto &x : satisfying_assignments )
+				ofile << x.str << std::endl;
+			ofile.close(); ofile.clear();
+			ofile.open( "decomp_set_satisfying_assignments" );
+			for ( auto &x : satisfying_assignments ) {
+				ones_count = 0;
+				tmp_str = "";
+				for ( auto &y : var_choose_order ) {
+					if ( x.str[y-1] == '1' ) 
+						ones_count++;
+					tmp_str += x.str[y-1];
+				}
+				ofile << x.solving_time << " s " << "ones " << ones_count << " " << tmp_str << std::endl;
+			}
+			ofile.close();
+		}
+			
+		iteration_final_time = MPI_Wtime() - iteration_start_time;
+		WriteTimeToFile( iteration_final_time );
 		
 		whole_final_time = MPI_Wtime() - total_start_time;
 		solving_info_file_name = base_solving_info_file_name + "_total";
@@ -288,7 +264,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 				MPI_Abort( MPI_COMM_WORLD, 0 );
 				return false;
 			}
-			if ( !IsSolveAll )
+			if ( !isSolveAll )
 				break;
 			sat_assignment_from_process.push_back( b_SAT_set_array );
 			std::cout << "satisfying assignment.size() " << b_SAT_set_array.size() << std::endl;
@@ -630,7 +606,7 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 		
 		WriteSolvingTimeInfo( solving_times, solved_tasks_count );
 		
-		if ( sat_count && !IsSolveAll )
+		if ( sat_count && !isSolveAll )
 			break; // exit if SAT set found
 		
 		if ( next_task_index < (int)all_tasks_count ) {
@@ -910,22 +886,21 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 		std::cout << std::endl << "end of ReadIntCNF";
 		if ( rank == 0 ) 
 			PrintParams( );
-		if ( !IsPB ) {
-			int current_task_index = 0;
-			std::cout << std::endl << std::endl << "Standart mode of SAT solving";
-			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index, 
-				             interrupted_problems_var_values_from_process, sat_assignments_from_process ) ) 
-			{
-				std::cout << std::endl << "Error in SolverRun"; 
+		
+		int current_task_index = 0;
+		std::cout << std::endl << std::endl << "Standart mode of SAT solving";
+		if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index, 
+				         interrupted_problems_var_values_from_process, sat_assignments_from_process ) ) 
+		{
+			std::cout << std::endl << "Error in SolverRun"; 
+			return false;
+		}
+		if ( process_sat_count ) {
+			if ( !AnalyzeSATset( cnf_time_from_node ) ) {
+				// is't needed to deallocate memory - MPI_Abort will do it	
+				std::cout << "\n Error in Analyzer" << std::endl;
+				MPI_Abort( MPI_COMM_WORLD, 0 );
 				return false;
-			}
-			if ( process_sat_count ) {
-				if ( !AnalyzeSATset( cnf_time_from_node ) ) {
-					// is't needed to deallocate memory - MPI_Abort will do it	
-					std::cout << "\n Error in Analyzer" << std::endl;
-					MPI_Abort( MPI_COMM_WORLD, 0 );
-					return false;
-				}
 			}
 		}
 		
@@ -955,16 +930,10 @@ void MPI_Solver :: PrintParams( )
 	std::cout << std::endl << "proc_count is "            << corecount;            
 	std::cout << std::endl << "core_len is "              << core_len;                 
 	std::cout << std::endl << "start_activity is "        << start_activity;
-	std::cout << std::endl << "IsConseq is "              << IsConseq;         
-	std::cout << std::endl << "IsPB is "                  << IsPB;                     
-	std::cout << std::endl << "best_lower_bound is "      << best_lower_bound;        
-	std::cout << std::endl << "upper_bound is "	          << upper_bound;			  
-	std::cout << std::endl << "PB_mode is "               << PB_mode;
-	std::cout << std::endl << "exch_activ is "            << exch_activ;
-	std::cout << std::endl << "IsSolveAll exch_activ is " << IsSolveAll;
+	std::cout << std::endl << "isConseq is "              << isConseq;         
+	std::cout << std::endl << "isSolveAll exch_activ is " << isSolveAll;
 	std::cout << std::endl << "max_solving_time "         << max_solving_time;
 	std::cout << std::endl << "max_nof_restarts "         << max_nof_restarts;
-	std::cout << std::endl << "max_solving_time_koef "    << max_solving_time_koef;
 	std::cout << std::endl << "var_count "                << var_count;
 	std::cout << std::endl;
 }

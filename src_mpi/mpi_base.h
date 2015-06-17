@@ -62,27 +62,17 @@ public:
 	std::string schema_type;
 	unsigned core_len;
 	double start_activity;
-	bool IsConseq;
-	int check_every_conflict;
+	bool isConseq;
 	bool isPredict;
 	bool isMakeSatSampleAnyWay;
 	
-	unsigned *full_mask;
-	unsigned *part_mask;
-	unsigned *mask_value; // particular value of bits which set in part_mask
+	unsigned full_mask[FULL_MASK_LEN];
+	unsigned part_mask[FULL_MASK_LEN];
+	unsigned mask_value[FULL_MASK_LEN]; // particular value of bits which set in part_mask
 	
 	unsigned activity_vec_len;
 	std::string known_point_file_name;
 	bool isSolverSystemCalling; // calling of solver file by system command
-	
-	bool IsPB; //  pseudo Bool mode. if 0 then common CNF mode
-	int PB_mode; // Pseudo Boolean mode. 1 - inequality mode, 2 - equality mode
-	int best_lower_bound;
-	int upper_bound;
-	int constr_clauses_count;
-	int obj_clauses_count;
-	int obj_vars_count;
-	int obj_vars[40]; // boolean view of int value
 
 	// Common CNF input data
 	unsigned var_count;
@@ -92,8 +82,6 @@ public:
 	unsigned part_mask_var_count;
 	unsigned all_tasks_count;
 	double te;
-	double er;
-	double penalty;
 	unsigned first_stream_var_index;
 	unsigned known_last_bits;
 	unsigned keystream_len;
@@ -107,17 +95,12 @@ public:
 
 	int sat_count;
 	int verbosity;
-	bool IsSolveAll;
+	bool isSolveAll;
 	double max_solving_time; // max time in seconds for solving particular SAT subproblem
-	unsigned keybit_count;
-	std::string rslos_table_name;
 	int max_nof_restarts;
 	std::string input_cnf_name;
 	std::vector<int> var_choose_order;
 	std::vector<int> full_var_choose_order; // all variables that can be chosen to decomp set
-	//std::vector<int> all_vars_set;
-	//std::vector<int> rslos_lengths;
-	//double *all_var_activity;
 
 	// Read header "p cnf [var_count] [clause_count]" from DIMACS file
 	bool ReadVarCount( );
@@ -144,7 +127,7 @@ public:
 	
 	void MakeRandArr( std::vector< std::vector<unsigned> > &rand_arr, unsigned shortcnf_count, unsigned rnd_uint32_count );
 	void MakeUniqueRandArr( std::vector<unsigned> &rand_arr, unsigned rand_arr_len, unsigned max_rand_val );
-	std::string make_solver_launch_str( std::string solver_name, std::string cnf_name, double maxtime_seconds_str );
+	std::string MakeSolverLaunchString( std::string solver_name, std::string cnf_name, double maxtime_seconds_str );
 };
 
 #endif
