@@ -94,15 +94,15 @@ public:
 	double point_admission_koef; // how exactly worse can new point be. all others will be interrupted
 	double delta;
 	double exp_value;
+	unsigned core_len_combinations_size;
 	int cur_vars_changing;
-	int global_deep_point_index;
 	int global_checked_points_count;
 	int global_stopped_points_count;
 	int global_skipped_points_count;
 	int decomp_sets_in_block;
 	std::string deep_predict_file_name;
 	std::string var_activity_file_name;
-	std::vector< std::vector<int> > combinations;
+	
 	std::list<checked_area> L1; // areas where all points were checked
 	std::list<unchecked_area> L2; // areas where not all points were checked
 	unchecked_area current_unchecked_area; // for creating list of points for checking
@@ -119,6 +119,7 @@ public:
 	double start_sample_variance_limit;
 	double prev_area_best_predict_time;
 	double predict_time_limit_step;
+	unsigned points_to_check;
 	
 	Problem cnf;
 	//unsigned prev_best_decomp_set_power;
@@ -154,7 +155,6 @@ public:
 	bool IsPointInCheckedArea( boost::dynamic_bitset<> &point );
 	bool IsPointInUnCheckedArea( boost::dynamic_bitset<> &point );
 	void AddNewUncheckedArea( boost::dynamic_bitset<> &point, std::stringstream &sstream );
-	
 	void AllocatePredictArrays();
 	
 	bool PrepareForPredict();
@@ -187,7 +187,6 @@ private:
 	unsigned best_solved_in_time;
 	long double best_time_limit;
 	
-	unsigned total_decomp_set_count;
 	unsigned solved_tasks_count;
 	std::string predict_file_name;
 	unsigned record_count;

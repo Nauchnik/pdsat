@@ -61,7 +61,7 @@ int Addit_func :: ConseqMultip( int low_bound, int high_bound )
 	return final_val;
 }
 
-void Addit_func :: MakeCombinations( int n, int k, std::vector< std::vector<int> > &combinations )
+void Addit_func :: MakeCombinations( int n, int k, std::vector< std::vector<int> > &combinations, bool isOnlySizeCalc )
 {
 // Generation of set of all k-combinations of a set n
 	int val;
@@ -69,6 +69,9 @@ void Addit_func :: MakeCombinations( int n, int k, std::vector< std::vector<int>
 	index_arr.resize(k);
 	unsigned comb_index = 0;
 	combinations.resize( ConseqMultip(n-k+1,n) / ConseqMultip(1, k) );
+	if (isOnlySizeCalc)
+		return;
+	
 	for ( unsigned i = 0; i < combinations.size(); i++ )
 		combinations[i].resize(k);
 	for ( unsigned i = 0; i < index_arr.size(); i++ )
@@ -92,7 +95,6 @@ void Addit_func :: MakeCombinations( int n, int k, std::vector< std::vector<int>
 		else
 			break; // all values are on final positions
 	}
-	index_arr.resize(0);
 }
 
 void Addit_func :: MakePermutations( int n, int k, std::vector< std::vector<int> > &permutations )

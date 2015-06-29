@@ -19,7 +19,6 @@ MPI_Predicter :: MPI_Predicter( ) :
 	temperature_multiply_koef ( 0.9 ),
 	start_temperature_koef ( 0.1 ),
 	point_admission_koef ( 0.2 ),
-	global_deep_point_index ( 0 ),
 	cur_vars_changing ( 1 ),
 	global_checked_points_count ( 0 ),
 	global_stopped_points_count ( 0 ),
@@ -54,7 +53,9 @@ MPI_Predicter :: MPI_Predicter( ) :
 	array_message_size ( 0 ),
 	stop_message (-1),
 	isMultiSetMode ( false ),
-	multiset_file_name ( "multiset" )
+	multiset_file_name ( "multiset" ),
+	core_len_combinations_size ( 0 ),
+	points_to_check ( 0 )
 {
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
 		best_predict_time_arr[i] = 0.0;
@@ -552,8 +553,6 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 	
 	sstream_control << "after while (solved_tasks_count < all_tasks_count) loop" << std::endl;
 	sstream_control << "solved_tasks_count " << solved_tasks_count << std::endl;
-	sstream_control << "global_deep_point_index " << global_deep_point_index << std::endl;
-	sstream_control << "total_decomp_set_count " << global_deep_point_index << std::endl;
 	
 	if ( verbosity > 2 )
 		std::cout << sstream_control.str() << std::endl;
@@ -1309,7 +1308,6 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 		sstream << "solved tasks " << solved_tasks_count << " / " << all_tasks_count << std::endl;
 		sstream << "solved tasks " << (double)( ( solved_tasks_count * 100 ) / all_tasks_count ) << " %" << std::endl;
 		sstream << "cur_vars_changing " << cur_vars_changing << std::endl;
-		sstream << "global_deep_point_index " << global_deep_point_index << std::endl;
 		if ( isRestartNeeded ) {
 			isRestartNeeded = false;
 			sstream << "Warning. IsRestartNeeded == true after end of iteration. Changed to false" << std::endl;
@@ -1371,7 +1369,6 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 			best_predict_time = HUGE_DOUBLE;
 			L1.clear();
 			L2.clear();
-			global_deep_point_index = 0;
 			std::vector<var_with_activity> var_with_activity_vec;
 			var_with_activity vwa;
 			for (unsigned i = 0; i < total_var_activity.size(); i++) {
@@ -1580,6 +1577,13 @@ bool MPI_Predicter :: DeepPredictMain()
 	whole_deep_time = MPI_Wtime();
 	std::stringstream sstream_control;
 
+	// core_len variants of vectors with Hamming distanse 
+	// get combinations to constuct all vectors on given Hamming distanse
+	std::vector< std::vector<int> > combinations;
+	MakeCombinations(core_len, cur_vars_changing, combinations, true);
+	core_len_combinations_size = combinations.size();
+	combinations.clear();
+
 	std::cout << "DeepPredictMain() started" << std::endl;
 
 	// for equal conditions for every dimension
@@ -1636,7 +1640,7 @@ bool MPI_Predicter :: DeepPredictMain()
 		
 		sstream << sstream_control.str();
 		
-		if ( ( isFirstPoint ) && ( global_deep_point_index == total_decomp_set_count ) ) {
+		if ( isFirstPoint ) {
 			sstream << "First point" << std::endl;
 			sstream << "L2.size() " << L2.size() << std::endl;
 			// set new unchecked area
@@ -1651,16 +1655,12 @@ bool MPI_Predicter :: DeepPredictMain()
 			isFirstPoint = false;
 		}
 		
-		// if method >= 2 and new best point found then repeat search in same dimension
+		// if new best point found then repeat search in same dimension
 		if ( !DeepPredictFindNewUncheckedArea( sstream ) )
 			break;
 
 		if ( var_choose_order.size() == 0 )
 			break;
-		
-		//if ( deep_predict <= 2 ) // end of current iteration if deep_predict <= 2
-		//	DecVarLinerDeepMode( sstream, deep_predict_file, mpi_mask, ProcessListNumber );
-		global_deep_point_index = 0; // new start of counter for block sending
 
 		deep_predict_file << sstream.rdbuf();
 		deep_predict_file.close();
@@ -2671,27 +2671,11 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 // Make tasks for checking neighbours of current point
 	// var_choose_order - current best decomosition (point)
 	std::cout << std::endl << "*** GetDeepPredictTasks" << std::endl;
-	std::cout << "global_deep_point_index " << global_deep_point_index << std::endl;
 
-	unsigned points_to_check;
-
-	if ( isFirstPoint )// compute value of function only in first point
-		points_to_check = total_decomp_set_count = 1;
-	else {
-		// core_len variants of vectors with Hamming distanse 
-		// update - make points only for current vars count 
-		if ( global_deep_point_index == 0 ) { // calculate only at 1st time
-			// get combinations to constuct all vectors on given Hamming distanse
-			MakeCombinations( core_len, cur_vars_changing, combinations );
-			random_shuffle( combinations.begin(), combinations.end() ); // shuffle vars for getting equal random of changing
-			total_decomp_set_count = combinations.size();
-			std::cout << "total_decomp_set_count " << total_decomp_set_count << std::endl;
-		}
-		points_to_check = total_decomp_set_count - global_deep_point_index; // how many points to check
-	}
+	points_to_check = isFirstPoint ? 1 : core_len_combinations_size;
+	std::cout << "points_to_check " << points_to_check << std::endl;
 	
 	prev_area_best_predict_time = best_predict_time;
-	unsigned cur_index;
 	boost::dynamic_bitset<> new_point;
 	
 	if ( verbosity > 1 ) {
@@ -2705,32 +2689,24 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	std::stringstream sstream;
 	std::vector<int> new_var_choose_order;
 	//sstream << "current point to check" << std::endl;
-	for ( unsigned i = 0; i < points_to_check; ++i ) { // several decomp sets
+	for (unsigned cur_point_index = 0; cur_point_index < points_to_check; ++cur_point_index) { // several decomp sets
 		if ( isFirstPoint )
 			new_var_choose_order = var_choose_order;
 		else {
-			cur_index = global_deep_point_index + i;
-			/*if ( deep_predict <= 2 )
-				ChangeVarChooseOrder( var_choose_order, cur_vars_changing, cur_var_count, new_var_choose_order );
-			else if ( deep_predict != 6 )
-				GetNewHammingPoint( var_choose_order, cur_vars_changing, cur_var_count, combinations[cur_index],
-									new_var_choose_order );*/
-			if ( deep_predict >= 5 ) {
-				if ( current_unchecked_area.checked_points[cur_index] == 1 ) {
-					current_skipped++;
-					continue; // checked already
-				}
-				
-				new_point = current_unchecked_area.center; // new point based on center point
-				new_point[cur_index] = ( current_unchecked_area.center[cur_index] == 1 ) ? 0 : 1;
-				new_var_choose_order = BitsetToIntVecPredict( new_point );
+			if (current_unchecked_area.checked_points[cur_point_index] == 1) {
+				current_skipped++;
+				continue; // checked already
 			}
+				
+			new_point = current_unchecked_area.center; // new point based on center point
+			new_point[cur_point_index] = (current_unchecked_area.center[cur_point_index] == 1) ? 0 : 1;
+			new_var_choose_order = BitsetToIntVecPredict( new_point );
 		}
 		
 		d_s.var_choose_order = new_var_choose_order;
 		d_s.cur_var_changing = cur_vars_changing;
 		d_s.IsAddedToL2      = false;
-		d_s.diff_variable_activity = total_var_activity[cur_index];
+		d_s.diff_variable_activity = total_var_activity[cur_point_index];
 		decomp_set_arr.push_back( d_s ); // add new decomp set
 	} // for ( int i = 0; i < decomp_set_count; i++ )
 	
@@ -2792,8 +2768,6 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	if ( verbosity > 0 )
 		std::cout << "AllocatePredictArrays() done " << std::endl;
 	
-	sstream << "total_decomp_set_count " << total_decomp_set_count << std::endl;
-	sstream << "global_deep_point_index " << global_deep_point_index << std::endl;
 	sstream << "must be checked " << decomp_set_arr.size() << " from " << points_to_check << std::endl;
 	//sstream << "points_to_check " << points_to_check << std::endl;
 	//sstream << "decomp_set_count " << decomp_set_count << std::endl;
@@ -2829,9 +2803,6 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	
 	if ( verbosity > 0 )
 		std::cout << sstream.str();
-	
-	global_deep_point_index += decomp_set_arr.size() + current_skipped;
-	sstream << "global_deep_point_index " << global_deep_point_index << std::endl;
 	
 	sstream << std::endl;
 	std::fstream deep_predict_file( deep_predict_file_name.c_str(), std::ios_base::out | std::ios_base::app );

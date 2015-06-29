@@ -26,7 +26,7 @@ extern int strtoint( std::string str );
 extern bool isNumber( char num );
 extern bool isNumberOrMinus( char num );
 extern void cpuTimeInHours( double full_seconds, int &real_hours, int &real_minutes, int &real_seconds );
-extern void MakeCombinations( int n, int k, std::vector< std::vector<int> > &combinations );
+extern void MakeCombinations(int n, int k, std::vector< std::vector<int> > &combinations, bool isOnlySizeCalc = false );
 extern void MakePermutations( int n, int k, std::vector< std::vector<int> > &permutations );
 extern int ConseqMultip( int low_bound, int high_bound );
 extern int BitCount( unsigned u );
