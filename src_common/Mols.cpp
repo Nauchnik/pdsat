@@ -1,4 +1,4 @@
-#include "MOLS.h"
+#include "Mols.h"
 
 int ijktov(int i, int j, int k, int n){
 	return i*n*n + j*n + k + 1;
@@ -56,6 +56,7 @@ LS::LS(string s, int n){
 	}
 	lselems = b;
 }
+
 string LS::tostring(){
 	string a;
 	for (int i = 0; i<order; i++){
@@ -146,8 +147,8 @@ void LS::transpcolumns(int j1, int j2){
 		item(k, j2) = t[k];
 	}
 }
-bool LS::check(bool diag){
 
+bool LS::check(bool diag){
 	bool a1 = true;
 	for (int k = 0; k<order; k++){
 		if (checkrow(k) == false){
@@ -182,8 +183,9 @@ bool LS::check(bool diag){
 	bool res = a1&&a2&&a3;
 	return res;
 }
+
 void LS::normalizefirstrow(){
-	int * r1 = row(1);
+	int * r1 = row(0);
 	for (int k = 0; k<order; k++){
 		if (r1[k] != k){
 			int tt1 = indexof(r1, k);
@@ -193,6 +195,7 @@ void LS::normalizefirstrow(){
 		}
 	}
 }
+
 void LS::normalizefirstcolumn(){
 	int * c1 = column(0);
 	for (int k = 0; k<order; k++){
@@ -230,11 +233,13 @@ void MOLS::reorder(){
 		Squares[i].reorder();
 	}
 }
+
 MOLS::MOLS()
 {
 	order = 0;
 	count = 0;
 }
+
 MOLS::~MOLS(){
 	//out.close();
 }
@@ -627,7 +632,7 @@ MOLS::MOLS(string s, int n, int r, bool wspaces){
 				a[k] = strtoi(t);
 				if ((a[k] >= n) || (a[k] < 0)){
 					std::cerr << a[k] << std::endl;
-					exit(1);
+					return;
 				}
 				k++;
 				i1 = i2;
@@ -646,14 +651,14 @@ MOLS::MOLS(string s, int n, int r, bool wspaces){
 	}
 	if (ones_count != n*n*r) {
 		std::cerr << "ones_count " << ones_count << std::endl;
-		exit(1);
+		return;
 	}
 	for (int i = 0; i<n*n*n*r; i++){
 		if (a[i]>0) {
 			b[g] = i%n;
 			if ((b[g] >= n) || (b[g] < 0)){
 				std::cerr << b[g] << std::endl;
-				exit(1);
+				return;
 			}
 			g++;
 		}
@@ -668,7 +673,7 @@ MOLS::MOLS(string s, int n, int r, bool wspaces){
 			z[t] = b[k*n*n + t];
 			if ((z[t] >= n) || (z[t] < 0)){
 				std::cerr << z[t] << std::endl;
-				exit(1);
+				return;
 			}
 		}
 		LS h = LS(z, order);
@@ -742,6 +747,21 @@ void MOLS::printToCout()
 		Squares[k].reorder();
 		std::cout << Squares[k].tostring() << '\n';
 	}
+}
+
+std::string MOLS::HtmlstringView()
+{
+	string str;
+	for (int i = 0; i < order; i++){
+		for (unsigned LS_index = 0; LS_index < Squares.size(); LS_index++) {
+			for (int j = 0; j < order; j++)
+				str += inttostr(Squares[LS_index].item(i, j)) + ' ';
+			if (LS_index != Squares.size() - 1)
+				str += "&nbsp;&nbsp ";
+		}
+		str += "<br>\n";
+	}
+	return str;
 }
 
 void MOLS::exportLStofile(const char * fn){

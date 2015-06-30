@@ -1,6 +1,7 @@
 #ifndef MOLS_H
 #define MOLS_H
 
+#include <cstdlib>
 #include <string>
 #include <fstream>
 #include <vector>
@@ -21,7 +22,6 @@ private:
 	}
 	int* lselems;
 	int order;
-	int &item(int i, int j);
 	int * row(int i);
 	int * column(int j);
 	int * maindiag();
@@ -57,6 +57,7 @@ private:
 	void transpcolumns(int j1, int j2);
 public:
 
+	int &item(int i, int j);
 	LS(string s, int n);
 	LS(int *ss, int n);
 	int it(int i, int j);
@@ -101,6 +102,7 @@ public:
 	void reorder();
 	void printToFile(const char * fn);
 	void printToCout();
+	std::string HtmlstringView();
 };
 
 #endif
