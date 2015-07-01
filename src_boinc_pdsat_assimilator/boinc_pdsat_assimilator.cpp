@@ -19,7 +19,7 @@
 
 #include <mysql.h>
 				
-void getMOLS(std::vector<MOLS> &pairs_vec);
+void getCurrentMOLS(std::string &str, MOLS &pair);
 void touchBoincResultFiles();
 void ProcessQuery(MYSQL *conn, std::string str, std::vector< std::vector<std::stringstream *> > &result_vec);
 void MakeHTMLfromWU(MYSQL *conn, std::string wu_id_str, MOLS pair_MOLS);
@@ -107,83 +107,72 @@ int main( int argc, char *argv[] )
 	//if(mysql_query(conn, "SET NAMES 'utf8'") != 0)
 	//   cerr << "Error: can't set character set\n";
 
-	std::vector<MOLS> pairs_vec;
-	getMOLS(pairs_vec);
+	MOLS pair;
 	// clean file
 	std::ofstream MOLS_out_file("MOLS_out", std::ios_base::out);
 	MOLS_out_file.close();
+
+	std::ofstream mols_file("MOLS", std::ios_base::out);
+	mols_file.close();
 	
 	std::string wu_part_name;
 	std::vector< std::vector<std::stringstream *> > result_vec;
 	unsigned MOLS_pair_index = 0;
 	while (getline(sat_file, str)) {
+		getCurrentMOLS(str, pair);
 		sstream << str;
 		sstream >> wu_part_name;
 		sstream.str(""); sstream.clear();
-		if (MOLS_pair_index > pairs_vec.size()) {
-			std::cerr << "MOLS_pair_index > pairs_vec.size()" << std::endl;
-			std::cerr << MOLS_pair_index << " " << pairs_vec.size() << std::endl;
-			exit(1);
-		}
-		MakeHTMLfromWU(conn, wu_part_name, pairs_vec[MOLS_pair_index++]);
+		MakeHTMLfromWU(conn, wu_part_name, pair);
 	}
 	sat_file.close();
 	
 	std::cout << "*** done" << std::endl;
 }
 
-void getMOLS(std::vector<MOLS> &pairs_vec)
+void getCurrentMOLS( std::string &str, MOLS &pair)
 {
-	ifstream ifile("sat_output");
-	string str;
 	int n = 10, r = 2;
 
 	unsigned str_count = 0;
-	while (getline(ifile, str)) {
-		str_count++;
-		cout << str << endl;
-		stringstream sstream;
-		sstream << str;
-		string sat_assign_str = "";
-		while ((sat_assign_str.length() < 100) && (!sstream.eof()))
-			sstream >> sat_assign_str;
+	str_count++;
+	//cout << str << endl;
+	stringstream sstream;
+	sstream << str;
+	string sat_assign_str = "";
+	while ((sat_assign_str.length() < 100) && (!sstream.eof()))
+		sstream >> sat_assign_str;
 
-		unsigned ones_count = 0;
-		for (unsigned i = 0; i < sat_assign_str.size(); i++) {
-			if (sat_assign_str[i] == '1')
-				ones_count++;
-		}
-
-		if (ones_count != sat_assign_str.size() / 10) {
-			std::cerr << "ones_count != sat_assign_str.size() / 2" << std::endl;
-			std::cerr << "ones_count " << ones_count << std::endl;
-			std::cerr << "sat_assign_str.size() / 2 " << sat_assign_str.size() / 2 << std::endl;
-			continue;
-		}
-
-		if (sat_assign_str.size() != r*pow(n, 3)) {
-			std::cerr << "sat_assign_str.size() != r*pow(n, 3)" << std::endl;
-			std::cerr << "sat_assign_str.size() " << sat_assign_str.size() << std::endl;
-			std::cerr << "r*pow(n, 3) " << r*pow(n, 3) << std::endl;
-			continue;
-		}
-
-		std::cout << "new pair" << std::endl;
-		MOLS mols(sat_assign_str, 10, 2, false);
-		//mols.printToCout();
-		if (mols.Squares[0].check(true) && mols.Squares[1].check(true) && mols.ortogonalitycheck())
-			pairs_vec.push_back(mols);
+	unsigned ones_count = 0;
+	for (unsigned i = 0; i < sat_assign_str.size(); i++) {
+		if (sat_assign_str[i] == '1')
+			ones_count++;
 	}
-	ifile.close();
-	std::cout << "str_count " << str_count << std::endl;
-	std::cout << "pairs_vec.size() " << pairs_vec.size() << std::endl;
 
-	std::ofstream mols_file("MOLS");
-	for (unsigned i = 0; i < pairs_vec.size(); i++) {
-		pairs_vec[i].Squares[0].normalizefirstrow();
-		pairs_vec[i].Squares[1].normalizefirstrow();
-		mols_file << pairs_vec[i].HtmlstringView() << std::endl;
+	if (ones_count != sat_assign_str.size() / 10) {
+		std::cerr << "ones_count != sat_assign_str.size() / 2" << std::endl;
+		std::cerr << "ones_count " << ones_count << std::endl;
+		std::cerr << "sat_assign_str.size() / 2 " << sat_assign_str.size() / 2 << std::endl;
+		return;
 	}
+
+	if (sat_assign_str.size() != r*pow(n, 3)) {
+		std::cerr << "sat_assign_str.size() != r*pow(n, 3)" << std::endl;
+		std::cerr << "sat_assign_str.size() " << sat_assign_str.size() << std::endl;
+		std::cerr << "r*pow(n, 3) " << r*pow(n, 3) << std::endl;
+		return;
+	}
+
+	std::cout << "new pair" << std::endl;
+	MOLS mols(sat_assign_str, 10, 2, false);
+	//mols.printToCout();
+	if (mols.Squares[0].check(true) && mols.Squares[1].check(true) && mols.ortogonalitycheck())
+		pair = mols;
+	
+	std::ofstream mols_file("MOLS", std::ios_base::app);
+	pair.Squares[0].reorder();
+	pair.Squares[1].reorder();
+	mols_file << pair.HtmlstringView() << std::endl;
 	mols_file.close();
 }
 
@@ -313,13 +302,14 @@ void MakeHTMLfromWU(MYSQL *conn, std::string wu_name_part, MOLS pair_MOLS )
 
 	std::ofstream MOLS_out_file("MOLS_out", std::ios_base::app);
 	std::stringstream MOLS_out_sstream;
-
-	MOLS_out_sstream << "<tr>" << std::endl << "<td> <b>" << mod_time_vec[0] << " UTC </b> </td>" << std::endl;
+	
+	MOLS_out_sstream << "<tr>" << std::endl << "<td> 1 </td>" << 
+		                "<td> <b>" << mod_time_vec[0] << " UTC </b> </td>" << std::endl;
 	MOLS_out_sstream << "<td> <a href = 'http://sat.isa.ru/pdsat/show_user.php?userid=" << userid_vec[0] <<
 		"'>" << username_vec[0] << "</a>";
 	if (teamname_vec[0] != "")
 		MOLS_out_sstream << " from " << teamname_vec[0];
-	MOLS_out_sstream << " /" << std::endl;
+	MOLS_out_sstream << " br" << std::endl;
 	MOLS_out_sstream << "<a href = 'http://sat.isa.ru/pdsat/show_user.php?userid=" << userid_vec[1] <<
 		"'>" << username_vec[1] << "</a>";
 	if (teamname_vec[1] != "")
@@ -327,7 +317,11 @@ void MakeHTMLfromWU(MYSQL *conn, std::string wu_name_part, MOLS pair_MOLS )
 	MOLS_out_sstream << " </td>" << std::endl;
 	MOLS_out_sstream << "<td> diag10_2 </td>" << std::endl << "<td> \n" << "<FONT SIZE = -2>\n" << pair_MOLS.HtmlstringView() << "</FONT>\n </td>\n </tr>" << std::endl;
 	MOLS_out_file << MOLS_out_sstream.str();
-	MOLS_out_file.close();
+
+	std::ofstream unique_result_time_file(mod_time_vec[0].c_str());
+	unique_result_time_file << MOLS_out_sstream.str();
+	unique_result_time_file.close();
+	unique_result_time_file.close();
 	
 	sstream << MOLS_out_sstream.str();
 	std::cout << sstream.rdbuf();
