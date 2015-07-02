@@ -123,6 +123,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		std::cout << "MPI_Predict is running " << std::endl;
 		std::cout << "isPlainText " << isPlainText << std::endl;
 		
+		std::cout << "predict_to " << predict_to << std::endl;
 		if ( !ReadIntCNF( ) ) { 
 			std::cerr << "Error in ReadIntCNF" << std::endl; 
 			return 1; 
