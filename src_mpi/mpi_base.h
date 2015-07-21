@@ -117,6 +117,10 @@ public:
 		                std::vector< std::vector<bool> > &stream_vec_vec,
 						std::vector< std::vector<bool> > &addit_vec_vec,
 						int rank = 0 );
+	void MakeSingleSatSample(
+			std::vector<bool> &state_vec, 
+			std::vector<bool> &stream_vec, 
+			const int seed_num);
 	bool AnalyzeSATset( double cnf_time_from_node );
 	bool CheckSATset( std::vector<int> &lit_SAT_set_array );
 	bool MakeAssignsFromMasks( unsigned *full_mask, 

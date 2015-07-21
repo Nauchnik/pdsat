@@ -884,6 +884,45 @@ void MPI_Base :: MakeUniqueRandArr( std::vector<unsigned> &rand_arr, unsigned ra
 	}
 }
 
+void MPI_Base::MakeSingleSatSample(
+		std::vector<bool> &state_vec, 
+		std::vector<bool> &stream_vec, 
+		const int seed_num)
+{
+
+	boost::random::mt19937 gen_local;
+	gen.seed( static_cast<unsigned>(seed_num));
+	Problem cnf;
+	minisat22_wrapper m22_wrapper;
+	std::ifstream in( input_cnf_name.c_str() );
+	m22_wrapper.parse_DIMACS_to_problem(in, cnf);
+	in.close();
+
+	Solver *S;
+	S = new Solver();
+	S->addProblem(cnf);
+
+	vec<Lit> dummy;
+	for ( unsigned i=0; i < input_var_num; i++ ){
+		state_vec.push_back(bool_rand(gen_local));
+		//state_vec.push_back(bool_rand(gen));
+		dummy.push(~mkLit(i, state_vec[i]));
+	}
+	Minisat::lbool ret = S->solveLimited( dummy );
+
+	if ( ret != l_True ) {
+		std::cerr << "in makeSatSample() ret != l_True" << std::endl;
+		exit(1);
+	}
+
+	for( int i=state_vec.size(); i < S->model.size() - (int)keystream_len; i++ )
+		state_vec.push_back( (S->model[i] == l_True) ? true : false );
+	for( int i=S->model.size() - keystream_len; i < S->model.size(); i++ )
+		stream_vec.push_back( (S->model[i] == l_True) ? true : false );
+	delete S;
+
+}
+
 void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 							 std::vector< std::vector<bool> > &stream_vec_vec,
 							 std::vector< std::vector<bool> > &plain_text_vec_vec,
