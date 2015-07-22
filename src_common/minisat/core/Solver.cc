@@ -34,6 +34,7 @@ The patch includes:
 
 #include "mtl/Sort.h"
 #include "core/Solver.h"
+#include "utils/System.h"
 
 using namespace Minisat;
 
@@ -281,6 +282,10 @@ bool Solver::addClause_(vec<Lit>& ps)
     return true;
 }
 
+bool Solver::addMandatoryVar(const Lit& p)
+{
+}
+
 
 void Solver::attachClause(CRef cr) {
     const Clause& c = ca[cr];
@@ -387,7 +392,7 @@ Lit Solver::pickBranchLit()
 |    Pre-conditions:
 |      * 'out_learnt' is assumed to be cleared.
 |      * Current decision level must be greater than root level.
-|  
+|  Solver::
 |    Post-conditions:
 |      * 'out_learnt[0]' is the asserting literal at level 'out_btlevel'.
 |      * If out_learnt.size() > 1 then 'out_learnt[1]' has the greatest decision level of the 
@@ -940,57 +945,58 @@ lbool Solver::solve_()
 
     // Search:
     int curr_restarts = 0;
+    const int start_watch_scans = watch_scans;
     while (status == l_Undef){
         int n=nFreeVars();
         if(n>280 && n < 1000 || n <220) luby_restart=0;
         if( n>1000 && (int)max_learnts <= 391879 && ((conflicts/30000)%2 || n<4000)) bitN++;
         else bitN=-1;
 
-		// added pdsat
+	// added pdsat
 #ifdef _MPI
-		cur_time = MPI_Wtime() - start_solving_time;
+	cur_time = MPI_Wtime() - start_solving_time;
 #else
-		cur_time = cpuTime() - start_solving_time;
+	cur_time = cpuTime() - start_solving_time;
 #endif
-		if (((max_nof_restarts) && (curr_restarts >= max_nof_restarts)) ||
-			((max_solving_time > 0.0) && (cur_time >= max_solving_time)) ||
-			((max_nof_watch_scans) && (watch_scans >= max_nof_watch_scans))
-			)
-		{
-			//progress_estimate = progressEstimate();
-			cancelUntil(0);
-			return l_Undef;
-		}
+	if (((max_nof_restarts) && (curr_restarts >= max_nof_restarts)) ||
+		((max_solving_time > 0.0) && (cur_time >= max_solving_time)) ||
+		((max_nof_watch_scans) && ((watch_scans-start_watch_scans)>= max_nof_watch_scans))
+		)
+	{
+		//progress_estimate = progressEstimate();
+		cancelUntil(0);
+		return l_Undef;
+	}
 
 #ifdef _MPI
-		if ((isPredict) && (evaluation_type == "time")) {
-			if ((pdsat_verbosity > 0) && (rank == 1)) {
-				std::cout << "try to MPI_Iprobe()" << std::endl;
-				std::cout << "rank " << rank << std::endl;
+	if ((isPredict) && (evaluation_type == "time")) {
+		if ((pdsat_verbosity > 0) && (rank == 1)) {
+			std::cout << "try to MPI_Iprobe()" << std::endl;
+			std::cout << "rank " << rank << std::endl;
+		}
+		int size;
+		iprobe_message = 0;
+		MPI_Iprobe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &iprobe_message, &mpi_status);
+		//if ( pdsat_verbosity > 0 )
+		//	std::cout << "iprobe_message " << iprobe_message << std::endl;
+		if (iprobe_message) {
+			MPI_Get_count(&mpi_status, MPI_INT, &size);
+			if (size == 1) {
+				MPI_Irecv(&irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request);
+				MPI_Test(&mpi_request, &test_message, &mpi_status);
+				if (test_message) {
+					if (pdsat_verbosity > 0)
+						std::cout << "minisat interrupted after " << curr_restarts << " restarts" << std::endl;
+					cancelUntil(0);
+					return l_Undef;
+				}
 			}
-			int size;
-			iprobe_message = 0;
-			MPI_Iprobe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &iprobe_message, &mpi_status);
-			//if ( pdsat_verbosity > 0 )
-			//	std::cout << "iprobe_message " << iprobe_message << std::endl;
-			if (iprobe_message) {
-				MPI_Get_count(&mpi_status, MPI_INT, &size);
-				if (size == 1) {
-					MPI_Irecv(&irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request);
-					MPI_Test(&mpi_request, &test_message, &mpi_status);
-					if (test_message) {
-						if (pdsat_verbosity > 0)
-							std::cout << "minisat interrupted after " << curr_restarts << " restarts" << std::endl;
-						cancelUntil(0);
-						return l_Undef;
-					}
-				}
-				else {
-					std::cerr << "In Solver() MPI_Get_count(&status, MPI_UNSIGNED, &size); " << size << std::endl;
-					exit(1);
-				}
+			else {
+				std::cerr << "In Solver() MPI_Get_count(&status, MPI_UNSIGNED, &size); " << size << std::endl;
+				exit(1);
 			}
 		}
+	}
 #endif
 		
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
