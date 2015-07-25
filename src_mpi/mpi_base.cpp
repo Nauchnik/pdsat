@@ -887,25 +887,24 @@ void MPI_Base :: MakeUniqueRandArr( std::vector<unsigned> &rand_arr, unsigned ra
 void MPI_Base::MakeSingleSatSample(
 		std::vector<bool> &state_vec, 
 		std::vector<bool> &stream_vec, 
-		const int seed_num)
+		const int seed_num,
+		Solver *S,
+		std::vector<lbool> predefined_vars)
 {
 
 	boost::random::mt19937 gen_local;
-	gen.seed( static_cast<unsigned>(seed_num));
-	Problem cnf;
-	minisat22_wrapper m22_wrapper;
-	std::ifstream in( input_cnf_name.c_str() );
-	m22_wrapper.parse_DIMACS_to_problem(in, cnf);
-	in.close();
+	//gen_local.seed( static_cast<unsigned>(seed_num^1234567));
+	gen_local.seed( static_cast<unsigned>(seed_num));
+	for (int i=0;i<100000;i++) gen_local;
 
-	Solver *S;
-	S = new Solver();
-	S->addProblem(cnf);
+	if (predefined_vars.empty())
+		predefined_vars.resize(input_var_num, l_Undef);
+	assert( predefined_vars.size()==input_var_num);
 
 	vec<Lit> dummy;
 	for ( unsigned i=0; i < input_var_num; i++ ){
-		state_vec.push_back(bool_rand(gen_local));
-		//state_vec.push_back(bool_rand(gen));
+		state_vec.push_back(l_Undef==predefined_vars[i]? bool_rand(gen_local) : l_True==predefined_vars[i]);
+		//state_vec.push_back(bool_rand(gen_local));
 		dummy.push(~mkLit(i, state_vec[i]));
 	}
 	Minisat::lbool ret = S->solveLimited( dummy );
@@ -919,8 +918,6 @@ void MPI_Base::MakeSingleSatSample(
 		state_vec.push_back( (S->model[i] == l_True) ? true : false );
 	for( int i=S->model.size() - keystream_len; i < S->model.size(); i++ )
 		stream_vec.push_back( (S->model[i] == l_True) ? true : false );
-	delete S;
-
 }
 
 void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,

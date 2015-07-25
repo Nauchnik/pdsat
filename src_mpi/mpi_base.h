@@ -120,7 +120,9 @@ public:
 	void MakeSingleSatSample(
 			std::vector<bool> &state_vec, 
 			std::vector<bool> &stream_vec, 
-			const int seed_num);
+			const int seed_num,
+			Solver *S,
+			std::vector<lbool> predefined_vars = std::vector<lbool>());
 	bool AnalyzeSATset( double cnf_time_from_node );
 	bool CheckSATset( std::vector<int> &lit_SAT_set_array );
 	bool MakeAssignsFromMasks( unsigned *full_mask, 
