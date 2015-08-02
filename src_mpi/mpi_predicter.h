@@ -24,6 +24,7 @@ const int      PREDICT_TIMES_COUNT         = 6;
 const int      TS2_POINTS_COUNT            = 100;
 const unsigned MAX_POW_VALUE               = 1000;
 const double   MIN_PERCENT_SOLVED_IN_TIME  = 0.0000001;
+const double   MIN_PERCENT_NO_MULTISAMPLE  = 0.9;
 
 struct unchecked_area
 {
@@ -217,6 +218,8 @@ private:
 	std::vector<long double> med_time_arr;
 	std::vector<long double> predict_time_arr;
 	std::vector<long double> predict_part_time_arr;
+
+	void recalculateWithMultisample(double &cur_percent_solved_in_time);
 };
 
 #endif

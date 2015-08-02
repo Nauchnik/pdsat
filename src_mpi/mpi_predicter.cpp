@@ -2049,6 +2049,8 @@ double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_
 		cur_percent_solved_in_time = (double)cur_solved_in_time * 100 / (double)cur_cnf_in_set_count;
 		if (cur_percent_solved_in_time <= MIN_PERCENT_SOLVED_IN_TIME)
 			continue;
+		else if (cur_percent_solved_in_time < MIN_PERCENT_NO_MULTISAMPLE)
+			recalculateWithMultisample(cur_percent_solved_in_time); // recalculate with larger samples
 		else {
 			cur_probability = (double)cur_solved_in_time / (double)cur_cnf_in_set_count;
 			point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
@@ -2811,4 +2813,9 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	deep_predict_file.close();
 
 	return true;
+}
+
+void MPI_Predicter::recalculateWithMultisample(double &cur_percent_solved_in_time)
+{
+	
 }
