@@ -24,7 +24,8 @@ const int      PREDICT_TIMES_COUNT         = 6;
 const int      TS2_POINTS_COUNT            = 100;
 const unsigned MAX_POW_VALUE               = 1000;
 const double   MIN_PERCENT_SOLVED_IN_TIME  = 0.0000001;
-const double   MIN_PERCENT_NO_MULTISAMPLE  = 0.9;
+const double   MIN_PERCENT_NO_MULTISAMPLE  = 0.1;
+const unsigned CHECK_ACCURACY_SAMPLE_SIZE_KOEF = 2;
 
 struct unchecked_area
 {
@@ -33,6 +34,13 @@ struct unchecked_area
 	int radius;
 	double med_var_activity;
 	bool is_partly_checked; // if checked in window mode, then not all points in radius are checked, but we can't chosse it again
+};
+
+struct point_candidate_to_bkv
+{
+	boost::dynamic_bitset<> center;
+	unsigned sample_size;
+	double predict_value;
 };
 
 struct checked_area
@@ -121,6 +129,7 @@ public:
 	double prev_area_best_predict_time;
 	double predict_time_limit_step;
 	unsigned points_to_check;
+	unsigned 
 	
 	Problem cnf;
 	//unsigned prev_best_decomp_set_power;
@@ -146,7 +155,7 @@ public:
 	bool GetPredict();
 	bool solverProgramCalling( Minisat::vec<Minisat::Lit> &dummy );
 	bool solverSystemCalling( Minisat::vec<Minisat::Lit> &dummy );
-	double getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_set_count, unsigned i );
+	double getCurPredictTime(unsigned cur_var_num, int cur_cnf_in_set_count, unsigned i, std::vector<int> var_choose_order);
 	
 	bool DeepPredictMain();
 	bool DeepPredictFindNewUncheckedArea( std::stringstream &sstream );
@@ -179,6 +188,7 @@ private:
 	std::vector<int> sorted_index_array;
 	std::vector<bool> vec_IsDecompSetSendedToProcess;
 	std::vector<double> predict_time_limites;
+	std::vector<point_candidate_to_bkv> points_candidate_to_bkv;
 	
 	int best_var_num;
 	long double best_predict_time;
@@ -187,7 +197,7 @@ private:
 	int best_cnf_in_set_count;
 	unsigned best_solved_in_time;
 	long double best_time_limit;
-	
+		
 	unsigned solved_tasks_count;
 	std::string predict_file_name;
 	unsigned record_count;
@@ -218,8 +228,6 @@ private:
 	std::vector<long double> med_time_arr;
 	std::vector<long double> predict_time_arr;
 	std::vector<long double> predict_part_time_arr;
-
-	void recalculateWithMultisample(double &cur_percent_solved_in_time);
 };
 
 #endif
