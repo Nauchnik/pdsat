@@ -18,8 +18,16 @@
     <ClCompile Include="..\src_boinc_pdsat_assimilator\boinc_pdsat_assimilator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src_common\Mols.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src_boinc_pdsat_assimilator\Makefile" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src_common\Mols.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

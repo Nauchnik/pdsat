@@ -44,7 +44,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../src_boinc_pdsat_assimilator/;C:\Program Files\MySQL\MySQL Server 5.5\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../src_boinc_pdsat_assimilator/;C:\Program Files\MySQL\MySQL Server 5.5\include;D:\Programming\pdsat\src_common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -66,9 +66,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\src_boinc_pdsat_assimilator\boinc_pdsat_assimilator.cpp" />
+    <ClCompile Include="..\src_common\Mols.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src_boinc_pdsat_assimilator\Makefile" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src_common\Mols.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

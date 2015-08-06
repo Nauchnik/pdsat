@@ -123,6 +123,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		std::cout << "MPI_Predict is running " << std::endl;
 		std::cout << "isPlainText " << isPlainText << std::endl;
 		
+		std::cout << "predict_to " << predict_to << std::endl;
 		if ( !ReadIntCNF( ) ) { 
 			std::cerr << "Error in ReadIntCNF" << std::endl; 
 			return 1; 
@@ -1799,6 +1800,7 @@ bool MPI_Predicter :: PrepareForPredict()
 	stopped_cnf_count_arr.resize( decomp_set_arr.size() );
 	skipped_cnf_count_arr.resize( decomp_set_arr.size() );
 	solved_cnf_count_arr.resize( decomp_set_arr.size() );
+	points_candidate_to_bkv.clear();
 
 	// array of indexes of array of lengths of sets for modelling
 	set_index_arr.resize( decomp_set_arr.size() + 1 );
@@ -2026,7 +2028,7 @@ boost::dynamic_bitset<> MPI_Predicter :: IntVecToBitsetPredict( std::vector<int>
 	return bs;
 }
 
-double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_set_count, unsigned i )
+double MPI_Predicter::getCurPredictTime(unsigned cur_var_num, int cur_cnf_in_set_count, unsigned i, std::vector<int> var_choose_order)
 {
 	// (ro, es, te) mode, here sum for sample is number of solved problems with time < te 
 	// get best predict time for current point with different variants of time limits
@@ -2037,6 +2039,9 @@ double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_
 	std::vector<double> predict_times;
 	predict_times.resize( predict_time_limites.size() );
 	double cur_percent_solved_in_time;
+	point_candidate_to_bkv candidate_point;
+	candidate_point.sample_size = 0; // if not BKV, then it will stay as 0
+	double old_point_best_predict_time = point_best_predict_time;
 
 	//unsigned index = 0, point_best_index = 0;
 	for ( auto &cur_time_limit : predict_time_limites ) {
@@ -2052,11 +2057,22 @@ double MPI_Predicter :: getCurPredictTime( unsigned cur_var_num, int cur_cnf_in_
 			cur_probability = (double)cur_solved_in_time / (double)cur_cnf_in_set_count;
 			point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
 			if ( point_cur_predict_time < point_best_predict_time ) {
-				point_best_predict_time   = point_cur_predict_time;
+				point_best_predict_time = point_cur_predict_time;
+				if (cur_percent_solved_in_time < MIN_PERCENT_NO_MULTISAMPLE) {
+					candidate_point.center = IntVecToBitsetPredict(var_choose_order);
+					candidate_point.sample_size = cnf_in_set_count * CHECK_ACCURACY_SAMPLE_SIZE_KOEF; // first recalculate vale of sample size
+					candidate_point.predict_value = point_cur_predict_time;
+					continue; // don't set as a BKV right now - a check is needed
+				}
 				point_best_solved_in_time = cur_solved_in_time;
 				point_best_time_limit     = cur_time_limit;
 			}
 		}
+	}
+
+	if (candidate_point.sample_size != 0) {
+		points_candidate_to_bkv.push_back(candidate_point);
+		point_best_predict_time = old_point_best_predict_time;
 	}
 	
 	solved_in_time_arr[i] = point_best_solved_in_time;
@@ -2158,7 +2174,7 @@ bool MPI_Predicter :: GetPredict()
 			cur_predict_time *= pow( 2.0, (double)cur_var_num );
 		}
 		else if ( te > 0.0 ) // here med_time_arr in (0,1)
-			cur_predict_time = getCurPredictTime( cur_var_num, cur_cnf_in_set_count, i );
+			cur_predict_time = getCurPredictTime(cur_var_num, cur_cnf_in_set_count, i, decomp_set_arr[i].var_choose_order);
 		
 		predict_time_arr[i] = cur_predict_time;
 		

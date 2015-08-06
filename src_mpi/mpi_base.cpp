@@ -533,11 +533,12 @@ bool MPI_Base :: ReadIntCNF()
 		   word_str;
 	bool IncorrectLine;
 	std::vector<int> :: iterator vec_it;
-
+    
+	std::cout << "Start of ReadIntCNF()" << std::endl;
 	if ( !ReadVarCount( ) ) {
 		std::cerr << "Error in ReadVarCount" << std::endl; return false;
 	}
-
+	
 	std::cout << "ReadVarCount() done" << std::endl;
 
 	clause_array.resize( clause_count );

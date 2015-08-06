@@ -285,6 +285,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.max_solving_time_koef = 0;
 	myflags.no_increm = false;
 	myflags.te = 0;
+	myflags.predict_to = 0;
 	k = 0;
 	
 	// check every input parameters for flag existing

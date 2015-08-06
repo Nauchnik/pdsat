@@ -227,6 +227,8 @@ void Solver::resetIntervalVarActivity(int var_from, int var_to)
 			activity[i] = 0.0;
 		for (int v = var_from; v < var_to; ++v)
 			varBumpActivity(v, start_activity);
+		var_decay = 1;
+		clause_decay = 1;
 	}
 }
 
