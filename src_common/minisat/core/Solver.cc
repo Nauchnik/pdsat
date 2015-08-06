@@ -284,9 +284,6 @@ bool Solver::addClause_(vec<Lit>& ps)
     return true;
 }
 
-bool Solver::addMandatoryVar(const Lit& p)
-{
-}
 
 
 void Solver::attachClause(CRef cr) {
@@ -948,6 +945,7 @@ lbool Solver::solve_()
     // Search:
     int curr_restarts = 0;
     const int start_watch_scans = watch_scans;
+    //printf("\n START SCANS: %i", start_watch_scans);
     while (status == l_Undef){
         int n=nFreeVars();
         if(n>280 && n < 1000 || n <220) luby_restart=0;
