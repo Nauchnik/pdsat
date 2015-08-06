@@ -129,7 +129,6 @@ public:
 	double prev_area_best_predict_time;
 	double predict_time_limit_step;
 	unsigned points_to_check;
-	unsigned 
 	
 	Problem cnf;
 	//unsigned prev_best_decomp_set_power;
