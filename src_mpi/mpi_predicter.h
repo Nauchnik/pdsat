@@ -24,7 +24,7 @@ const int      PREDICT_TIMES_COUNT         = 6;
 const int      TS2_POINTS_COUNT            = 100;
 const unsigned MAX_POW_VALUE               = 1000;
 const double   MIN_PERCENT_SOLVED_IN_TIME  = 0.0000001;
-const double   MIN_PERCENT_NO_MULTISAMPLE  = 0.1;
+const double   MIN_PERCENT_NO_MULTISAMPLE  = 0.9;
 const unsigned CHECK_ACCURACY_SAMPLE_SIZE_KOEF = 2;
 
 struct unchecked_area
