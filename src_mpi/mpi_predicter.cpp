@@ -1940,7 +1940,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 			   << " " << points_candidate_to_bkv.size();
 	if ( deep_predict == 5 ) 
 		graph_file << " " << cur_temperature;
-	graph_file << " time_limit=" << best_time_limit << std::endl;
+	graph_file << " time_limit=" << best_time_limit;
 	
 	if ( ( IsFirstStage ) && ( !isFirstPoint ) && ( best_var_num > old_best_var_num ) ) {
 		IsFirstStage = false;
@@ -1948,7 +1948,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		std::cout << "best_var_num "      << best_var_num      << std::endl;
 		std::cout << "best_predict_time " << best_predict_time << std::endl;
 		sstream << std::endl << " *** First stage done ***" << best_predict_time << std::endl;
-		graph_file << " first stage done";
+		graph_file << " first stage done" << std::endl;
 	}
 	
 	graph_file.close();
