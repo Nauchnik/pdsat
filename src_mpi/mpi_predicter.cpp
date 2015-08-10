@@ -2041,8 +2041,8 @@ double MPI_Predicter::getCurPredictTime(unsigned cur_var_num, int cur_cnf_in_set
 	std::vector<double> predict_times;
 	predict_times.resize( predict_time_limites.size() );
 	double cur_percent_solved_in_time;
-	point_candidate_to_bkv candidate_point;
-	candidate_point.sample_size = 0; // if not BKV, then it will stay as 0
+	//point_candidate_to_bkv candidate_point;
+	//candidate_point.sample_size = 0; // if not BKV, then it will stay as 0
 	double old_point_best_predict_time = point_best_predict_time;
 	
 	//unsigned index = 0, point_best_index = 0;
@@ -2060,22 +2060,22 @@ double MPI_Predicter::getCurPredictTime(unsigned cur_var_num, int cur_cnf_in_set
 			point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
 			if ( point_cur_predict_time < point_best_predict_time ) {
 				point_best_predict_time = point_cur_predict_time;
-				if (cur_percent_solved_in_time < MIN_PERCENT_NO_MULTISAMPLE) {
+				/*if (cur_percent_solved_in_time < MIN_PERCENT_NO_MULTISAMPLE) {
 					candidate_point.center = IntVecToBitsetPredict(var_choose_order);
 					candidate_point.sample_size = cnf_in_set_count;
 					candidate_point.predict_value = point_cur_predict_time;
 					continue; // don't set as a BKV right now - a check is needed
-				}
+				}*/
 				point_best_solved_in_time = cur_solved_in_time;
 				point_best_time_limit     = cur_time_limit;
 			}
 		}
 	}
 	
-	if (candidate_point.sample_size != 0) {
+	/*if (candidate_point.sample_size != 0) {
 		points_candidate_to_bkv.push_back(candidate_point);
 		point_best_predict_time = old_point_best_predict_time; // get back to previous bkv
-	}
+	}*/
 	
 	solved_in_time_arr[i] = point_best_solved_in_time;
 	time_limit_arr[i]     = point_best_time_limit;
