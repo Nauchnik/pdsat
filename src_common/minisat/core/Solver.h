@@ -43,7 +43,7 @@ public:
 	// added pdsat
 	int max_nof_restarts; // restarts limit
 	double max_solving_time; // limit CPU time
-	int max_nof_watch_scans; // limit of wathes scans
+	long long max_nof_watch_scans; // limit of wathes scans
 	double start_solving_time;
 	double start_activity;
 	int core_len;
@@ -61,9 +61,9 @@ public:
 	bool addProblem(const Problem& p);
     bool addProblem_modified(const Problem& p, int num_of_variables);
 	double getEstimation();
-	unsigned long long watch_scans;
+	long long watch_scans;
 	std::string evaluation_type;
-
+	
     // Constructor/Destructor:
     //
     Solver();

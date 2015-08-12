@@ -941,10 +941,10 @@ lbool Solver::solve_()
     }
 
 	double cur_time = 0.0;
-
+	
     // Search:
     int curr_restarts = 0;
-    const int start_watch_scans = watch_scans;
+    const long long start_watch_scans = watch_scans;
     //printf("\n START SCANS: %i", start_watch_scans);
     while (status == l_Undef){
         int n=nFreeVars();
