@@ -36,8 +36,10 @@ The patch includes:
 #include "core/Solver.h"
 #include "utils/System.h"
 
-using namespace Minisat;
+#define LITERAL_BLOOD_SCENT_KOEFF 2
 
+using namespace Minisat;
+int curr_restarts = 0;
 //=================================================================================================
 // Options:
 
@@ -569,6 +571,8 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
     trail.push_(p);
+    //scans_log.push_back(watch_scans);
+    //levels_log.push_back(decisionLevel());
 }
 
 
@@ -780,6 +784,9 @@ lbool Solver::search(int nof_conflicts)
 
             if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
+    		if (decisionLevel()!=0 || curr_restarts!=0) 
+			max_nof_watch_scans*=LITERAL_BLOOD_SCENT_KOEFF;
+
             }else{
 				/*if ( print_learnts ) { // added pdsat
 				for ( unsigned i = 0; i < learnt_clause.size(); i++ ) {
@@ -941,9 +948,8 @@ lbool Solver::solve_()
     }
 
 	double cur_time = 0.0;
-
     // Search:
-    int curr_restarts = 0;
+    curr_restarts=0;
     const int start_watch_scans = watch_scans;
     //printf("\n START SCANS: %i", start_watch_scans);
     while (status == l_Undef){
