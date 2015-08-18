@@ -571,8 +571,13 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
     trail.push_(p);
+<<<<<<< HEAD
     //scans_log.push_back(watch_scans);
     //levels_log.push_back(decisionLevel());
+=======
+    scans_log.push_back(watch_scans);
+    levels_log.push_back(decisionLevel());
+>>>>>>> 411582e6b583ead4c9696f9acde3663ca29303f8
 }
 
 
