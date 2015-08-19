@@ -784,8 +784,9 @@ lbool Solver::search(int nof_conflicts)
 
             if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
-    		if (decisionLevel()!=0 || curr_restarts!=0) 
-			max_nof_watch_scans*=LITERAL_BLOOD_SCENT_KOEFF;
+
+    			if (decisionLevel()!=0 || curr_restarts!=0) 
+					max_nof_watch_scans*=LITERAL_BLOOD_SCENT_KOEFF;
 
             }else{
 				/*if ( print_learnts ) { // added pdsat
