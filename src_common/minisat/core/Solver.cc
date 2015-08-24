@@ -784,11 +784,16 @@ lbool Solver::search(int nof_conflicts)
 
             if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
+<<<<<<< HEAD
     		if (decisionLevel()!=0 || curr_restarts!=0) {
 			//max_nof_watch_scans*=LITERAL_BLOOD_SCENT_KOEFF;
 			scans_log.push_back(watch_scans);
 		}
+=======
+>>>>>>> 0b25ecae2ce63d7327f0be7a709912e6c34679f6
 
+    			if (decisionLevel()!=0 || curr_restarts!=0) 
+					max_nof_watch_scans*=LITERAL_BLOOD_SCENT_KOEFF;
             }else{
 				/*if ( print_learnts ) { // added pdsat
 				for ( unsigned i = 0; i < learnt_clause.size(); i++ ) {
