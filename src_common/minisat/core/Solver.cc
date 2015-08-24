@@ -36,7 +36,7 @@ The patch includes:
 #include "core/Solver.h"
 #include "utils/System.h"
 
-#define LITERAL_BLOOD_SCENT_KOEFF 2
+#define LITERAL_BLOOD_SCENT_KOEFF 1.5
 
 using namespace Minisat;
 int curr_restarts = 0;
@@ -784,8 +784,10 @@ lbool Solver::search(int nof_conflicts)
 
             if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
-    		if (decisionLevel()!=0 || curr_restarts!=0) 
-			max_nof_watch_scans*=LITERAL_BLOOD_SCENT_KOEFF;
+    		if (decisionLevel()!=0 || curr_restarts!=0) {
+			//max_nof_watch_scans*=LITERAL_BLOOD_SCENT_KOEFF;
+			scans_log.push_back(watch_scans);
+		}
 
             }else{
 				/*if ( print_learnts ) { // added pdsat
@@ -798,7 +800,7 @@ lbool Solver::search(int nof_conflicts)
 				}*/
                 CRef cr = ca.alloc(learnt_clause, true);
                 learnts.push(cr);
-                attachClause(cr);
+                //attachClause(cr);
                 //claBumpActivity(ca[cr]);
                 ca[cr].activity() = LBD(ca[cr]);
                 uncheckedEnqueue(learnt_clause[0], cr);
@@ -863,6 +865,8 @@ lbool Solver::search(int nof_conflicts)
 
             // Increase decision level and enqueue 'next'
             newDecisionLevel();
+            levels_log.push_back(decisionLevel());
+            //scans_log.push_back(watch_scans);
             uncheckedEnqueue(next);
         }
     }
@@ -953,6 +957,7 @@ lbool Solver::solve_()
     const int start_watch_scans = watch_scans;
     //printf("\n START SCANS: %i", start_watch_scans);
     while (status == l_Undef){
+	    clearDB(); // !!! VADER MOD !!!
         int n=nFreeVars();
         if(n>280 && n < 1000 || n <220) luby_restart=0;
         if( n>1000 && (int)max_learnts <= 391879 && ((conflicts/30000)%2 || n<4000)) bitN++;

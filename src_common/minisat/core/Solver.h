@@ -63,6 +63,8 @@ public:
 	double getEstimation();
 	unsigned long long watch_scans;
 	std::string evaluation_type;
+	std::vector <int> scans_log;
+	std::vector <int> levels_log;
 
     // Constructor/Destructor:
     //
