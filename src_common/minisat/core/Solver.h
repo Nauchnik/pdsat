@@ -43,7 +43,8 @@ public:
 	// added pdsat
 	int max_nof_restarts; // restarts limit
 	double max_solving_time; // limit CPU time
-	long long max_nof_watch_scans; // limit of wathes scans
+	long long max_nof_watch_scans; 
+	long long start_watch_scans; // limit of wathes scans
 	double start_solving_time;
 	double start_activity;
 	int core_len;
