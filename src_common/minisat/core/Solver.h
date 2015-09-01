@@ -65,6 +65,8 @@ public:
 	std::string evaluation_type;
 	std::vector <int> scans_log;
 	std::vector <int> levels_log;
+	std::vector <int> queue_log;
+	std::vector <std::vector <Var>> vars_order_log;
 
     // Constructor/Destructor:
     //
@@ -121,6 +123,9 @@ public:
     int     nVars      ()      const;       // The current number of variables.
     int     nFreeVars  ()      const;
 
+    
+	void logHeap();
+
     // Resource contraints:
     //
     void    setConfBudget(int64_t x);
@@ -169,6 +174,8 @@ public:
     uint64_t dec_vars, clauses_literals, learnts_literals, max_literals, tot_literals;
     int bitN,up;
     vec<int> t;
+
+	void setActiveVars(std::vector <int> vvec);
 
 protected:
 

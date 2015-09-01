@@ -571,8 +571,9 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
     trail.push_(p);
-    //scans_log.push_back(watch_scans);
-    //levels_log.push_back(decisionLevel());
+    scans_log.push_back(watch_scans);
+    levels_log.push_back(decisionLevel());
+    queue_log.push_back(trail.size());
 }
 
 
@@ -746,6 +747,20 @@ bool Solver::simplify()
 }
 
 
+// VADER MOD
+void Solver::logHeap(){
+    	std::vector <Var> vars;
+    	const int len = 25;
+	for (int i=0; i<len;++i)
+    		vars.push_back(order_heap.removeMin());
+
+	vars_order_log.push_back(vars);
+	for (int i=0; i<len;++i){
+		insertVarOrder(vars.back());
+		vars.pop_back();
+	}
+}
+
 /*_________________________________________________________________________________________________
 |
 |  search : (nof_conflicts : int) (params : const SearchParams&)  ->  [lbool]
@@ -786,7 +801,7 @@ lbool Solver::search(int nof_conflicts)
                 uncheckedEnqueue(learnt_clause[0]);
     		if (decisionLevel()!=0 || curr_restarts!=0) {
 			//max_nof_watch_scans*=LITERAL_BLOOD_SCENT_KOEFF;
-			scans_log.push_back(watch_scans);
+			//scans_log.push_back(watch_scans);
 		}
 
             }else{
@@ -800,7 +815,8 @@ lbool Solver::search(int nof_conflicts)
 				}*/
                 CRef cr = ca.alloc(learnt_clause, true);
                 learnts.push(cr);
-                //attachClause(cr);
+                attachClause(cr);
+		// VADER MOD
                 //claBumpActivity(ca[cr]);
                 ca[cr].activity() = LBD(ca[cr]);
                 uncheckedEnqueue(learnt_clause[0], cr);
@@ -827,6 +843,8 @@ lbool Solver::search(int nof_conflicts)
                 // Reached bound on number of conflicts:
                 progress_estimate = progressEstimate();
                 cancelUntil(0);
+		// VADER MOD
+		rebuildOrderHeap(); logHeap();
                 return l_Undef; }
 
             // Simplify the set of problem clauses:
@@ -865,8 +883,6 @@ lbool Solver::search(int nof_conflicts)
 
             // Increase decision level and enqueue 'next'
             newDecisionLevel();
-            levels_log.push_back(decisionLevel());
-            //scans_log.push_back(watch_scans);
             uncheckedEnqueue(next);
         }
     }
@@ -915,6 +931,14 @@ static double luby(double y, int x){
     return pow(y, seq);
 }
 
+void Solver::setActiveVars(std::vector <int> vvec){
+	for (int i=0; i<vvec.size(); ++i)
+		varBumpActivity(vvec[i]-1,var_inc*(1<<(vvec.size()-i)));
+	rebuildOrderHeap();
+}
+
+
+
 // NOTE: assumptions passed in member-variable 'assumptions'.
 lbool Solver::solve_()
 {
@@ -957,7 +981,8 @@ lbool Solver::solve_()
     const int start_watch_scans = watch_scans;
     //printf("\n START SCANS: %i", start_watch_scans);
     while (status == l_Undef){
-	    clearDB(); // !!! VADER MOD !!!
+	    //clearDB(); // !!! VADER MOD !!!
+	   
         int n=nFreeVars();
         if(n>280 && n < 1000 || n <220) luby_restart=0;
         if( n>1000 && (int)max_learnts <= 391879 && ((conflicts/30000)%2 || n<4000)) bitN++;
