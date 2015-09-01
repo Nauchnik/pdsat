@@ -1904,14 +1904,14 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	//if ( ( !IsFirstStage ) || ( record_count == 1 ) ) // don't write in first stage - it's expensive
 	WritePredictToFile( 0, 0 );
 	predict_file_name = "predict";
-	
+		
 	std::ofstream graph_file, var_activity_file;
 	if ( ( isFirstPoint ) && ( ts_strategy != 3 ) ) {
 		graph_file.open( "graph_file", std::ios_base::out ); // erase info from previous launches 
 		if ( te == 0.0 )
 			graph_file << "# best_var_num best_predict_time best_sum_time cnf_in_set_count last_predict_record_time current_predict_time";
 		else
-			graph_file << "# best_var_num best_predict_time solved_in_time cnf_in_set_count last_predict_record_time current_predict_time";
+			graph_file << "# best_var_num best_predict_time solved_in_time cnf_in_set_count last_predict_record_time current_predict_time points_candidate_to_bkv.size()";
 		if ( deep_predict == 5 ) // simulated annealing
 			graph_file << " cur_temperature";
 		graph_file << std::endl;
@@ -1936,19 +1936,21 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		graph_file << best_sum_time;
 	else
 		graph_file << best_solved_in_time;
-	graph_file << " " << best_cnf_in_set_count << " " << last_predict_record_time << " " << current_predict_time;
+	graph_file << " " << best_cnf_in_set_count << " " << last_predict_record_time << " " << current_predict_time 
+			   << " " << points_candidate_to_bkv.size();
 	if ( deep_predict == 5 ) 
 		graph_file << " " << cur_temperature;
-
+	graph_file << " time_limit=" << best_time_limit;
+	
 	if ( ( IsFirstStage ) && ( !isFirstPoint ) && ( best_var_num > old_best_var_num ) ) {
 		IsFirstStage = false;
 		std::cout << "IsFirstStage "      << IsFirstStage      << std::endl;
 		std::cout << "best_var_num "      << best_var_num      << std::endl;
 		std::cout << "best_predict_time " << best_predict_time << std::endl;
 		sstream << std::endl << " *** First stage done ***" << best_predict_time << std::endl;
-		graph_file << " first stage done";
+		graph_file << " first stage done" << std::endl;
 	}
-	graph_file << " time_limit=" << best_time_limit << std::endl;
+	
 	graph_file.close();
 	
 	if (!isSolverSystemCalling) {
@@ -2039,10 +2041,10 @@ double MPI_Predicter::getCurPredictTime(unsigned cur_var_num, int cur_cnf_in_set
 	std::vector<double> predict_times;
 	predict_times.resize( predict_time_limites.size() );
 	double cur_percent_solved_in_time;
-	point_candidate_to_bkv candidate_point;
-	candidate_point.sample_size = 0; // if not BKV, then it will stay as 0
+	//point_candidate_to_bkv candidate_point;
+	//candidate_point.sample_size = 0; // if not BKV, then it will stay as 0
 	double old_point_best_predict_time = point_best_predict_time;
-
+	
 	//unsigned index = 0, point_best_index = 0;
 	for ( auto &cur_time_limit : predict_time_limites ) {
 		//ofile << cur_time_limit << " ";
@@ -2058,22 +2060,22 @@ double MPI_Predicter::getCurPredictTime(unsigned cur_var_num, int cur_cnf_in_set
 			point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
 			if ( point_cur_predict_time < point_best_predict_time ) {
 				point_best_predict_time = point_cur_predict_time;
-				if (cur_percent_solved_in_time < MIN_PERCENT_NO_MULTISAMPLE) {
+				/*if (cur_percent_solved_in_time < MIN_PERCENT_NO_MULTISAMPLE) {
 					candidate_point.center = IntVecToBitsetPredict(var_choose_order);
-					candidate_point.sample_size = cnf_in_set_count * CHECK_ACCURACY_SAMPLE_SIZE_KOEF; // first recalculate vale of sample size
+					candidate_point.sample_size = cnf_in_set_count;
 					candidate_point.predict_value = point_cur_predict_time;
 					continue; // don't set as a BKV right now - a check is needed
-				}
+				}*/
 				point_best_solved_in_time = cur_solved_in_time;
 				point_best_time_limit     = cur_time_limit;
 			}
 		}
 	}
-
-	if (candidate_point.sample_size != 0) {
+	
+	/*if (candidate_point.sample_size != 0) {
 		points_candidate_to_bkv.push_back(candidate_point);
-		point_best_predict_time = old_point_best_predict_time;
-	}
+		point_best_predict_time = old_point_best_predict_time; // get back to previous bkv
+	}*/
 	
 	solved_in_time_arr[i] = point_best_solved_in_time;
 	time_limit_arr[i]     = point_best_time_limit;

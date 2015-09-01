@@ -786,7 +786,8 @@ lbool Solver::search(int nof_conflicts)
 	if (problem_type == "diag")
 		reduceDB();
 
-    for (;;){
+    for (;;)
+	if ((watch_scans-start_watch_scans)>=max_nof_watch_scans) return l_Undef;
         CRef confl = propagate();
         if (confl != CRef_Undef){
             // CONFLICT
@@ -976,9 +977,16 @@ lbool Solver::solve_()
     }
 
 	double cur_time = 0.0;
+<<<<<<< HEAD
     // Search:
     curr_restarts=0;
     const int start_watch_scans = watch_scans;
+=======
+	
+    // Search:
+    int curr_restarts = 0;
+    start_watch_scans = watch_scans;
+>>>>>>> master
     //printf("\n START SCANS: %i", start_watch_scans);
     while (status == l_Undef){
 	    //clearDB(); // !!! VADER MOD !!!
