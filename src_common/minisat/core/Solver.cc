@@ -37,6 +37,8 @@ The patch includes:
 #include "utils/System.h"
 
 #define LITERAL_BLOOD_SCENT_KOEFF 1.5
+//#define ROKK
+#define DLBD
 
 using namespace Minisat;
 int curr_restarts = 0;
@@ -106,6 +108,10 @@ Solver::Solver() :
   , order_heap         (VarOrderLt(activity))
   , progress_estimate  (0)
   , remove_satisfied   (true)
+#ifdef ROKK
+  , inc(10000)
+  , lim(30000)
+#endif
 
     // Resource constraints:
     //
@@ -638,7 +644,14 @@ CRef Solver::propagate()
                     *j++ = *i++;
             }else
                 uncheckedEnqueue(first, cr);
+#ifdef DLBD
             if(c.learnt()) c.activity() = LBD(c);
+#endif
+#ifdef ROKK
+            c.o(0, cR(c));
+            if(c.learnt()) c.activity() = (uint32_t) conflicts;
+#endif
+
 
 		NextClause:;
 		watch_scans++; // added
@@ -664,8 +677,14 @@ struct reduceDB_lt {
     ClauseAllocator& ca;
     reduceDB_lt(ClauseAllocator& ca_) : ca(ca_) {}
     bool operator () (CRef x, CRef y) { 
+#ifdef DLBD
         return ca[x].size() > 2 && (ca[y].size() == 2 || ca[x].activity() > ca[y].activity() || (ca[x].activity() == ca[y].activity() && ca[x].size() > ca[y].size())); } 
+#endif
+#ifdef ROKK
+        return ca[x].size() > 2 && (ca[y].size() == 2 || ((ca[x].activity() != ca[y].activity() && ca[x].activity() > ca[y].activity()) || (ca[x].activity() == ca[y].activity() && ca[x].size() > ca[y].size()))); }
+#endif
 };
+#ifdef DLBD
 void Solver::reduceDB()
 {
     int     i, j;
@@ -689,6 +708,34 @@ void Solver::reduceDB()
     if(max_learnts < 300000) max_learnts *= 1.08;
     else max_learnts += 5000;
 }
+#endif
+#ifdef ROKK
+void Solver::reduceDB()
+{
+    int     i, j;
+    double  extra_lim = cla_inc / learnts.size();    // Remove any clause below this activity
+//    sort(learnts, reduceDB_lt(ca));
+    // Don't delete binary or locked clauses. From the rest, delete clauses from the first half
+    // and clauses with activity smaller than 'extra_lim':
+    for (i = j = 0; i < learnts.size(); i++){
+        Clause& c = ca[learnts[i]];
+        uint64_t b = conflicts - c.activity();
+        if (c.size() > 2 && !locked(c))
+        	if((c.i() <= 2 &&
+        			(b > 200000 || (c.n() == 3 && b > 150000) || (c.n() > 3 && b > 100000)))
+        		|| (c.i() == 3 &&
+        				(b > 110000 || (c.n() == 3 && b > 75000) || (c.n() > 3 && b > 65000)))
+        		|| (c.i() > 3 &&
+        				(b > 75000 || (c.n() > 2 && b > 55000) || (c.n() > 7 && b > 30000)))
+        		)
+            removeClause(learnts[i]);
+        else
+            learnts[j++] = learnts[i];
+    }
+    learnts.shrink(i - j);
+    checkGarbage();
+}
+#endif
 
 
 void Solver::removeSatisfied(vec<CRef>& cs)
@@ -786,7 +833,7 @@ lbool Solver::search(int nof_conflicts)
 	if (problem_type == "diag")
 		reduceDB();
 
-    for (;;)
+    for (;;){
 	if ((watch_scans-start_watch_scans)>=max_nof_watch_scans) return l_Undef;
         CRef confl = propagate();
         if (confl != CRef_Undef){
@@ -817,9 +864,13 @@ lbool Solver::search(int nof_conflicts)
                 CRef cr = ca.alloc(learnt_clause, true);
                 learnts.push(cr);
                 attachClause(cr);
-		// VADER MOD
                 //claBumpActivity(ca[cr]);
+#ifdef DLBD
                 ca[cr].activity() = LBD(ca[cr]);
+#endif
+#ifdef ROKK
+                ca[cr].o(cR(ca[cr]), cR(ca[cr]));
+#endif
                 uncheckedEnqueue(learnt_clause[0], cr);
             }
 
@@ -844,17 +895,24 @@ lbool Solver::search(int nof_conflicts)
                 // Reached bound on number of conflicts:
                 progress_estimate = progressEstimate();
                 cancelUntil(0);
-		// VADER MOD
-		rebuildOrderHeap(); logHeap();
                 return l_Undef; }
 
             // Simplify the set of problem clauses:
             if (decisionLevel() == 0 && !simplify())
                 return l_False;
 
+#ifdef DLBD
             if (learnts.size()-nAssigns() >= max_learnts)
                 // Reduce the set of learnt clauses:
                 reduceDB();
+#endif
+#ifdef ROKK
+            if(conflicts > lim){
+                // Reduce the set of learnt clauses:
+                reduceDB();
+                lim = conflicts + inc;
+            }
+#endif
 
             Lit next = lit_Undef;
             while (decisionLevel() < assumptions.size()){
@@ -935,6 +993,7 @@ static double luby(double y, int x){
 void Solver::setActiveVars(std::vector <int> vvec){
 	for (int i=0; i<vvec.size(); ++i)
 		varBumpActivity(vvec[i]-1,var_inc*(1<<(vvec.size()-i)));
+		//varBumpActivity(vvec[i]-1,var_inc*(vvec.size()-i));
 	rebuildOrderHeap();
 }
 
@@ -968,6 +1027,12 @@ lbool Solver::solve_()
     learntsize_adjust_confl   = learntsize_adjust_start_confl;
     learntsize_adjust_cnt     = (int)learntsize_adjust_confl;
     lbool   status            = l_Undef;
+#ifdef ROKK
+    if(max_learnts < lim){
+        lim = (max_learnts/2 < 5000) ? 5000 : (uint64_t)(max_learnts/2);
+        inc /= 2;
+    }
+#endif
 
     if (verbosity >= 1){
         printf("c ============================[ Search Statistics ]==============================\n");
@@ -977,16 +1042,10 @@ lbool Solver::solve_()
     }
 
 	double cur_time = 0.0;
-<<<<<<< HEAD
-    // Search:
-    curr_restarts=0;
-    const int start_watch_scans = watch_scans;
-=======
 	
     // Search:
     int curr_restarts = 0;
     start_watch_scans = watch_scans;
->>>>>>> master
     //printf("\n START SCANS: %i", start_watch_scans);
     while (status == l_Undef){
 	    //clearDB(); // !!! VADER MOD !!!
@@ -1044,7 +1103,9 @@ lbool Solver::solve_()
 #endif
 		
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
+	//if (curr_restarts>0) rest_base=10000;
         status = search(rest_base * restart_first);
+	if (status!=l_True){ rebuildOrderHeap(); logHeap();}// VADER MOD
         if (!withinBudget()) break;
         curr_restarts++;
     }
@@ -1057,6 +1118,7 @@ lbool Solver::solve_()
         // Extend & copy model:
         model.growTo(nVars());
         for (int i = 0; i < nVars(); i++) model[i] = value(i);
+ 	cancelUntil(0); rebuildOrderHeap(); logHeap();// VADER MOD
     }else if (status == l_False && conflict.size() == 0)
         ok = false;
 

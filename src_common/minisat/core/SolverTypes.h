@@ -126,7 +126,12 @@ class Clause {
         unsigned learnt    : 1;
         unsigned has_extra : 1;
         unsigned reloced   : 1;
-        unsigned size      : 27; }                            header;
+        //unsigned size      : 27; }                            header;
+	//ROKK begin
+        unsigned i         : 4;
+        unsigned n         : 4;
+        unsigned size      : 19; }                            header;
+	//ROKK end
     union { Lit lit; float act; uint32_t abs; CRef rel; } data[0];
 
     friend class ClauseAllocator;
@@ -178,6 +183,11 @@ public:
     Lit          operator [] (int i) const   { return data[i].lit; }
     operator const Lit* (void) const         { return (Lit*)data; }
 
+    // ROKK begin
+    int          i ()                         { return header.i;}
+    int          n ()                         { return header.n;}
+    void         o (int i, int x)                    { if(i > 0) header.i = i; header.n = x;}
+    // ROKK end
     float&       activity    ()              { assert(header.has_extra); return data[header.size].act; }
     uint32_t     abstraction () const        { assert(header.has_extra); return data[header.size].abs; }
 

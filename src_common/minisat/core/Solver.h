@@ -64,15 +64,10 @@ public:
 	double getEstimation();
 	long long watch_scans;
 	std::string evaluation_type;
-<<<<<<< HEAD
 	std::vector <int> scans_log;
 	std::vector <int> levels_log;
 	std::vector <int> queue_log;
 	std::vector <std::vector <Var>> vars_order_log;
-
-=======
-	
->>>>>>> master
     // Constructor/Destructor:
     //
     Solver();
@@ -254,6 +249,9 @@ protected:
     int64_t             propagation_budget; // -1 means no budget.
     bool                asynch_interrupt;
 
+    uint64_t lim; // ROKK
+    int inc; // ROKK
+
     // Main internal methods:
     //
     void     insertVarOrder   (Var x);                                                 // Insert a variable in the decision order priority queue.
@@ -307,6 +305,21 @@ protected:
          }
          return x;
      }
+
+inline int cR(Clause& c){
+    int x = 0;
+    up++;
+    for(int k=0;k<c.size();k++){
+        int l = level(var(c[k]));
+        if(l == 0)
+            continue;
+        if(t[l] != up){
+            t[l] = up;
+            x++;
+        }
+    }
+    return x > 7 ? 8 : x;
+}
 
     // Static helpers:
     //
