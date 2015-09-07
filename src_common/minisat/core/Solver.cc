@@ -845,7 +845,7 @@ lbool Solver::search(int nof_conflicts)
 		reduceDB();
 
     for (;;){
-	if ((watch_scans-start_watch_scans)>=max_nof_watch_scans) return l_Undef;
+	if (max_nof_watch_scans && ((watch_scans-start_watch_scans)>=max_nof_watch_scans)) return l_Undef;
         CRef confl = propagate();
         if (confl != CRef_Undef){
             // CONFLICT
@@ -1074,7 +1074,7 @@ lbool Solver::solve_()
 #endif
 	if (((max_nof_restarts) && (curr_restarts >= max_nof_restarts)) ||
 		((max_solving_time > 0.0) && (cur_time >= max_solving_time)) ||
-		((max_nof_watch_scans) && ((watch_scans-start_watch_scans)>= max_nof_watch_scans))
+		(max_nof_watch_scans && ((max_nof_watch_scans) && ((watch_scans-start_watch_scans)>= max_nof_watch_scans)))
 		)
 	{
 		//progress_estimate = progressEstimate();
