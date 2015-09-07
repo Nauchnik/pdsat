@@ -165,6 +165,15 @@ void Solver::clearPolarity()
 		polarity[i] = true;
 	checkGarbage();
 }
+void Solver::resetActivity()
+{
+	for (int i=0; i<nVars(); i++){
+		activity[i]= (rnd_init_act ? drand(random_seed) * 0.00001 : 0);
+	}
+	var_decay = 1;
+	clause_decay = 1;
+}
+
 
 void Solver::clearParams()
 {
@@ -347,6 +356,9 @@ void Solver::cancelUntil(int level) {
             assigns [x] = l_Undef;
             if (phase_saving > 1 || (phase_saving == 1) && c > trail_lim.last())
                 polarity[x] = sign(trail[c]);
+	    else if (phase_saving < 0  && c > trail_lim.last())
+                polarity[x] = !sign(trail[c]);
+	    //VADER MOD
             insertVarOrder(x); }
         qhead = trail_lim[level];
         trail.shrink(trail.size() - trail_lim[level]);
@@ -797,12 +809,11 @@ bool Solver::simplify()
 // VADER MOD
 void Solver::logHeap(){
     	std::vector <Var> vars;
-    	const int len = 25;
-	for (int i=0; i<len;++i)
+	while (!order_heap.empty())
     		vars.push_back(order_heap.removeMin());
 
 	vars_order_log.push_back(vars);
-	for (int i=0; i<len;++i){
+	while (!vars.empty()){
 		insertVarOrder(vars.back());
 		vars.pop_back();
 	}
@@ -992,8 +1003,8 @@ static double luby(double y, int x){
 
 void Solver::setActiveVars(std::vector <int> vvec){
 	for (int i=0; i<vvec.size(); ++i)
-		varBumpActivity(vvec[i]-1,var_inc*(1<<(vvec.size()-i)));
-		//varBumpActivity(vvec[i]-1,var_inc*(vvec.size()-i));
+		//varBumpActivity(vvec[i]-1,var_inc*(1<<(vvec.size()-i)));
+		varBumpActivity(vvec[i]-1,0.0+0.001*(vvec.size()-i));
 	rebuildOrderHeap();
 }
 
@@ -1104,8 +1115,9 @@ lbool Solver::solve_()
 		
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
 	//if (curr_restarts>0) rest_base=10000;
+	if (curr_restarts==0) { rebuildOrderHeap(); logHeap();}// VADER MOD
         status = search(rest_base * restart_first);
-	if (status!=l_True){ rebuildOrderHeap(); logHeap();}// VADER MOD
+	//if (status!=l_True){ rebuildOrderHeap(); logHeap();}// VADER MOD
         if (!withinBudget()) break;
         curr_restarts++;
     }

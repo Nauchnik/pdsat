@@ -908,7 +908,8 @@ void MPI_Base::MakeSingleSatSample(
 		//state_vec.push_back(bool_rand(gen_local));
 		dummy.push(~mkLit(i, state_vec[i]));
 	}
-	Minisat::lbool ret = S->solveLimited( dummy );
+	//Minisat::lbool ret = S->solveLimited( dummy );
+	Minisat::lbool ret = S->solve();
 
 	if ( ret != l_True ) {
 		std::cerr << "in makeSatSample() ret != l_True" << std::endl;

@@ -56,6 +56,7 @@ public:
 	void clearDB();
 	void clearPolarity();
 	void clearParams();
+	void resetActivity();
 	void getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len );
 	void resetVarActivity();
 	void resetIntervalVarActivity( int var_from, int var_to );
