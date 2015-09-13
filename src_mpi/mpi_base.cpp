@@ -937,10 +937,18 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 		// make [sample_size] different pairs <register_state, keystream> via generating secret keys
 		std::cout << "file known_sat_sample is empty. making SAT sample" << std::endl;
 		
+		boost::random::mt19937 gen_known_vars;
+		const unsigned known_vars_seed= static_cast <unsigned > (std::time(NULL));
+
 		// generate randomly state of core variables
 		state_vec.resize( input_var_num );
 		for ( unsigned i=0; i < cnf_in_set_count; i++ ) {
+                        gen_known_vars.seed(known_vars_seed);
+                        for (int i=0;i<1000;i++) gen_known_vars;
+
 			for ( unsigned j=0; j < input_var_num; j++ )
+			        state_vec[j] = j < core_len ? bool_rand(gen): bool_rand(gen_known_vars) ;
+
 				state_vec[j] = bool_rand(gen);
 			state_vec_vec.push_back( state_vec );
 		}
