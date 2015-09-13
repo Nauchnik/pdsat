@@ -1179,7 +1179,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			}
 			if ( known_last_bits ) { // add some last known bits
 				for ( unsigned i=0; i < known_last_bits; i++ ) {
-					cur_var_ind = core_len - known_last_bits + i;
+					cur_var_ind = core_len + i;
 					dummy.push( (state_vec_vec[sat_sample_index][cur_var_ind]) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
 				}
 			}
