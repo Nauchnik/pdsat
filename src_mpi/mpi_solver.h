@@ -37,7 +37,7 @@ public:
 	bool ControlProcessSolve( std::vector<int> extern_var_choose_order, 
 		                      std::vector<std::vector<bool>> &interrupted_problems_var_values,
 							  std::vector<satisfying_assignment> &satisfying_assignments );
-	bool ComputeProcessSolve();
+	bool ComputeProcessSolve();	
 	
 	bool MPI_ConseqSolve( int argc, char **argv );
 	bool WriteTimeToFile( double whole_time_sec );
