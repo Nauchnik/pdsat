@@ -70,7 +70,7 @@ bool next_cartesian( std::vector<T> &vii, std::vector<int> &index_arr, T &cur_vi
 		// find last changable row to increase its value
 		unsigned last_changable = (unsigned)index_arr.size()-1;
 		while( last_changable != -1 ){
-			if( index_arr[last_changable] < vii[last_changable].size() - 1 )
+			if( index_arr[last_changable] < (int)vii[last_changable].size() - 1 )
 				break;
 			--last_changable;
 		}
