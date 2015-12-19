@@ -559,7 +559,7 @@ void latin_square :: MakeLatinValues( )
 	vector<char> cur_vec;
 	cur_vec.resize( (rows_count-1)*K );
 	values_checked = 0;
-	unsigned impossible_count=0;
+	unsigned long long impossible_count=0;
 	vector<int> index_arr;
 	unsigned k;
 	while( next_cartesian( row_values, index_arr, row_set ) ) {
