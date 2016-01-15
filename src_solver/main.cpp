@@ -135,6 +135,13 @@ int main(int argc, char* argv[])
         printf("\n"); }
     //printf(ret == l_True ? "SATISFIABLE\n" : ret == l_False ? "UNSATISFIABLE\n" : "INDETERMINATE\n");
 
+	if (ret == l_True)
+		printf("SAT\n");
+	else if (ret == l_False)
+		printf("UNSAT\n");
+	else
+		printf("INDET\n");
+
     if (res != NULL){
         if (ret == l_True){
             fprintf(res, "SAT\n");
