@@ -1,7 +1,7 @@
 #include "minisat22_wrapper.h"
 #include <iostream>
 
- void minisat22_wrapper :: readClause(StreamBuffer& in, vec<Lit>& lits) 
+void minisat22_wrapper :: readClause(StreamBuffer& in, vec<Lit>& lits) 
 {
     int     parsed_lit, var;
     lits.clear();
