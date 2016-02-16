@@ -21,7 +21,8 @@ MPI_Solver :: MPI_Solver( ) :
 	interrupted_count           ( 0 ),
 	finding_first_sat_time      ( 0 ),
 	total_start_time            ( 0 ),
-	no_increm                   ( false )
+	no_increm                   ( false ),
+	isIntegerVariables          ( false )
 {
 	for( unsigned i=0; i < SOLVING_TIME_LEN; ++i )
 		solving_times[i] = 0;
@@ -392,6 +393,7 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 	satisfying_assignment cur_satisfying_assignment;
 	std::cout << std::endl << "ControlProcessSolve is running" << std::endl;
 	std::cout << "solving_iteration_count " << solving_iteration_count << std::endl;
+	unsigned part_var_power;
 	
 	if ( solving_iteration_count == 0 ) {
 		if ( !ReadIntCNF() ) { // Read original CNF
@@ -434,11 +436,31 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 	}
 	std::cout << "part_mask_var_count " << part_mask_var_count << std::endl;
 
-	// get default count of tasks = power of part_mask_var_count
-	unsigned part_var_power = ( 1 << part_mask_var_count );
-	std::cout << "part_var_power " << part_var_power << std::endl;
-	// TODO add extended tasks counting
-	all_tasks_count = part_var_power;
+	if (isIntegerVariables) {
+		std::cout << "Integer Variables mode " << isIntegerVariables << std::endl;
+		unsigned reduced_variables = var_choose_order.size() / VARIABLES_EACH_INTEGER;
+		std::cout << "reduced_variables " << reduced_variables << std::endl;
+		all_tasks_count = pow(VARIABLES_EACH_INTEGER, reduced_variables);
+		std::vector<std::vector<int>> vii;
+		std::vector<int> index_arr;
+		std::vector<int> cur_vi;
+		cur_vi.resize(reduced_variables);
+		for (auto &x : cur_vi)
+			x = 0;
+		while (next_cartesian(vii, index_arr, cur_vi)) {
+			for (auto &x : cur_vi)
+				std::cout << x << " ";
+			std::cout << std::endl;
+		}
+	}
+	else {
+		// get default count of tasks = power of part_mask_var_count
+		part_var_power = (1 << part_mask_var_count);
+		std::cout << "part_var_power " << part_var_power << std::endl;
+		// TODO add extended tasks counting
+		all_tasks_count = part_var_power;
+	}
+	
 	std::cout << "all_tasks_count " << all_tasks_count << std::endl;
 	
 	if ( (int)all_tasks_count < corecount-1 ) {
@@ -704,7 +726,7 @@ bool MPI_Solver :: ComputeProcessSolve()
 			std::cout << "S->max_nof_watch_scans " << S->max_nof_watch_scans << std::endl;
 			std::cout << "before loop of recv tasks" << std::endl;
 		}
-			
+		
 		for (;;) {
 			// get index of current task
 			MPI_Recv( &current_task_index, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status );

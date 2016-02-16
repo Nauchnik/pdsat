@@ -5,6 +5,8 @@
 
 #include "mpi_base.h"
 
+const int VARIABLES_EACH_INTEGER = 20;
+
 struct satisfying_assignment
 {
 	std::string str;
@@ -32,6 +34,7 @@ public:
 	double prev_med_time_sum;
 	double max_solving_time_koef;
 	bool no_increm;
+	bool isIntegerVariables;
 	
 	bool MPI_Solve( int argc, char **argv );
 	bool ControlProcessSolve( std::vector<int> extern_var_choose_order, 

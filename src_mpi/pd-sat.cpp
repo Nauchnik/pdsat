@@ -39,6 +39,7 @@ struct Flags
 	double max_solving_time_koef;
 	bool no_increm;
 	double te; // for (ro es te) predict strategy
+	bool isIntegerVariables;
 };
 
 // prototypes
@@ -181,6 +182,7 @@ int main( int argc, char** argv )
 			mpi_s.evaluation_type = myflags.evaluation_type;
 		if (myflags.te > 0)
 			mpi_s.te = myflags.te;
+		mpi_s.isIntegerVariables = myflags.isIntegerVariables;
 		mpi_s.no_increm = myflags.no_increm;
 
 		mpi_s.verbosity		   = myflags.verbosity;
@@ -286,6 +288,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.no_increm = false;
 	myflags.te = 0;
 	myflags.predict_to = 0;
+	myflags.isIntegerVariables = false;
 	k = 0;
 	
 	// check every input parameters for flag existing
@@ -319,8 +322,10 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.max_nof_restarts = atoi( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-max_solving_time=", value ) )
 			myflags.max_solving_time = atof( value.c_str( ) );
-		else if ( hasPrefix_String( argv_string, "-max_solving_time_koef=", value ) )
-			myflags.max_solving_time_koef = atof( value.c_str( ) );
+		else if (hasPrefix_String(argv_string, "-max_solving_time_koef=", value))
+			myflags.max_solving_time_koef = atof(value.c_str());
+		else if (hasPrefix_String(argv_string, "-integer_variables=", value))
+			myflags.isIntegerVariables = true;
 		else if ( hasPrefix_String( argv_string, "-te=", value ) )
 			myflags.te = atof( value.c_str( ) );
 		//else if ( hasPrefix_String( argv_string, "-penalty=", value ) )
