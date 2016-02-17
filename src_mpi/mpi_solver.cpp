@@ -440,18 +440,22 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 		std::cout << "Integer Variables mode " << isIntegerVariables << std::endl;
 		unsigned reduced_variables = var_choose_order.size() / VARIABLES_EACH_INTEGER;
 		std::cout << "reduced_variables " << reduced_variables << std::endl;
-		all_tasks_count = pow(VARIABLES_EACH_INTEGER, reduced_variables);
 		std::vector<std::vector<int>> vii;
 		std::vector<int> index_arr;
 		std::vector<int> cur_vi;
-		cur_vi.resize(reduced_variables);
-		for (auto &x : cur_vi)
-			x = 0;
+		cur_vi.resize(VARIABLES_EACH_INTEGER);
+		for (unsigned i = 0; i < VARIABLES_EACH_INTEGER; i++)
+			cur_vi[i] = i;
+		vii.resize(reduced_variables);
+		for (auto &x : vii)
+			x = cur_vi;
+		std::cout << "next_cartesian variants" << std::endl;
 		while (next_cartesian(vii, index_arr, cur_vi)) {
 			for (auto &x : cur_vi)
 				std::cout << x << " ";
 			std::cout << std::endl;
 		}
+		all_tasks_count = pow(VARIABLES_EACH_INTEGER, reduced_variables);
 	}
 	else {
 		// get default count of tasks = power of part_mask_var_count
