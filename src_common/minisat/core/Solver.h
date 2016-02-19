@@ -91,6 +91,7 @@ public:
     bool    solve        (Lit p);                   // Search for a model that respects a single assumption.
     bool    solve        (Lit p, Lit q);            // Search for a model that respects two assumptions.
     bool    solve        (Lit p, Lit q, Lit r);     // Search for a model that respects three assumptions.
+	uint64_t propagateByAssumptions(const vec<Lit>& assumps);
     bool    okay         () const;                  // FALSE means solver is in a conflicting state
 
     void    toDimacs     (FILE* f, const vec<Lit>& assumps);            // Write CNF to file in DIMACS-format.

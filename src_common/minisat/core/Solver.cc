@@ -905,6 +905,37 @@ static double luby(double y, int x){
     return pow(y, seq);
 }
 
+// calculate a number of variables values determined by BCP with a given assumptions
+uint64_t Solver::propagateByAssumptions(const vec<Lit>& assumps)
+{
+	budgetOff();
+	assumps.copyTo(assumptions);
+	// make new decision level for every assumption
+	Lit next = lit_Undef;
+	while (decisionLevel() < assumptions.size()) {
+		// Perform user provided assumption:
+		Lit p = assumptions[decisionLevel()];
+		if (value(p) == l_True) {
+			// Dummy decision level:
+			newDecisionLevel();
+		}
+		else if (value(p) == l_False) {
+			analyzeFinal(~p, conflict);
+			return -1; // conflict with some already determined variable value
+		}
+		else {
+			next = p;
+			break;
+		}
+	}
+	// calculate only for current assumptions
+	propagations = 0;
+	propagate();
+	// go back to 0 level
+	cancelUntil(0);
+	return propagations;
+}
+
 // NOTE: assumptions passed in member-variable 'assumptions'.
 lbool Solver::solve_()
 {
