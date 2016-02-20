@@ -494,8 +494,11 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 	}
 
 	values_arr.resize(all_tasks_count);
-	for (unsigned i = 0; i < values_arr.size(); ++i)
+	for (unsigned i = 0; i < values_arr.size(); ++i) {
 		values_arr[i].resize(FULL_MASK_LEN);
+		for (unsigned j = 0; j < values_arr[i].size(); ++j)
+			values_arr[i][j] = 0;
+	}
 	
 	if (isIntegerVariables)
 		makeIntegerMasks(cartesian_elements);

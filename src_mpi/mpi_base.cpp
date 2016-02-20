@@ -299,6 +299,7 @@ bool MPI_Base::getValuesFromIntegers(std::vector<std::vector<int>> cartesian_ele
 			if (k == cartesian_elements[cartesian_element_index].size())
 				break;
 			for (unsigned j = 0; j < UINT_LEN; j++) {
+				cur_var_index = i*UINT_LEN + j;
 				mask = (1 << j);
 				if (cur_var_index == cur_integer_index) {
 					values_arr[cartesian_element_index][i] += mask;
@@ -307,7 +308,6 @@ bool MPI_Base::getValuesFromIntegers(std::vector<std::vector<int>> cartesian_ele
 						break;
 					cur_integer_index = cartesian_elements[cartesian_element_index][k];
 				}
-				cur_var_index++;
 			} // for( j = 0; j < UINT_LEN; j++ )
 		}
 	} // for( lint = 0; lint < part_var_power; lint++ )

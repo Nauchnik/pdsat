@@ -60,11 +60,11 @@ int main( int argc, char** argv )
 	char *input_cnf_name;
 	
 #ifdef _DEBUG
-	//TestSolve( );
-	TestDeepPredict( );
-	//TestSolveQAP( );
-	//TestPBSolve( );
-	//TestSATSolve( );
+	TestSolve();
+	TestDeepPredict();
+	//TestSolveQAP();
+	//TestPBSolve();
+	//TestSATSolve();
 #endif
 
 	Flags myflags;
@@ -453,6 +453,25 @@ void TestSolve()
 	unsigned int part_mask[FULL_MASK_LEN];
 	unsigned int value[FULL_MASK_LEN];
 	MPI_Solver mpi_s;
+
+	std::vector<std::vector<int>> cartesian_elements;
+	cartesian_elements.resize(1);
+	cartesian_elements[0].resize(3);
+	cartesian_elements[0][0] = 0;
+	cartesian_elements[0][1] = 20;
+	cartesian_elements[0][2] = 40;
+	mpi_s.var_choose_order.resize(60);
+	for (unsigned i = 0; i < mpi_s.var_choose_order.size(); i++)
+		mpi_s.var_choose_order[i] = i + 1;
+	mpi_s.all_tasks_count = cartesian_elements.size();
+	mpi_s.values_arr.resize(mpi_s.all_tasks_count);
+	for (unsigned i = 0; i < mpi_s.values_arr.size(); ++i) {
+		mpi_s.values_arr[i].resize(FULL_MASK_LEN);
+		for (unsigned j = 0; j < mpi_s.values_arr[i].size(); ++j)
+			mpi_s.values_arr[i][j] = 0;
+	}
+	mpi_s.makeIntegerMasks(cartesian_elements);
+
 	mpi_s.input_cnf_name = input_cnf_name;
 	//mpi_s.schema_type = "rslos_end";
 	mpi_s.solver_name = "minisat";

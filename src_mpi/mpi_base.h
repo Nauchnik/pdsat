@@ -47,7 +47,6 @@ protected:
 	std::vector< std::vector<int> > clause_array;
 	std::vector<int> clause_lengths;
 	std::vector<bool> b_SAT_set_array;
-	std::vector< std::vector<unsigned> > values_arr;
 	std::map<int, unsigned> core_var_indexes; // indexes of variables in core set
 	boost::random::mt19937 gen;
 	unsigned known_vars_count;
@@ -70,6 +69,7 @@ public:
 	unsigned part_mask[FULL_MASK_LEN];
 	unsigned mask_value[FULL_MASK_LEN]; // particular value of bits which set in part_mask
 	
+	std::vector< std::vector<unsigned> > values_arr;
 	unsigned activity_vec_len;
 	std::string known_point_file_name;
 	bool isSolverSystemCalling; // calling of solver file by system command
