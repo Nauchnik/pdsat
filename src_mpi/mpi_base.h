@@ -109,10 +109,11 @@ public:
 	
 	// Make array var_choose_order with vars sorted by given rule
 	bool MakeVarChoose( );
-	bool MakeStandardMasks( unsigned &part_var_power );
+	bool makeStandardMasks( unsigned &part_var_power );
+	bool makeIntegerMasks(std::vector<std::vector<int>> cartesian_elements);
 	bool GetMainMasksFromVarChoose( std::vector<int> &var_choose_order );
 	bool GetValuesFromVarChoose( unsigned &part_var_power );
-
+	bool getValuesFromIntegers(std::vector<std::vector<int>> cartesian_elements);
 	void MakeSatSample( std::vector< std::vector<bool> > &state_vec_vec, 
 		                std::vector< std::vector<bool> > &stream_vec_vec,
 						std::vector< std::vector<bool> > &addit_vec_vec,

@@ -283,8 +283,40 @@ bool MPI_Base :: GetValuesFromVarChoose( unsigned &part_var_power )
 	return true;
 }
 
+// Get values for sending using order by var choose array
 //---------------------------------------------------------
-bool MPI_Base :: MakeStandardMasks( unsigned &part_var_power )
+bool MPI_Base::getValuesFromIntegers(std::vector<std::vector<int>> cartesian_elements)
+{
+	unsigned mask;
+	int cur_integer_index;
+	unsigned cur_var_index = 0;
+	unsigned k;
+	
+	for (unsigned cartesian_element_index = 0; cartesian_element_index < cartesian_elements.size(); cartesian_element_index++) {
+		k = 0;
+		cur_integer_index = cartesian_elements[cartesian_element_index][k];
+		for (unsigned i = 0; i < FULL_MASK_LEN; i++) {
+			if (k == cartesian_elements[cartesian_element_index].size())
+				break;
+			for (unsigned j = 0; j < UINT_LEN; j++) {
+				mask = (1 << j);
+				if (cur_var_index == cur_integer_index) {
+					values_arr[cartesian_element_index][i] += mask;
+					k++;
+					if (k == cartesian_elements[cartesian_element_index].size())
+						break;
+					cur_integer_index = cartesian_elements[cartesian_element_index][k];
+				}
+				cur_var_index++;
+			} // for( j = 0; j < UINT_LEN; j++ )
+		}
+	} // for( lint = 0; lint < part_var_power; lint++ )
+
+	return true;
+}
+
+//---------------------------------------------------------
+bool MPI_Base :: makeStandardMasks( unsigned &part_var_power )
 {		
 	if ( !GetMainMasksFromVarChoose( var_choose_order ) ) { 
 		std::cout << "Error in GetMainMasksFromVarChoose" << std::endl; 
@@ -297,6 +329,25 @@ bool MPI_Base :: MakeStandardMasks( unsigned &part_var_power )
 		return false; 
 	}
 	std::cout << "Correct end of GetValuesFromVarChoose" << std::endl;
+	
+	return true;
+}
+
+//---------------------------------------------------------
+bool MPI_Base::makeIntegerMasks(std::vector<std::vector<int>> cartesian_elements)
+{
+	if (!GetMainMasksFromVarChoose(var_choose_order)) {
+		std::cout << "Error in GetMainMasksFromVarChoose" << std::endl;
+		return false;
+	}
+	std::cout << "Correct end of GetMasksFromVarChoose" << std::endl;
+
+	if (!getValuesFromIntegers(cartesian_elements)) {
+		std::cout << "Error in getValuesFromIntegers" << std::endl;
+		return false;
+	}
+	
+	std::cout << "Correct end of makeIntegerMasks" << std::endl;
 	
 	return true;
 }

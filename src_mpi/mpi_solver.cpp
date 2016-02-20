@@ -393,7 +393,7 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 	satisfying_assignment cur_satisfying_assignment;
 	std::cout << std::endl << "ControlProcessSolve is running" << std::endl;
 	std::cout << "solving_iteration_count " << solving_iteration_count << std::endl;
-	unsigned part_var_power;
+	unsigned part_var_power = 0;
 	
 	if ( solving_iteration_count == 0 ) {
 		if ( !ReadIntCNF() ) { // Read original CNF
@@ -414,50 +414,61 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 		std::cout << x << " ";
 	std::cout << std::endl;
 	
-	// log(a)/log(b) = log(_a)b
-	unsigned max_possible_tasks_count = (unsigned)(pow( 2, ceil( log(corecount - 1)/log(2) ))) * (unsigned)(pow(2,koef_val) );
-	std::cout << "max_possible_tasks_count " << max_possible_tasks_count << std::endl;
-	std::cout << "current part_mask_var_count " << part_mask_var_count << std::endl; 
-	part_mask_var_count = (unsigned)(log(max_possible_tasks_count)/log(2));
-	if ( part_mask_var_count > var_choose_order.size() )
-		part_mask_var_count = var_choose_order.size();
-	
-	// change batch size to treshold value if needed
-	if ( var_choose_order.size() - part_mask_var_count > RECOMMEND_BATCH_VAR_COUNT ) {
-		part_mask_var_count = var_choose_order.size() - RECOMMEND_BATCH_VAR_COUNT;
-		std::cout << "part_mask_var_count changed to " << part_mask_var_count << std::endl;
-	}
-	if ( part_mask_var_count > MAX_PART_MASK_VAR_COUNT )
-		part_mask_var_count = MAX_PART_MASK_VAR_COUNT;
-	if ( var_choose_order.size() - part_mask_var_count > MAX_BATCH_VAR_COUNT ) {
-		std::cerr << "Error. var_choose_order.size() - part_mask_var_count > MAX_BATCH_VAR_COUNT" << std::endl;
-		std::cerr << var_choose_order.size() - part_mask_var_count << " < " << MAX_BATCH_VAR_COUNT << std::endl;
-		MPI_Abort( MPI_COMM_WORLD, 0 );
-	}
-	std::cout << "part_mask_var_count " << part_mask_var_count << std::endl;
-
+	std::vector<std::vector<int>> cartesian_elements;
 	if (isIntegerVariables) {
+		part_mask_var_count = var_choose_order.size(); // 1 task == 1 subproblem
 		std::cout << "Integer Variables mode " << isIntegerVariables << std::endl;
-		unsigned reduced_variables = var_choose_order.size() / VARIABLES_EACH_INTEGER;
-		std::cout << "reduced_variables " << reduced_variables << std::endl;
+		unsigned integer_variables = var_choose_order.size() / VARIABLES_EACH_INTEGER;
+		std::cout << "reduced_variables " << integer_variables << std::endl;
 		std::vector<std::vector<int>> vii;
 		std::vector<int> index_arr;
 		std::vector<int> cur_vi;
-		cur_vi.resize(VARIABLES_EACH_INTEGER);
-		for (unsigned i = 0; i < VARIABLES_EACH_INTEGER; i++)
-			cur_vi[i] = i;
-		vii.resize(reduced_variables);
-		for (auto &x : vii)
-			x = cur_vi;
-		std::cout << "next_cartesian variants" << std::endl;
-		while (next_cartesian(vii, index_arr, cur_vi)) {
-			for (auto &x : cur_vi)
-				std::cout << x << " ";
-			std::cout << std::endl;
+		vii.resize(integer_variables);
+		for (unsigned i = 0; i < vii.size(); i++) {
+			vii[i].resize(VARIABLES_EACH_INTEGER);
+			for (unsigned j = 0; j < VARIABLES_EACH_INTEGER; j++)
+				vii[i][j] = j + i*VARIABLES_EACH_INTEGER;
 		}
-		all_tasks_count = pow(VARIABLES_EACH_INTEGER, reduced_variables);
+		std::cout << "next_cartesian variants" << std::endl;
+		all_tasks_count = pow(VARIABLES_EACH_INTEGER, integer_variables);
+		cartesian_elements.resize(all_tasks_count);
+		int k = 0;
+		std::cout << "first 10 cartesian_elements " << std::endl;
+		while (next_cartesian(vii, index_arr, cur_vi)) {
+			if (k < 10) {
+				for (auto &x : cur_vi)
+					std::cout << x << " ";
+				std::cout << std::endl;
+			}
+			if (k > cartesian_elements.size() - 1) {
+				std::cerr << "k > cartesian_elements.size() - 1" << std::endl;
+				MPI_Abort(MPI_COMM_WORLD, 0);
+			}
+			cartesian_elements[k++] = cur_vi;
+		}
+		std::cout << "cartesian_elements.size() " << cartesian_elements.size() << std::endl;
 	}
 	else {
+		// log(a)/log(b) = log(_a)b
+		unsigned max_possible_tasks_count = (unsigned)(pow(2, ceil(log(corecount - 1) / log(2)))) * (unsigned)(pow(2, koef_val));
+		std::cout << "max_possible_tasks_count " << max_possible_tasks_count << std::endl;
+		std::cout << "current part_mask_var_count " << part_mask_var_count << std::endl;
+		part_mask_var_count = (unsigned)(log(max_possible_tasks_count) / log(2));
+		if (part_mask_var_count > var_choose_order.size())
+			part_mask_var_count = var_choose_order.size();
+		// change batch size to treshold value if needed
+		if (var_choose_order.size() - part_mask_var_count > RECOMMEND_BATCH_VAR_COUNT ) {
+			part_mask_var_count = var_choose_order.size() - RECOMMEND_BATCH_VAR_COUNT;
+			std::cout << "part_mask_var_count changed to " << part_mask_var_count << std::endl;
+		}
+		if (part_mask_var_count > MAX_PART_MASK_VAR_COUNT)
+			part_mask_var_count = MAX_PART_MASK_VAR_COUNT;
+		if (var_choose_order.size() - part_mask_var_count > MAX_BATCH_VAR_COUNT) {
+			std::cerr << "Error. var_choose_order.size() - part_mask_var_count > MAX_BATCH_VAR_COUNT" << std::endl;
+			std::cerr << var_choose_order.size() - part_mask_var_count << " < " << MAX_BATCH_VAR_COUNT << std::endl;
+			MPI_Abort(MPI_COMM_WORLD, 0);
+		}
+		std::cout << "part_mask_var_count " << part_mask_var_count << std::endl;
 		// get default count of tasks = power of part_mask_var_count
 		part_var_power = (1 << part_mask_var_count);
 		std::cout << "part_var_power " << part_var_power << std::endl;
@@ -481,15 +492,16 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 		std::cerr << skip_tasks << " >= " << all_tasks_count << std::endl;
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
+
+	values_arr.resize(all_tasks_count);
+	for (unsigned i = 0; i < values_arr.size(); ++i)
+		values_arr[i].resize(FULL_MASK_LEN);
 	
-	values_arr.resize( all_tasks_count );
-	for ( unsigned i = 0; i < values_arr.size(); ++i )
-		values_arr[i].resize( FULL_MASK_LEN );
-	
-	if ( !MakeStandardMasks( part_var_power ) ) {
-		std::cerr << "Error in MakeStandartMasks" << std::endl; 
-		MPI_Abort( MPI_COMM_WORLD, 0 );
-	}
+	if (isIntegerVariables)
+		makeIntegerMasks(cartesian_elements);
+	else
+		makeStandardMasks(part_var_power);
+
 	std::cout << "Correct end of MakeStandartMasks" << std::endl;
 	
 	unsigned solved_tasks_count = 0;

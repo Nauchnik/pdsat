@@ -312,6 +312,8 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.IsFirstStage = false;
 		else if ( hasPrefix_String( argv_string, "-solve_all", value ) )
 			myflags.IsSolveAll = true;
+		else if (hasPrefix_String(argv_string, "-integer_variables", value))
+			myflags.isIntegerVariables = true;
 		else if ( hasPrefix_String( argv_string, "-max_L2_hamming_distance=", value ) )
 			myflags.max_L2_hamming_distance = atoi( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-skip_tasks=", value ) )
@@ -324,8 +326,6 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.max_solving_time = atof( value.c_str( ) );
 		else if (hasPrefix_String(argv_string, "-max_solving_time_koef=", value))
 			myflags.max_solving_time_koef = atof(value.c_str());
-		else if (hasPrefix_String(argv_string, "-integer_variables=", value))
-			myflags.isIntegerVariables = true;
 		else if ( hasPrefix_String( argv_string, "-te=", value ) )
 			myflags.te = atof( value.c_str( ) );
 		//else if ( hasPrefix_String( argv_string, "-penalty=", value ) )
