@@ -611,38 +611,117 @@ void latin_square :: MakeLatinValues( )
 
 void latin_square::makeDiagonalElementsValues()
 {
-	// make all possible values of diag_elements first cells of the main diagonal
-	// recently diag_elements <= N-1
-	vector< vector<int> > permutations, possible_permutations;
-	MakePermutations(N, diag_elements, permutations);
-	std::cout << "permutations.size() " << permutations.size() << std::endl;
+	// make all possible values of diag_elements of first cells of the main and secondary diagonal
+	vector< vector<int> > values_main_diag, values_secondary_diag, permutations, final_values;
+	vector<int> cur_value;
+	int pemutation_size = 9;
+	MakePermutations(N, pemutation_size, permutations);
+	std::cout << "values_main_diag.size() " << values_main_diag.size() << std::endl;
 	vector<int> fixed_first_row;
-	for (unsigned i = 0; i < N; i++)
+	for (int i = 0; i < N; i++)
 		fixed_first_row.push_back(i);
-	bool isPossible;
+	bool isPossibleMainDiag, isPossibleSecondaryDiag, isPossibleValue;
 	values_checked = 0;
+	values_main_diag.reserve(permutations.size());
+	values_secondary_diag.reserve(permutations.size());
+	unsigned values_main_diag_count = 0, values_secondary_diag_count = 0;
+	unsigned long long values_count = 0;
+	
 	for (unsigned i = 0; i < permutations.size(); i++) {
-		if ( find(permutations[i].begin(), permutations[i].end(), 0 ) != permutations[i].end() )
+		// compare with cell from the fixed first row
+		if (find(permutations[i].begin(), permutations[i].end(), fixed_first_row[0]) != permutations[i].end())
 			continue;
-		isPossible = true;
-		for (unsigned j = 0; j < permutations[i].size(); j++)
+		// check condition of the main diagonal
+		isPossibleMainDiag = true;
+		for (unsigned j = 0; j < permutations[i].size(); j++) {
 			if (permutations[i][j] == fixed_first_row[j + 1]) {
-				isPossible = false;
-				break;
-			}
-		if (isPossible) {
-			values_checked++;
-			if ((skip_values) && (values_checked <= skip_values)) // skip some values
-				continue;
-			possible_permutations.push_back(permutations[i]);
-			if (possible_permutations.size() == max_values_len) {
-				cout << "possible_permutations.size() == final_values_size. break" << endl;
+				isPossibleMainDiag = false;
 				break;
 			}
 		}
+		if (isPossibleMainDiag) {
+			values_main_diag.push_back(permutations[i]);
+			values_main_diag_count++;
+		}
 	}
-	std::cout << "possible_permutations.size() " << possible_permutations.size() << std::endl;
-	MakeDiagonalElementsPositiveLiterals(possible_permutations);
+	
+	values_main_diag.resize(values_main_diag_count);
+	std::cout << "values_main_diag.size() " << values_main_diag.size() << std::endl;
+	
+	if (diag_elements == pemutation_size) {
+		final_values = values_main_diag;
+	}
+	else {
+		for (unsigned i = 0; i < permutations.size(); i++) {
+			// compare with cell from the fixed first row
+			if (find(permutations[i].begin(), permutations[i].end(), fixed_first_row[fixed_first_row.size() - 1]) != permutations[i].end())
+				continue;
+			// check condition of the secondary diagonal
+			isPossibleSecondaryDiag = true;
+			for (unsigned j = 0; j < permutations[i].size(); j++) {
+				if (permutations[i][j] == fixed_first_row[j]) {
+					isPossibleSecondaryDiag = false;
+					break;
+				}
+			}
+			if (isPossibleSecondaryDiag) {
+				values_secondary_diag.push_back(permutations[i]);
+				values_secondary_diag_count++;
+			}
+		}
+		
+		values_secondary_diag.resize(values_secondary_diag_count);
+		std::cout << "values_secondary_diag.size() " << values_secondary_diag.size() << std::endl;
+		bool isValueBreak = false;
+		
+		for (unsigned i = 0; i < values_main_diag.size(); i++) {
+			if (isValueBreak)
+				break;
+			for (unsigned j = 0; j < values_secondary_diag.size(); j++) {
+				values_checked++;
+				if ((skip_values) && (values_checked <= skip_values)) // skip some values
+					continue;
+				isPossibleValue = true;
+				// compare main and secondary diagonals by N-1 rows (in rows 0 they don't intersect)
+				for (int row_index = 1; row_index < N; row_index++) {
+					if (values_main_diag[i][row_index-1] == values_secondary_diag[j][N - row_index - 1]) {
+						isPossibleValue = false;
+						break;
+					}
+				}
+				if (isPossibleValue) {
+					// compare main and secondary diagonals by N-2 columns (in column 0 and N-1 they don't intersect)
+					for (int col_index = 1; col_index < N-1; col_index++) {
+						if (values_main_diag[i][col_index - 1] == values_secondary_diag[j][col_index]) {
+							isPossibleValue = false;
+							break;
+						}
+					}
+				}
+				
+				if (isPossibleValue) {
+					values_count++;
+					if (values_count % 1000000 == 0)
+						std::cout << values_count << std::endl;
+					/*cur_value = values_main_diag[i];
+					for (unsigned j2 = 0; j2 < values_secondary_diag[j].size(); j2++ )
+						cur_value.push_back(values_secondary_diag[j][j2]);
+					final_values.push_back(cur_value);
+					if (final_values.size() % 1000000 == 0)
+						std::cout << final_values.size() << std::endl;
+					if (final_values.size() == max_values_len) {
+						cout << "final_values.size() == max_values_len " << max_values_len << ". Break." << endl;
+						isValueBreak = true;
+						break;
+					}*/
+				}
+			}
+		}
+	}
+	
+	std::cout << "final_values.size() " << final_values.size() << std::endl;
+	std::cout << "values_count " << values_count << std::endl;
+	//MakeDiagonalElementsPositiveLiterals(final_values);
 }
 
 void latin_square::MakeDiagonalElementsPositiveLiterals(vector< vector<int> > &possible_permutations)
@@ -653,7 +732,7 @@ void latin_square::MakeDiagonalElementsPositiveLiterals(vector< vector<int> > &p
 		positive_literals[i].resize(possible_permutations[i].size());
 	unsigned row_index, column_index;
 	for (unsigned i = 0; i < possible_permutations.size(); i++)
-		for (unsigned diag_element_index = 0; diag_element_index < diag_elements; diag_element_index++) {
+		for (int diag_element_index = 0; diag_element_index < diag_elements; diag_element_index++) {
 			row_index = column_index = diag_element_index + 1;
 			positive_literals[i][diag_element_index] = row_index*N*N + column_index*N 
 				+ possible_permutations[i][diag_element_index] + 1;
