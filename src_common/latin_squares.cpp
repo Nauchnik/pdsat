@@ -23,6 +23,7 @@ latin_square :: latin_square() :
 	N( 0 ),
 	K( 0 ),
 	rows_count( 0 ),
+	diag_elements ( 0 ),
 	IsSATFinded( false ),
 	verbosity( 0 ),
 	problems_solved( 0 ),
@@ -45,7 +46,7 @@ latin_square :: latin_square() :
 	total_sat_time( 0 ),
 	total_unsat_time( 0 ),
 	total_inter_time( 0 ),
-	max_values_len( 1000000 ),
+	max_values_len(MAX_VALUES_LEN),
 	out_file_name( "out.txt" ),
 	sat_file_name( "sat_sets.txt" ),
 	solver_type( 0 ),
@@ -143,7 +144,7 @@ bool latin_square :: SolveOneProblem( Solver *&S, vector< vector<int> > :: itera
 	for ( it2 = positive_literals_it->begin(); it2 != positive_literals_it->end(); it2++ ) {
 		parsed_lit = *it2;
 		var = parsed_lit - 1;
-		dummy.push( (parsed_lit > 0) ? mkLit(var) : ~mkLit(var) );
+		dummy.push( mkLit(var) );
 		nassigns++;
 	}
 
@@ -455,7 +456,7 @@ bool latin_square :: IsPossibleValue( vector<char> cur_vec )
 	return false;
 }
 
-void latin_square :: MakePositiveLiterals( )
+void latin_square :: MakePositiveLiterals()
 {
 // formula p*n^3 + i*n^2 + j*n + z (p - number of square, i - num of row, j - num of column, z - value )
 	stringstream sstream;
@@ -606,4 +607,55 @@ void latin_square :: MakeLatinValues( )
 	out_file << sstream.rdbuf();
 	out_file.close();
 	cout << sstream.str();
+}
+
+void latin_square::makeDiagonalElementsValues()
+{
+	// make all possible values of diag_elements first cells of the main diagonal
+	// recently diag_elements <= N-1
+	vector< vector<int> > permutations, possible_permutations;
+	MakePermutations(N, diag_elements, permutations);
+	std::cout << "permutations.size() " << permutations.size() << std::endl;
+	vector<int> fixed_first_row;
+	for (unsigned i = 0; i < N; i++)
+		fixed_first_row.push_back(i);
+	bool isPossible;
+	values_checked = 0;
+	for (unsigned i = 0; i < permutations.size(); i++) {
+		if ( find(permutations[i].begin(), permutations[i].end(), 0 ) != permutations[i].end() )
+			continue;
+		isPossible = true;
+		for (unsigned j = 0; j < permutations[i].size(); j++)
+			if (permutations[i][j] == fixed_first_row[j + 1]) {
+				isPossible = false;
+				break;
+			}
+		if (isPossible) {
+			values_checked++;
+			if ((skip_values) && (values_checked <= skip_values)) // skip some values
+				continue;
+			possible_permutations.push_back(permutations[i]);
+			if (possible_permutations.size() == max_values_len) {
+				cout << "possible_permutations.size() == final_values_size. break" << endl;
+				break;
+			}
+		}
+	}
+	std::cout << "possible_permutations.size() " << possible_permutations.size() << std::endl;
+	MakeDiagonalElementsPositiveLiterals(possible_permutations);
+}
+
+void latin_square::MakeDiagonalElementsPositiveLiterals(vector< vector<int> > &possible_permutations)
+{
+	// formula p*n^3 + i*n^2 + j*n + z (p - number of square, i - num of row, j - num of column, z - value )
+	positive_literals.resize(possible_permutations.size());
+	for (unsigned i = 0; i < positive_literals.size(); i++)
+		positive_literals[i].resize(possible_permutations[i].size());
+	unsigned row_index, column_index;
+	for (unsigned i = 0; i < possible_permutations.size(); i++)
+		for (unsigned diag_element_index = 0; diag_element_index < diag_elements; diag_element_index++) {
+			row_index = column_index = diag_element_index + 1;
+			positive_literals[i][diag_element_index] = row_index*N*N + column_index*N 
+				+ possible_permutations[i][diag_element_index] + 1;
+		}
 }

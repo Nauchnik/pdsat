@@ -27,6 +27,7 @@ public:
 	int N; // order of squares
 	unsigned K; // default number of columns
 	unsigned rows_count;
+	int diag_elements;
 	string problem_type;
 	bool IsSATFinded;
 	unsigned verbosity;
@@ -69,7 +70,7 @@ public:
 
 	bool ReadLiteralsFromFile( string &input_path, string &error_msg );
 	void WriteCurrentState( ofstream &out_file, double current_time );
-	void Show_Values( );
+	void Show_Values();
 
 	bool IsPossibleValue( vector<char> cur_vec );
 	bool CheckValue( vector<char> cur_vec, unsigned columns_count );
@@ -79,8 +80,10 @@ public:
 	void SolveLatinProblems( );
 	bool SolveOneProblem( Solver *&S, vector< vector<int> > :: iterator &positive_literals_it, clock_t clk_start );
 	
-	void MakeLatinValues( );
-	void MakePositiveLiterals( );
+	void MakeLatinValues();
+	void MakeDiagonalElementsPositiveLiterals(vector< vector<int> > &possible_permutations);
+	void makeDiagonalElementsValues();
+	void MakePositiveLiterals();
 };
 
 #endif
