@@ -700,41 +700,56 @@ void latin_square::makeDiagonalElementsValues()
 				}
 				
 				if (isPossibleValue) {
-					values_count++;
-					if (values_count % 1000000 == 0)
-						std::cout << values_count << std::endl;
-					/*cur_value = values_main_diag[i];
+					//values_count++;
+					//if (values_count % 1000000 == 0)
+					//	std::cout << values_count << std::endl;
+					cur_value = values_main_diag[i];
 					for (unsigned j2 = 0; j2 < values_secondary_diag[j].size(); j2++ )
 						cur_value.push_back(values_secondary_diag[j][j2]);
 					final_values.push_back(cur_value);
-					if (final_values.size() % 1000000 == 0)
-						std::cout << final_values.size() << std::endl;
+					//if (final_values.size() % 1000000 == 0)
+					//	std::cout << final_values.size() << std::endl;
 					if (final_values.size() == max_values_len) {
 						cout << "final_values.size() == max_values_len " << max_values_len << ". Break." << endl;
 						isValueBreak = true;
 						break;
-					}*/
+					}
 				}
 			}
 		}
 	}
 	
 	std::cout << "final_values.size() " << final_values.size() << std::endl;
-	std::cout << "values_count " << values_count << std::endl;
-	//MakeDiagonalElementsPositiveLiterals(final_values);
+	//std::cout << "values_count " << values_count << std::endl;
+	MakeDiagonalElementsPositiveLiterals(final_values);
 }
 
-void latin_square::MakeDiagonalElementsPositiveLiterals(vector< vector<int> > &possible_permutations)
+void latin_square::MakeDiagonalElementsPositiveLiterals(vector< vector<int> > &final_values)
 {
 	// formula p*n^3 + i*n^2 + j*n + z (p - number of square, i - num of row, j - num of column, z - value )
-	positive_literals.resize(possible_permutations.size());
+	positive_literals.resize(final_values.size());
 	for (unsigned i = 0; i < positive_literals.size(); i++)
-		positive_literals[i].resize(possible_permutations[i].size());
-	unsigned row_index, column_index;
-	for (unsigned i = 0; i < possible_permutations.size(); i++)
-		for (int diag_element_index = 0; diag_element_index < diag_elements; diag_element_index++) {
+		positive_literals[i].resize(final_values[i].size());
+	unsigned row_index, column_index, secondary_diag_index;
+	int diagonal_size = 9;
+	// add literals for the main diagonal
+	for (unsigned i = 0; i < final_values.size(); i++)
+		for (int diag_element_index = 0; diag_element_index < diagonal_size; diag_element_index++) {
 			row_index = column_index = diag_element_index + 1;
 			positive_literals[i][diag_element_index] = row_index*N*N + column_index*N 
-				+ possible_permutations[i][diag_element_index] + 1;
+				+ final_values[i][diag_element_index] + 1;
 		}
+	if (diag_elements > 9) {
+		// add literals for the secondary diagonal
+		for (unsigned i = 0; i < final_values.size(); i++) {
+			for (int diag_element_index = diagonal_size; diag_element_index < diag_elements; diag_element_index++) {
+				secondary_diag_index = diag_element_index - diagonal_size;
+				row_index = N - secondary_diag_index - 1;
+				column_index = secondary_diag_index;
+				positive_literals[i][diag_element_index] = row_index*N*N + column_index*N
+					+ final_values[i][diag_element_index] + 1;
+			}
+			sort(positive_literals[i].begin(), positive_literals[i].end());
+		}
+	}
 }
