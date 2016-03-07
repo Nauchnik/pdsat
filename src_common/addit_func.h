@@ -20,7 +20,6 @@
 namespace Addit_func {
 
 double cpu_time(void);
-extern int strtoint( std::string str );
 //extern string inttostr( int num );
 //extern string doubletostr( double num );
 extern bool isNumber( char num );

@@ -6,15 +6,6 @@ double Addit_func :: cpu_time(void) {
 	return (double)clock() / CLOCKS_PER_SEC;
 }
 
-int Addit_func :: strtoint( std::string str )
-{
-	std::stringstream sstream;
-	sstream << str;
-	int val;
-	sstream >> val;
-	return val;
-}
-
 /*string Addit_func :: inttostr( int num )
 {
 	stringstream sstream;

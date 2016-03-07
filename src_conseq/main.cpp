@@ -55,6 +55,11 @@ int main( int argc, char* argv[] )
 	//argv[5] = "values.txt";
 	//argv[6] = "tasks.txt";
 	cout << "***DEBUG MODE***" << endl;
+	ls.max_values_len = 10;
+	ls.N = 10;
+	ls.diag_elements = 18;
+	ls.makeDiagonalElementsValues();
+	ls.makeCnfsFromPositiveLiterals();
 #endif
 	
 	if ( argc < 4 ) {

@@ -81,9 +81,10 @@ public:
 	bool SolveOneProblem( Solver *&S, vector< vector<int> > :: iterator &positive_literals_it, clock_t clk_start );
 	
 	void MakeLatinValues();
-	void MakeDiagonalElementsPositiveLiterals(vector< vector<int> > &possible_permutations);
-	void makeDiagonalElementsValues();
 	void MakePositiveLiterals();
+	void makeDiagonalElementsValues();
+	void MakeDiagonalElementsPositiveLiterals(vector< vector<int> > &possible_permutations);
+	void makeCnfsFromPositiveLiterals();
 };
 
 #endif

@@ -612,11 +612,12 @@ void latin_square :: MakeLatinValues( )
 void latin_square::makeDiagonalElementsValues()
 {
 	// make all possible values of diag_elements of first cells of the main and secondary diagonal
+	std::cout << "Start makeDiagonalElementsValues()" << std::endl;
 	vector< vector<int> > values_main_diag, values_secondary_diag, permutations, final_values;
 	vector<int> cur_value;
 	int pemutation_size = 9;
 	MakePermutations(N, pemutation_size, permutations);
-	std::cout << "values_main_diag.size() " << values_main_diag.size() << std::endl;
+	std::cout << "permutations.size() " << permutations.size() << std::endl;
 	vector<int> fixed_first_row;
 	for (int i = 0; i < N; i++)
 		fixed_first_row.push_back(i);
@@ -648,9 +649,8 @@ void latin_square::makeDiagonalElementsValues()
 	values_main_diag.resize(values_main_diag_count);
 	std::cout << "values_main_diag.size() " << values_main_diag.size() << std::endl;
 	
-	if (diag_elements == pemutation_size) {
+	if (diag_elements == pemutation_size) 
 		final_values = values_main_diag;
-	}
 	else {
 		for (unsigned i = 0; i < permutations.size(); i++) {
 			// compare with cell from the fixed first row
@@ -751,5 +751,25 @@ void latin_square::MakeDiagonalElementsPositiveLiterals(vector< vector<int> > &f
 			}
 			sort(positive_literals[i].begin(), positive_literals[i].end());
 		}
+	}
+}
+
+void latin_square::makeCnfsFromPositiveLiterals()
+{
+	std::string base_cnf_name = "positive_literals_";
+	std::string cur_cnf_name;
+	std::stringstream sstream;
+	std::ofstream ofile;
+	for (unsigned i = 0; i < positive_literals.size(); i++ ) {
+		sstream << i;
+		cur_cnf_name = base_cnf_name + sstream.str() + ".cnf";
+		sstream.clear(); sstream.str("");
+		ofile.open(cur_cnf_name.c_str());
+		for (unsigned j = 0; j < positive_literals[i].size(); j++) {
+			ofile << positive_literals[i][j] << " 0";
+			if ( j != positive_literals[i].size() - 1)
+				ofile << std::endl;
+		}
+		ofile.close(); ofile.clear();
 	}
 }
