@@ -58,7 +58,8 @@ int main( int argc, char* argv[] )
 	ls.max_values_len = 10;
 	ls.N = 10;
 	ls.diag_elements = 18;
-	ls.makeDiagonalElementsValues();
+	//ls.makeDiagonalElementsValues();
+	ls.makePositiveLiteralsFromKnownDls();
 	ls.makeCnfsFromPositiveLiterals();
 #endif
 	

@@ -14,6 +14,7 @@
 
 #include "minisat22_wrapper.h"
 #include "addit_func.h"
+#include "odls_sequential.h"
 
 const long long MAX_VALUES_LEN = 10000000;
 
@@ -85,6 +86,8 @@ public:
 	void makeDiagonalElementsValues();
 	void MakeDiagonalElementsPositiveLiterals(vector< vector<int> > &possible_permutations);
 	void makeCnfsFromPositiveLiterals();
+	void makePositiveLiteralsFromKnownDls();
+	void makePositiveLiteralsFromKnownDls(dls known_dls);
 };
 
 #endif

@@ -724,30 +724,30 @@ void latin_square::makeDiagonalElementsValues()
 	MakeDiagonalElementsPositiveLiterals(final_values);
 }
 
-void latin_square::MakeDiagonalElementsPositiveLiterals(vector< vector<int> > &final_values)
+void latin_square::MakeDiagonalElementsPositiveLiterals(vector< vector<int> > &final_int_values)
 {
 	// formula p*n^3 + i*n^2 + j*n + z (p - number of square, i - num of row, j - num of column, z - value )
-	positive_literals.resize(final_values.size());
+	positive_literals.resize(final_int_values.size());
 	for (unsigned i = 0; i < positive_literals.size(); i++)
-		positive_literals[i].resize(final_values[i].size());
+		positive_literals[i].resize(final_int_values[i].size());
 	unsigned row_index, column_index, secondary_diag_index;
 	int diagonal_size = 9;
 	// add literals for the main diagonal
-	for (unsigned i = 0; i < final_values.size(); i++)
+	for (unsigned i = 0; i < final_int_values.size(); i++)
 		for (int diag_element_index = 0; diag_element_index < diagonal_size; diag_element_index++) {
 			row_index = column_index = diag_element_index + 1;
 			positive_literals[i][diag_element_index] = row_index*N*N + column_index*N 
-				+ final_values[i][diag_element_index] + 1;
+				+ final_int_values[i][diag_element_index] + 1;
 		}
 	if (diag_elements > 9) {
 		// add literals for the secondary diagonal
-		for (unsigned i = 0; i < final_values.size(); i++) {
+		for (unsigned i = 0; i < final_int_values.size(); i++) {
 			for (int diag_element_index = diagonal_size; diag_element_index < diag_elements; diag_element_index++) {
 				secondary_diag_index = diag_element_index - diagonal_size;
 				row_index = N - secondary_diag_index - 1;
 				column_index = secondary_diag_index;
 				positive_literals[i][diag_element_index] = row_index*N*N + column_index*N
-					+ final_values[i][diag_element_index] + 1;
+					+ final_int_values[i][diag_element_index] + 1;
 			}
 			sort(positive_literals[i].begin(), positive_literals[i].end());
 		}
@@ -772,4 +772,29 @@ void latin_square::makeCnfsFromPositiveLiterals()
 		}
 		ofile.close(); ofile.clear();
 	}
+}
+
+void latin_square::makePositiveLiteralsFromKnownDls( dls known_dls )
+{
+	// make positive literals for diagonals
+	vector< vector<int> > final_int_values;
+	final_int_values.resize(known_dls.size());
+	for (unsigned i = 0; i < known_dls.size(); i++) {
+		final_int_values[i].resize(known_dls[i].size());
+		for (unsigned j = 0; j < known_dls[i].size(); j++)
+			std::istringstream(known_dls[i][j]) >> final_int_values[i][j];
+	}
+	MakeDiagonalElementsPositiveLiterals(final_int_values);
+	
+	// add positive literals for rows
+	// for every known row
+	std::stringstream sstream;
+	int tmp;
+	for (unsigned row_index = 0; row_index < rows_count; row_index++) 
+		for (unsigned col_index = 0; col_index < N; col_index++) {
+			sstream << known_dls[row_index][col_index];
+			sstream >> tmp;
+			positive_literals[0].push_back( row_index*N*N + N*col_index + (tmp + 1) );
+			sstream.clear(); sstream.str("");
+		}
 }
