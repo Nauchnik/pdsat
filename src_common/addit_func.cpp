@@ -5,14 +5,15 @@ using namespace Addit_func;
 double Addit_func :: cpu_time(void) { 
 	return (double)clock() / CLOCKS_PER_SEC;
 }
-
-/*string Addit_func :: inttostr( int num )
+/*
+std::string Addit_func :: inttostr( int num )
 {
-	stringstream sstream;
+	std::stringstream sstream;
 	sstream << num;
-	string s = sstream.str();
+	std::string s = sstream.str();
 	return s;
 }
+
 
 string Addit_func :: doubletostr( double num )
 {

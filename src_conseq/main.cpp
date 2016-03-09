@@ -57,10 +57,10 @@ int main( int argc, char* argv[] )
 	cout << "***DEBUG MODE***" << endl;
 	ls.max_values_len = 10;
 	ls.N = 10;
-	ls.diag_elements = 18;
-	//ls.makeDiagonalElementsValues();
-	ls.makePositiveLiteralsFromKnownDls();
-	ls.makeCnfsFromPositiveLiterals();
+	ls.rows_count = 6;
+	ls.diag_elements = 0;
+	ls.ls_system_rank = 3; // triple
+	ls.makeCnfsFromDls();
 #endif
 	
 	if ( argc < 4 ) {

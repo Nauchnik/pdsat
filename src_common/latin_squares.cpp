@@ -51,7 +51,9 @@ latin_square :: latin_square() :
 	sat_file_name( "sat_sets.txt" ),
 	solver_type( 0 ),
 	final_values_index( 0 ),
-	problem_type ( "diag" )
+	problem_type ( "diag" ),
+	out_cnf_global_index ( 0 ),
+	ls_system_rank ( 2 )
 { }
 
 bool latin_square :: ReadLiteralsFromFile( string &input_path, string &error_msg )
@@ -613,14 +615,23 @@ void latin_square::makeDiagonalElementsValues()
 {
 	// make all possible values of diag_elements of first cells of the main and secondary diagonal
 	std::cout << "Start makeDiagonalElementsValues()" << std::endl;
-	vector< vector<int> > values_main_diag, values_secondary_diag, permutations, final_values;
-	vector<int> cur_value;
+	vector< vector<char> > values_main_diag, values_secondary_diag, permutations;
+	vector< vector<int> > permutations_int;
+	vector<char> cur_value;
 	int pemutation_size = 9;
-	MakePermutations(N, pemutation_size, permutations);
+	MakePermutations(N, pemutation_size, permutations_int);
+	permutations.resize(permutations_int.size());
+	for (unsigned i = 0; i < permutations_int.size(); i++) {
+		permutations[i].resize(permutations_int[i].size());
+		for (unsigned j = 0; j < permutations_int[i].size(); j++)
+			permutations[i][j] = char(permutations_int[i][j]) + '0';
+	}
+	permutations_int.clear();
+	
 	std::cout << "permutations.size() " << permutations.size() << std::endl;
-	vector<int> fixed_first_row;
+	vector<char> fixed_first_row;
 	for (int i = 0; i < N; i++)
-		fixed_first_row.push_back(i);
+		fixed_first_row.push_back(char(i) + '0');
 	bool isPossibleMainDiag, isPossibleSecondaryDiag, isPossibleValue;
 	values_checked = 0;
 	values_main_diag.reserve(permutations.size());
@@ -648,8 +659,9 @@ void latin_square::makeDiagonalElementsValues()
 	
 	values_main_diag.resize(values_main_diag_count);
 	std::cout << "values_main_diag.size() " << values_main_diag.size() << std::endl;
+	std::stringstream sstream;
 	
-	if (diag_elements == pemutation_size) 
+	if (diag_elements == pemutation_size)
 		final_values = values_main_diag;
 	else {
 		for (unsigned i = 0; i < permutations.size(); i++) {
@@ -721,33 +733,34 @@ void latin_square::makeDiagonalElementsValues()
 	
 	std::cout << "final_values.size() " << final_values.size() << std::endl;
 	//std::cout << "values_count " << values_count << std::endl;
-	MakeDiagonalElementsPositiveLiterals(final_values);
+	makeDiagonalElementsPositiveLiterals();
 }
 
-void latin_square::MakeDiagonalElementsPositiveLiterals(vector< vector<int> > &final_int_values)
+void latin_square::makeDiagonalElementsPositiveLiterals()
 {
 	// formula p*n^3 + i*n^2 + j*n + z (p - number of square, i - num of row, j - num of column, z - value )
-	positive_literals.resize(final_int_values.size());
+	positive_literals.resize(final_values.size());
 	for (unsigned i = 0; i < positive_literals.size(); i++)
-		positive_literals[i].resize(final_int_values[i].size());
+		positive_literals[i].resize(final_values[i].size());
 	unsigned row_index, column_index, secondary_diag_index;
 	int diagonal_size = 9;
+	int tmp;
 	// add literals for the main diagonal
-	for (unsigned i = 0; i < final_int_values.size(); i++)
+	for (unsigned i = 0; i < final_values.size(); i++)
 		for (int diag_element_index = 0; diag_element_index < diagonal_size; diag_element_index++) {
 			row_index = column_index = diag_element_index + 1;
-			positive_literals[i][diag_element_index] = row_index*N*N + column_index*N 
-				+ final_int_values[i][diag_element_index] + 1;
+			std::istringstream(final_values[i][diag_element_index]) >> tmp;
+			positive_literals[i][diag_element_index] = row_index*N*N + column_index*N + tmp + 1;
 		}
 	if (diag_elements > 9) {
 		// add literals for the secondary diagonal
-		for (unsigned i = 0; i < final_int_values.size(); i++) {
+		for (unsigned i = 0; i < final_values.size(); i++) {
 			for (int diag_element_index = diagonal_size; diag_element_index < diag_elements; diag_element_index++) {
 				secondary_diag_index = diag_element_index - diagonal_size;
 				row_index = N - secondary_diag_index - 1;
 				column_index = secondary_diag_index;
-				positive_literals[i][diag_element_index] = row_index*N*N + column_index*N
-					+ final_int_values[i][diag_element_index] + 1;
+				std::istringstream(final_values[i][diag_element_index]) >> tmp;
+				positive_literals[i][diag_element_index] = row_index*N*N + column_index*N + tmp + 1;
 			}
 			sort(positive_literals[i].begin(), positive_literals[i].end());
 		}
@@ -756,15 +769,29 @@ void latin_square::MakeDiagonalElementsPositiveLiterals(vector< vector<int> > &f
 
 void latin_square::makeCnfsFromPositiveLiterals()
 {
-	std::string base_cnf_name = "positive_literals_";
+	std::string base_cnf_name = "positive_literals";
 	std::string cur_cnf_name;
 	std::stringstream sstream;
 	std::ofstream ofile;
 	for (unsigned i = 0; i < positive_literals.size(); i++ ) {
-		sstream << i;
-		cur_cnf_name = base_cnf_name + sstream.str() + ".cnf";
+		sstream << out_cnf_global_index;
+		cur_cnf_name = base_cnf_name + "_" + sstream.str(); 
 		sstream.clear(); sstream.str("");
+		if (positive_literals.size() > 1) {
+			sstream << i;
+			cur_cnf_name += "_" + sstream.str();
+			sstream.clear(); sstream.str("");
+		}
+		cur_cnf_name += ".cnf";
 		ofile.open(cur_cnf_name.c_str());
+		
+		// fixed normalized rows for every DLS from a system
+		int tmp;
+		for (unsigned j = 0; j < ls_system_rank; j++)
+			for (unsigned j2 = 0; j2 < N; j2++) {
+				tmp = j*N*N*N + j2*N + j2+1; // row index == 0 here
+				ofile << tmp << " 0" << std::endl;
+			}
 		for (unsigned j = 0; j < positive_literals[i].size(); j++) {
 			ofile << positive_literals[i][j] << " 0";
 			if ( j != positive_literals[i].size() - 1)
@@ -772,29 +799,142 @@ void latin_square::makeCnfsFromPositiveLiterals()
 		}
 		ofile.close(); ofile.clear();
 	}
+	out_cnf_global_index++;
 }
 
 void latin_square::makePositiveLiteralsFromKnownDls( dls known_dls )
 {
 	// make positive literals for diagonals
-	vector< vector<int> > final_int_values;
-	final_int_values.resize(known_dls.size());
-	for (unsigned i = 0; i < known_dls.size(); i++) {
-		final_int_values[i].resize(known_dls[i].size());
-		for (unsigned j = 0; j < known_dls[i].size(); j++)
-			std::istringstream(known_dls[i][j]) >> final_int_values[i][j];
+	positive_literals.resize(1);
+	if (diag_elements > 0) {
+		final_values.resize(1);
+		// main diagonal
+		for (unsigned i = 1; i < N; i++)
+			final_values[0].push_back(known_dls[i][i]);
+		for (unsigned i = 1; i < N; i++)
+			final_values[0].push_back(known_dls[i][N - 1 - i]);
+		makeDiagonalElementsPositiveLiterals();
 	}
-	MakeDiagonalElementsPositiveLiterals(final_int_values);
-	
 	// add positive literals for rows
 	// for every known row
 	std::stringstream sstream;
 	int tmp;
-	for (unsigned row_index = 0; row_index < rows_count; row_index++) 
-		for (unsigned col_index = 0; col_index < N; col_index++) {
+	for (unsigned row_index = 1; row_index < rows_count; row_index++) 
+		for (int col_index = 0; col_index < N; col_index++) {
 			sstream << known_dls[row_index][col_index];
 			sstream >> tmp;
 			positive_literals[0].push_back( row_index*N*N + N*col_index + (tmp + 1) );
 			sstream.clear(); sstream.str("");
 		}
+}
+
+void latin_square::readOdlsPairs(std::string known_podls_file_name)
+{
+	std::ifstream odls_pairs_file(known_podls_file_name.c_str());
+	if (!odls_pairs_file.is_open()) {
+		std::cerr << known_podls_file_name << " is not open" << std::endl;
+		exit(1);
+	}
+	std::string str, nonspace_str;
+	odls_pair cur_odls_pair;
+	while (getline(odls_pairs_file, str)) {
+		if ((str.size() <= 1) && (cur_odls_pair.dls_1.size() > 0)) { // if separate string
+			odls_pair_vec.push_back(cur_odls_pair); // add current odls pair
+			cur_odls_pair.dls_1.clear();
+			cur_odls_pair.dls_2.clear();
+		}
+		else {
+			// read two rows of 2 DLS for current pair
+			nonspace_str = "";
+			for (auto &x : str)
+				if ((x != ' ') && (x != '\r'))
+					nonspace_str += x;
+			if (nonspace_str.size() != 2 * LS_ORDER) {
+				std::cerr << "nonspace_str.size() != 2*LS_ORDER" << std::endl;
+				std::cerr << nonspace_str.size() << " != " << 2 * LS_ORDER << std::endl;
+				exit(1);
+			}
+			cur_odls_pair.dls_1.push_back(nonspace_str.substr(0, LS_ORDER));
+			cur_odls_pair.dls_2.push_back(nonspace_str.substr(LS_ORDER, LS_ORDER));
+		}
+	}
+	odls_pairs_file.close();
+	// if there is no separate string at the end of file, add last pair manually
+	if (cur_odls_pair.dls_1.size() != 0)
+		odls_pair_vec.push_back(cur_odls_pair); // add current odls pair
+	
+	std::cout << "odls_pair_vec.size() " << odls_pair_vec.size() << std::endl;
+	
+	std::set<std::string> greece_latin_square;
+	std::string cell_plus_cell;
+	// check corectness for every pair
+	for (auto &x : odls_pair_vec) {
+		for (unsigned j1 = 0; j1 < x.dls_1.size(); j1++)
+			for (unsigned j2 = 0; j2 < x.dls_1[j1].size(); j2++) {
+				cell_plus_cell = x.dls_1[j1][j2];
+				cell_plus_cell += x.dls_2[j1][j2];
+				greece_latin_square.insert(cell_plus_cell);
+			}
+		//std::cout << "greece_latin_square.size() " << greece_latin_square.size() << std::endl;
+		if (greece_latin_square.size() != x.dls_1.size() * x.dls_1.size()) {
+			std::cerr << "greece_latin_square.size() != x.dls_1.size() * x.dls_1.size() " << std::endl;
+			std::cerr << greece_latin_square.size() << " != " << x.dls_1.size() * x.dls_1.size() << std::endl;
+		}
+	}
+}
+
+void latin_square::makePseudotriple(odls_pair &orthogonal_pair, dls &new_dls, odls_pseudotriple &pseudotriple)
+{
+	unsigned cur_first_pair_orthogonal_cells, cur_second_pair_orthogonal_cells;
+	std::set<std::string> greece_latin_square1, greece_latin_square2; // for counting orthogonal cells between 2 DLS
+	std::string cell_plus_cell;
+
+	for (unsigned j1 = 0; j1< new_dls.size(); j1++)
+		for (unsigned j2 = 0; j2 < new_dls[j1].size(); j2++) {
+			cell_plus_cell = orthogonal_pair.dls_1[j1][j2];
+			cell_plus_cell += new_dls[j1][j2];
+			greece_latin_square1.insert(cell_plus_cell);
+		}
+	cur_first_pair_orthogonal_cells = greece_latin_square1.size();
+	/*std::cout << "greece_latin_square1 " << std::endl;
+	for ( auto &y : greece_latin_square1 )
+	std::cout << y << " ";
+	std::cout << std::endl;*/
+	for (unsigned j1 = 0; j1 < new_dls.size(); j1++)
+		for (unsigned j2 = 0; j2 < new_dls[j1].size(); j2++) {
+			cell_plus_cell = orthogonal_pair.dls_2[j1][j2];
+			cell_plus_cell += new_dls[j1][j2];
+			greece_latin_square2.insert(cell_plus_cell);
+		}
+	cur_second_pair_orthogonal_cells = greece_latin_square2.size();
+	pseudotriple.dls_1 = orthogonal_pair.dls_1;
+	pseudotriple.dls_2 = orthogonal_pair.dls_2;
+	pseudotriple.dls_3 = new_dls;
+	pseudotriple.unique_orthogonal_cells.clear();
+	std::set_intersection(greece_latin_square1.begin(), greece_latin_square1.end(),
+		greece_latin_square2.begin(), greece_latin_square2.end(),
+		std::inserter(pseudotriple.unique_orthogonal_cells, pseudotriple.unique_orthogonal_cells.begin()));
+}
+
+void latin_square::makeCnfsFromDls()
+{
+	readOdlsPairs("../src_common/ODLS_10_pairs.txt");
+	
+	std::vector<dls> dls_vec;
+	for (unsigned i = 0; i < odls_pair_vec.size(); i++) {
+		if ( find(dls_vec.begin(), dls_vec.end(), odls_pair_vec[i].dls_1) == dls_vec.end() )
+			dls_vec.push_back(odls_pair_vec[i].dls_1);
+		if (find(dls_vec.begin(), dls_vec.end(), odls_pair_vec[i].dls_2) == dls_vec.end())
+			dls_vec.push_back(odls_pair_vec[i].dls_2);
+	}
+
+	std::cout << "dls_vec.size() " << dls_vec.size() << std::endl;
+
+	if ( max_values_len > dls_vec.size())
+		max_values_len = dls_vec.size();
+	
+	for (unsigned i = 0; i < max_values_len; i++) {
+		makePositiveLiteralsFromKnownDls(dls_vec[i]);
+		makeCnfsFromPositiveLiterals();
+	}
 }
