@@ -740,27 +740,25 @@ void latin_square::makeDiagonalElementsPositiveLiterals()
 {
 	// formula p*n^3 + i*n^2 + j*n + z (p - number of square, i - num of row, j - num of column, z - value )
 	positive_literals.resize(final_values.size());
-	for (unsigned i = 0; i < positive_literals.size(); i++)
-		positive_literals[i].resize(final_values[i].size());
 	unsigned row_index, column_index, secondary_diag_index;
-	int diagonal_size = 9;
+	int diagonal_size = N - rows_count;
 	int tmp;
 	// add literals for the main diagonal
 	for (unsigned i = 0; i < final_values.size(); i++)
 		for (int diag_element_index = 0; diag_element_index < diagonal_size; diag_element_index++) {
-			row_index = column_index = diag_element_index + 1;
-			std::istringstream(final_values[i][diag_element_index]) >> tmp;
-			positive_literals[i][diag_element_index] = row_index*N*N + column_index*N + tmp + 1;
+			row_index = column_index = rows_count + diag_element_index;
+			tmp = (int)(final_values[i][diag_element_index] - '0');
+			positive_literals[i].push_back( row_index*N*N + column_index*N + tmp + 1 );
 		}
-	if (diag_elements > 9) {
+	if (diag_elements > diagonal_size) {
 		// add literals for the secondary diagonal
 		for (unsigned i = 0; i < final_values.size(); i++) {
-			for (int diag_element_index = diagonal_size; diag_element_index < diag_elements; diag_element_index++) {
+			for (int diag_element_index = diagonal_size; diag_element_index < diagonal_size*2; diag_element_index++) {
 				secondary_diag_index = diag_element_index - diagonal_size;
-				row_index = N - secondary_diag_index - 1;
+				row_index = N - 1 - secondary_diag_index;
 				column_index = secondary_diag_index;
-				std::istringstream(final_values[i][diag_element_index]) >> tmp;
-				positive_literals[i][diag_element_index] = row_index*N*N + column_index*N + tmp + 1;
+				tmp = (int)(final_values[i][diag_element_index] - '0');
+				positive_literals[i].push_back( row_index*N*N + column_index*N + tmp + 1 );
 			}
 			sort(positive_literals[i].begin(), positive_literals[i].end());
 		}
@@ -809,9 +807,9 @@ void latin_square::makePositiveLiteralsFromKnownDls( dls known_dls )
 	if (diag_elements > 0) {
 		final_values.resize(1);
 		// main diagonal
-		for (unsigned i = 1; i < N; i++)
+		for (unsigned i = rows_count; i < N; i++)
 			final_values[0].push_back(known_dls[i][i]);
-		for (unsigned i = 1; i < N; i++)
+		for (unsigned i = N-1; i >= rows_count; i--)
 			final_values[0].push_back(known_dls[i][N - 1 - i]);
 		makeDiagonalElementsPositiveLiterals();
 	}

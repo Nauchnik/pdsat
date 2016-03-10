@@ -57,8 +57,8 @@ int main( int argc, char* argv[] )
 	cout << "***DEBUG MODE***" << endl;
 	ls.max_values_len = 10;
 	ls.N = 10;
-	ls.rows_count = 6;
-	ls.diag_elements = 0;
+	ls.rows_count = 3;
+	ls.diag_elements = 18;
 	ls.ls_system_rank = 3; // triple
 	ls.makeCnfsFromDls();
 #endif
