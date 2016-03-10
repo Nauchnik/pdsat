@@ -820,7 +820,6 @@ bool MPI_Solver :: ComputeProcessSolve()
 				char_send_array = new char[char_send_array_len];
 				char_send_array[0] = '2';
 			}
-			
 			MPI_Send( char_send_array, char_send_array_len, MPI_CHAR, 0, 0, MPI_COMM_WORLD );
 			delete[] char_send_array;
 			

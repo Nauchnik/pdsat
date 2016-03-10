@@ -609,7 +609,7 @@ bool MPI_Base :: ReadIntCNF()
 	current_clause_count = 0;
 
 	std::stringstream sstream;
-	std::string str1, str2, str3, str4;
+	std::string str1, str2, str3, str4, str5;
 	bool Is_InpVar = false, Is_ConstrLen = false, Is_ObjLen = false, Is_ObjVars = false;
 	while ( getline( main_cnf, line_str ) ) {
 		if ( line_str[0] == 'p' )
@@ -632,35 +632,44 @@ bool MPI_Base :: ReadIntCNF()
 			}*/
 
 			sstream >> str3 >> str4; // get and parse words in string
-			sstream.str( "" ); sstream.clear( );
 			
 			if ( str2 == "known_last_bits" ) {
 				std::istringstream( str3 ) >> known_last_bits;
 				std::cout << "known_last_bits " << known_last_bits << std::endl;
 				continue;
 			}
-			
 			if ( ( str2 == "output" ) && ( str3 == "variables" ) ) {
 				std::istringstream( str4 ) >> keystream_len;
 				continue;
 			}
-			
-			if ( ( !Is_InpVar ) && ( str2 == "input" ) && ( str3 == "variables" ) ) {
-				std::istringstream( str4 ) >> input_var_num;
-				if ( input_var_num > 0 ) {
-				    if ( !core_len )
+			if ((str2 == "output") && (str3 == "vars")) {
+				sstream >> str5;
+				std::istringstream(str5) >> keystream_len;
+				continue;
+			}
+			if ( !Is_InpVar ) {
+				if ((str2 == "input") && (str3 == "variables"))
+					std::istringstream(str4) >> input_var_num;
+				else if ((str2 == "input") && (str3 == "vars")) {
+					sstream >> str5;
+					std::istringstream(str5) >> input_var_num;
+				}
+				std::cout << "input_var_num " << input_var_num << std::endl;
+				if (input_var_num > 0) {
+					if (!core_len)
 						core_len = input_var_num; // if core_len didn't set manually, read from file
-				    if ( (core_len > MAX_CORE_LEN) || (core_len <= 0) ) {
+					if ((core_len > MAX_CORE_LEN) || (core_len <= 0)) {
 						core_len = MAX_CORE_LEN;
 						std::cout << "Warning. core_len > MAX_CORE_LEN or <= 0. Changed to MAX_CORE_LEN" << std::endl;
 						std::cout << "core_len " << core_len << " MAX_CORE_LEN " << MAX_CORE_LEN << std::endl;
-				    }
-					for ( unsigned i=0; i < core_len; ++i )
-						full_var_choose_order.push_back( i+1 );
-				    Is_InpVar = true;
-				    continue;
+					}
+					for (unsigned i = 0; i < core_len; ++i)
+						full_var_choose_order.push_back(i + 1);
+					Is_InpVar = true;
+					continue;
 				}
 			}
+			sstream.str(""); sstream.clear();
 
 			if ( str2 == "var_set" ) {
 				sstream << line_str;
