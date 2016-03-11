@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
 	//S.start_activity = 1;
 	//S.resetIntervalVarActivity( 578, 777 );
 	S.print_learnts = true;
-    
+
     vec<Lit> dummy;
     lbool ret = S.solveLimited(dummy);
     if (S.verbosity > 0){

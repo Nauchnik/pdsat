@@ -39,7 +39,7 @@ struct Flags
 	double max_solving_time_koef;
 	bool no_increm;
 	double te; // for (ro es te) predict strategy
-	bool isIntegerVariables;
+	int variables_each_integer;
 };
 
 // prototypes
@@ -182,7 +182,8 @@ int main( int argc, char** argv )
 			mpi_s.evaluation_type = myflags.evaluation_type;
 		if (myflags.te > 0)
 			mpi_s.te = myflags.te;
-		mpi_s.isIntegerVariables = myflags.isIntegerVariables;
+		if (myflags.variables_each_integer > 0 )
+			mpi_s.variables_each_integer = myflags.variables_each_integer;
 		mpi_s.no_increm = myflags.no_increm;
 
 		mpi_s.verbosity		   = myflags.verbosity;
@@ -288,7 +289,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.no_increm = false;
 	myflags.te = 0;
 	myflags.predict_to = 0;
-	myflags.isIntegerVariables = false;
+	myflags.variables_each_integer = 0;
 	k = 0;
 	
 	// check every input parameters for flag existing
@@ -312,8 +313,8 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.IsFirstStage = false;
 		else if ( hasPrefix_String( argv_string, "-solve_all", value ) )
 			myflags.IsSolveAll = true;
-		else if (hasPrefix_String(argv_string, "-integer_variables", value))
-			myflags.isIntegerVariables = true;
+		else if (hasPrefix_String(argv_string, "-integer_variables=", value))
+			myflags.variables_each_integer = atoi(value.c_str());
 		else if ( hasPrefix_String( argv_string, "-max_L2_hamming_distance=", value ) )
 			myflags.max_L2_hamming_distance = atoi( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-skip_tasks=", value ) )

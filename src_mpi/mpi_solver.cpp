@@ -22,7 +22,7 @@ MPI_Solver :: MPI_Solver( ) :
 	finding_first_sat_time      ( 0 ),
 	total_start_time            ( 0 ),
 	no_increm                   ( false ),
-	isIntegerVariables          ( false )
+	variables_each_integer      ( 0 )
 {
 	for( unsigned i=0; i < SOLVING_TIME_LEN; ++i )
 		solving_times[i] = 0;
@@ -415,22 +415,23 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 	std::cout << std::endl;
 	
 	std::vector<std::vector<int>> cartesian_elements;
-	if (isIntegerVariables) {
+	if (variables_each_integer > 0) {
 		part_mask_var_count = var_choose_order.size(); // 1 task == 1 subproblem
-		std::cout << "Integer Variables mode " << isIntegerVariables << std::endl;
-		unsigned integer_variables = var_choose_order.size() / VARIABLES_EACH_INTEGER;
+		std::cout << "Integer Variables mode " << std::endl;
+		std::cout << "variables_each_integer " << variables_each_integer << std::endl;
+		unsigned integer_variables = var_choose_order.size() / variables_each_integer;
 		std::cout << "reduced_variables " << integer_variables << std::endl;
 		std::vector<std::vector<int>> vii;
 		std::vector<int> index_arr;
 		std::vector<int> cur_vi;
 		vii.resize(integer_variables);
 		for (unsigned i = 0; i < vii.size(); i++) {
-			vii[i].resize(VARIABLES_EACH_INTEGER);
-			for (unsigned j = 0; j < VARIABLES_EACH_INTEGER; j++)
-				vii[i][j] = j + i*VARIABLES_EACH_INTEGER;
+			vii[i].resize(variables_each_integer);
+			for (unsigned j = 0; j < variables_each_integer; j++)
+				vii[i][j] = j + i*variables_each_integer;
 		}
 		std::cout << "next_cartesian variants" << std::endl;
-		all_tasks_count = pow(VARIABLES_EACH_INTEGER, integer_variables);
+		all_tasks_count = pow(variables_each_integer, integer_variables);
 		cartesian_elements.resize(all_tasks_count);
 		int k = 0;
 		std::cout << "first 10 cartesian_elements " << std::endl;
@@ -500,7 +501,7 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 			values_arr[i][j] = 0;
 	}
 	
-	if (isIntegerVariables)
+	if (variables_each_integer > 0)
 		makeIntegerMasks(cartesian_elements);
 	else
 		makeStandardMasks(part_var_power);
@@ -585,7 +586,7 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 				//std::cout << "recieved char_arr_len " << char_arr_len << std::endl;
 				cur_interrupted_problems_var_values.resize( var_choose_order.size() );
 				elem_index=0;
-				for ( int j=0; j < var_choose_order.size(); j++ ) {
+				for ( int j=0; j < char_arr_len; j++ ) {
 					cur_interrupted_problems_var_values[elem_index++] = (char_arr[j] == '1' ? true : false);
 					if ( (j+1) % var_choose_order.size() == 0 ) {
 						interrupted_problems_var_values.push_back( cur_interrupted_problems_var_values );
@@ -659,6 +660,8 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 			next_task_index++;
 		}
 	} // while ( solved_tasks_count < all_tasks_count )
+	
+	sort(interrupted_problems_var_values.begin(), interrupted_problems_var_values.end());
 
 	solving_iteration_count++;
 	
