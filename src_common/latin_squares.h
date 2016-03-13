@@ -79,9 +79,10 @@ public:
 	void MakePositiveLiterals();
 	void makeDiagonalElementsValues();
 	void makeDiagonalElementsPositiveLiterals();
-	void makeCnfsFromPositiveLiterals();
+	void makeCnfsFromPositiveLiterals(std::vector<std::string> &base_cnf_vec);
 	void makePositiveLiteralsFromKnownDls(dls known_dls);
 	void makeCnfsFromDls();
+	void makeHtmlData();
 	
 	// work with pseudotriples
 	void readOdlsPairs(std::string known_podls_file_name);

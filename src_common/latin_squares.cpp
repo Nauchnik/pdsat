@@ -765,37 +765,46 @@ void latin_square::makeDiagonalElementsPositiveLiterals()
 	}
 }
 
-void latin_square::makeCnfsFromPositiveLiterals()
+void latin_square::makeCnfsFromPositiveLiterals(std::vector<std::string> &base_cnf_vec)
 {
-	std::string base_cnf_name = "positive_literals";
-	std::string cur_cnf_name;
-	std::stringstream sstream;
+	std::string cur_cnf_name, str;
+	std::stringstream sstream, base_sstream;
 	std::ofstream ofile;
-	for (unsigned i = 0; i < positive_literals.size(); i++ ) {
-		sstream << out_cnf_global_index;
-		cur_cnf_name = base_cnf_name + "_" + sstream.str(); 
-		sstream.clear(); sstream.str("");
-		if (positive_literals.size() > 1) {
-			sstream << i;
-			cur_cnf_name += "_" + sstream.str();
-			sstream.clear(); sstream.str("");
-		}
-		cur_cnf_name += ".cnf";
-		ofile.open(cur_cnf_name.c_str());
+
+	for (unsigned base_cnf_vec_index = 0; base_cnf_vec_index < base_cnf_vec.size(); base_cnf_vec_index++) {
+		std::ifstream ifile(base_cnf_vec[base_cnf_vec_index]);
+		while (getline(ifile, str))
+			base_sstream << str << std::endl;
 		
-		// fixed normalized rows for every DLS from a system
-		int tmp;
-		for (unsigned j = 0; j < ls_system_rank; j++)
-			for (unsigned j2 = 0; j2 < N; j2++) {
-				tmp = j*N*N*N + j2*N + j2+1; // row index == 0 here
-				ofile << tmp << " 0" << std::endl;
+		for (unsigned i = 0; i < positive_literals.size(); i++) {
+			sstream << out_cnf_global_index;
+			cur_cnf_name = base_cnf_vec[base_cnf_vec_index] + "_" + sstream.str();
+			sstream.clear(); sstream.str("");
+			if (positive_literals.size() > 1) {
+				sstream << i;
+				cur_cnf_name += "_" + sstream.str();
+				sstream.clear(); sstream.str("");
 			}
-		for (unsigned j = 0; j < positive_literals[i].size(); j++) {
-			ofile << positive_literals[i][j] << " 0";
-			if ( j != positive_literals[i].size() - 1)
-				ofile << std::endl;
+			cur_cnf_name += ".cnf";
+			ofile.open(cur_cnf_name.c_str(), ios::out | ios::app);
+			ofile << base_sstream.rdbuf();
+			
+			// fixed normalized rows for every DLS from a system
+			int tmp;
+			for (unsigned j = 0; j < ls_system_rank; j++)
+				for (int j2 = 0; j2 < N; j2++) {
+					tmp = j*N*N*N + j2*N + j2 + 1; // row index == 0 here
+					ofile << tmp << " 0" << std::endl;
+				}
+			for (unsigned j = 0; j < positive_literals[i].size(); j++) {
+				ofile << positive_literals[i][j] << " 0";
+				if (j != positive_literals[i].size() - 1)
+					ofile << std::endl;
+			}
+			ofile.close(); ofile.clear();
 		}
-		ofile.close(); ofile.clear();
+		base_sstream.str("");
+		base_sstream.clear();
 	}
 	out_cnf_global_index++;
 }
@@ -807,9 +816,9 @@ void latin_square::makePositiveLiteralsFromKnownDls( dls known_dls )
 	if (diag_elements > 0) {
 		final_values.resize(1);
 		// main diagonal
-		for (unsigned i = rows_count; i < N; i++)
+		for (int i = rows_count; i < N; i++)
 			final_values[0].push_back(known_dls[i][i]);
-		for (unsigned i = N-1; i >= rows_count; i--)
+		for (int i = N-1; i >= rows_count; i--)
 			final_values[0].push_back(known_dls[i][N - 1 - i]);
 		makeDiagonalElementsPositiveLiterals();
 	}
@@ -930,9 +939,65 @@ void latin_square::makeCnfsFromDls()
 
 	if ( max_values_len > dls_vec.size())
 		max_values_len = dls_vec.size();
+
+	std::vector<std::string> base_cnf_vec;
+	/*base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_bm_ext.cnf");
+	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_bn_ext.cnf");
+	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_cm_ext.cnf");
+	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_pr_ext.cnf");
+	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_pw_ext.cnf");
+	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_sq_ext.cnf");*/
+	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_naive_pw_naive.cnf");
 	
 	for (unsigned i = 0; i < max_values_len; i++) {
 		makePositiveLiteralsFromKnownDls(dls_vec[i]);
-		makeCnfsFromPositiveLiterals();
+		makeCnfsFromPositiveLiterals(base_cnf_vec);
 	}
+}
+
+void latin_square::makeHtmlData()
+{
+	std::ifstream ifile("pseudotriple.txt");
+	std::string str, tmp_str, cur_dls_row;
+	dls cur_dls;
+	std::vector<dls> dls_vec;
+	std::stringstream sstream;
+	while (getline(ifile, str)) {
+		if (str.size() < 18) continue;
+		sstream << str;
+		while (sstream >> tmp_str) {
+			cur_dls_row += tmp_str;
+			if (cur_dls_row.size() == 10) {
+				cur_dls.push_back(cur_dls_row);
+				cur_dls_row = "";
+			}
+			if (cur_dls.size() == 10) {
+				dls_vec.push_back(cur_dls);
+				cur_dls.clear();
+			}
+		}
+		sstream.clear(); sstream.str("");
+	}
+	ifile.close();
+
+	std::ofstream html_data_file("html_data.txt");
+	for (unsigned i = 1; i < dls_vec.size(); i++) {
+		sstream << "<tr>" << std::endl;
+		sstream << "<td> " << i << " </td>" << std::endl;
+		sstream << "<td>" << std::endl;
+		sstream << "<FONT SIZE = -2>" << std::endl;
+		for (unsigned j = 0; j < 10; j++) {
+			for (unsigned j2 = 0; j2 < 10; j2++)
+				sstream << dls_vec[0][j][j2] << " ";
+			sstream << "&nbsp;&nbsp ";
+			for (unsigned j2 = 0; j2 < 10; j2++)
+				sstream << dls_vec[i][j][j2] << " ";
+			sstream << "<br>" << std::endl;
+		}
+		sstream << "</FONT>" << std::endl;
+		sstream << "</td>" << std::endl;
+		sstream << "</tr>" << std::endl;
+	}
+	html_data_file << sstream.str();
+	html_data_file.close();
 }

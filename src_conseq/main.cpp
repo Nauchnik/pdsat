@@ -50,16 +50,16 @@ int main( int argc, char* argv[] )
 	argc = 5;
 	argv[1] = "10";
 	argv[2] = "2";
-	argv[3] = "5";
+	argv[3] = "4";
 	argv[4] = "diag";
 	//argv[5] = "values.txt";
 	//argv[6] = "tasks.txt";
-	cout << "***DEBUG MODE***" << endl;
+	std::cout << "***DEBUG MODE***" << endl;
 	ls.max_values_len = 10;
 	ls.N = 10;
-	ls.rows_count = 3;
-	ls.diag_elements = 18;
-	ls.ls_system_rank = 3; // triple
+	ls.rows_count = 4;
+	ls.diag_elements = 0;
+	ls.ls_system_rank = 2; // triple
 	ls.makeCnfsFromDls();
 #endif
 	
