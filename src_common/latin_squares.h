@@ -45,8 +45,8 @@ public:
 	latin_square();
 
 	int N; // order of squares
-	unsigned K; // default number of columns
-	unsigned rows_count;
+	int K; // default number of columns
+	int rows_count;
 	int diag_elements;
 	string problem_type;
 	bool IsSATFinded;
@@ -68,7 +68,7 @@ public:
 	void Show_Values();
 
 	bool IsPossibleValue( vector<char> cur_vec );
-	bool CheckValue( vector<char> cur_vec, unsigned columns_count );
+	bool CheckValue( vector<char> cur_vec, int columns_count );
 	bool CompareWithFirstRow( vector<char> vec, unsigned row_index, unsigned columns_count );
 	void FindAdditValues( vector<char> cur_vec, unsigned row_index, vector<char> &add_values );
 	
@@ -79,7 +79,7 @@ public:
 	void MakePositiveLiterals();
 	void makeDiagonalElementsValues();
 	void makeDiagonalElementsPositiveLiterals();
-	void makeCnfsFromPositiveLiterals(std::vector<std::string> &base_cnf_vec);
+	void makeCnfsFromPositiveLiterals(std::vector<std::string> &base_cnf_vec, int cur_positive_index);
 	void makePositiveLiteralsFromKnownDls(dls known_dls);
 	void makeCnfsFromDls();
 	void makeHtmlData();
@@ -115,7 +115,6 @@ private:
 	double mid_time_inter;
 	string cnf_head_str;
 	unsigned final_values_index;
-	unsigned out_cnf_global_index;
 };
 
 #endif

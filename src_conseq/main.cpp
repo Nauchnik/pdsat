@@ -55,13 +55,21 @@ int main( int argc, char* argv[] )
 	//argv[5] = "values.txt";
 	//argv[6] = "tasks.txt";
 	std::cout << "***DEBUG MODE***" << endl;
-	ls.max_values_len = 10;
+	ls.max_values_len = 1;
 	ls.N = 10;
-	ls.rows_count = 4;
+	ls.rows_count = 6;
 	ls.diag_elements = 0;
-	ls.ls_system_rank = 2; // triple
+	ls.ls_system_rank = 2; // number of LS in a system
 	ls.makeCnfsFromDls();
 #endif
+
+	ls.max_values_len = 100;
+	ls.diag_elements = 0;
+	ls.ls_system_rank = 2; // number of LS in a system
+	ls.N = atoi(argv[1]);
+	ls.rows_count = atoi(argv[2]);
+	ls.makeCnfsFromDls();
+	return 0;
 	
 	if ( argc < 4 ) {
 		cout << "Latin square conseq solver: [N] [rows_count, including fixed 1st row] [K] <problem_type> <values_file> <tasks_file>" << endl;

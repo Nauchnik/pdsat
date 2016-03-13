@@ -52,7 +52,6 @@ latin_square :: latin_square() :
 	solver_type( 0 ),
 	final_values_index( 0 ),
 	problem_type ( "diag" ),
-	out_cnf_global_index ( 0 ),
 	ls_system_rank ( 2 )
 { }
 
@@ -312,20 +311,20 @@ bool latin_square :: CompareWithFirstRow( vector<char> vec, unsigned row_index, 
 	return true;
 }
 
-bool latin_square :: CheckValue( vector<char> cur_vec, unsigned columns_count )
+bool latin_square :: CheckValue( vector<char> cur_vec, int columns_count )
 {
 // check rows with each other except 1st one, which was checked already
 	if ( rows_count == 2 )
 		return true;
 
-	unsigned index1, index2;
-	for ( unsigned column_index = 0; column_index < columns_count; column_index++ ) {
-		for ( unsigned j = 0; j < rows_count - 2; j++ )  {
-			for ( unsigned j2 = j + 1; j2 < rows_count-1; j2++ )  {
+	int index1, index2;
+	for ( int column_index = 0; column_index < columns_count; column_index++ ) {
+		for ( int j = 0; j < rows_count - 2; j++ )  {
+			for ( int j2 = j + 1; j2 < rows_count-1; j2++ )  {
 				index1 = j*columns_count  + column_index;
 				index2 = j2*columns_count + column_index;
-				if  ( ( index1 < cur_vec.size() ) &&
-					  ( index2 < cur_vec.size() ) &&
+				if  ( ( (unsigned)index1 < cur_vec.size() ) &&
+					  ( (unsigned)index2 < cur_vec.size() ) &&
 					  ( cur_vec[index1] == cur_vec[index2] )
 					  )
 					return false;
@@ -337,8 +336,8 @@ bool latin_square :: CheckValue( vector<char> cur_vec, unsigned columns_count )
 		return true;
 
 	// check main and secondary diag. Skip checking 1st row, it was checked already
-	for ( unsigned i = 0; i < rows_count - 2; i++ ) {
-		for ( unsigned j = i + 1; j < rows_count-1; j++ ) {
+	for ( int i = 0; i < rows_count - 2; i++ ) {
+		for ( int j = i + 1; j < rows_count-1; j++ ) {
 			// check main diag. ( N-columns_count  ) is additinal cells of 1st row
 			index1 = i*columns_count + i + 1;
 			index2 = j*columns_count + j + 1;
@@ -363,12 +362,12 @@ bool latin_square :: CheckValue( vector<char> cur_vec, unsigned columns_count )
 
 void latin_square :: FindAdditValues( vector<char> cur_vec, unsigned row_index, vector<char> &add_values )
 {
-	unsigned count, index;
+	int count, index;
 	for ( int i = 0; i < N; i++ ) {
 		count = 0;
-		for ( unsigned j = 0; j < K; j++ ) {
+		for ( int j = 0; j < K; j++ ) {
 			index = (N-K) + K*row_index + j;
-			if ( ( index < cur_vec.size() ) && 
+			if ( ((unsigned)index < cur_vec.size() ) &&
 			     ( cur_vec[index] != char(i) + '0' )
 			     )
 				count++;
@@ -389,7 +388,7 @@ bool latin_square :: IsPossibleValue( vector<char> cur_vec )
 // each row can be filled up by many variants
 // if no variants are possible, then skip current value
 	unsigned variants_count_one_row = 1;
-	for ( unsigned i=2; i <= N-K; i++ )
+	for ( int i=2; i <= N-K; i++ )
 		variants_count_one_row *= i;
 	
 	// find all possible additional values via permutations
@@ -441,7 +440,7 @@ bool latin_square :: IsPossibleValue( vector<char> cur_vec )
 		}
 
 		IsSkip = false;
-		for ( unsigned i = 0; i < rows_count-1; i++ ) { // check with 1st fixed row 1..N
+		for ( int i = 0; i < rows_count-1; i++ ) { // check with 1st fixed row 1..N
 			for ( int j = N-K+1; j < N; j++ )
 				cur_row_vecs[i][j] = extd_cur_vec[N*i + j];
 			if ( !CompareWithFirstRow( cur_row_vecs[i], i+1, N ) ) {
@@ -468,8 +467,8 @@ void latin_square :: MakePositiveLiterals()
 		positive_literals[i].resize( final_values[i].size() );
 	// rows of 1st square
 	for ( unsigned i = 0; i < final_values.size(); i++ )
-		for ( unsigned row_index = 1; row_index < rows_count; row_index++ )
-			for ( unsigned j = 0; j < K; j++ ) {
+		for ( int row_index = 1; row_index < rows_count; row_index++ )
+			for ( int j = 0; j < K; j++ ) {
 				sstream << final_values[i][(row_index-1)*K + j];
 				sstream >> tmp;
 				positive_literals[i][(row_index-1)*K + j] = row_index*N*N + N*j + (tmp + 1);
@@ -512,24 +511,24 @@ void latin_square :: MakeLatinValues( )
 	
 	vector< vector<int> > :: iterator known_values_it, perm_it;
 	// Make possible values for every row. 1st known row 1..N has row_index 0 and
-	unsigned row_index = 0;
+	int row_index = 0;
 	for ( known_values_it = known_values_vec.begin(); known_values_it != known_values_vec.end(); ++known_values_it ) {
-		if ( (*known_values_it).size() < K ) {
+		if ( (*known_values_it).size() < (unsigned)K ) {
 			cerr << "Error. (*known_values_it).size() < K" << endl;
 			exit(1);
 		}
 		cout << "known_values_vec" << endl;
-		for ( unsigned i=0; i < K; ++i )
+		for ( int i=0; i < K; ++i )
 			cout << (*known_values_it)[i] << " ";
 		cout << endl;
 		row_values[row_index].resize(1);
-		for ( unsigned i=0; i < K; ++i )
+		for ( int i=0; i < K; ++i )
 			row_values[row_index][0].push_back( (char)(*known_values_it)[i] + '0' );
 		row_index++;
 	}
 	
 	if ( row_index > rows_count-2 ) {
-		cerr << "row_index > rows_count-2" << endl;
+		std::cerr << "row_index > rows_count-2" << ::endl;
 		exit(1);
 	}
 	
@@ -549,7 +548,7 @@ void latin_square :: MakeLatinValues( )
 	cout << "short values created" << endl;
 	stringstream sstream;
 	unsigned long long max_final_values_size = 1;
-	for ( unsigned i=0; i<rows_count-1; ++i )
+	for ( int i=0; i<rows_count-1; ++i )
 		max_final_values_size *= (unsigned long long)row_values[i].size();
 	cout << "max_final_values_size " << max_final_values_size << endl;
 	cout << "max_values_len " << max_values_len << endl;
@@ -765,54 +764,54 @@ void latin_square::makeDiagonalElementsPositiveLiterals()
 	}
 }
 
-void latin_square::makeCnfsFromPositiveLiterals(std::vector<std::string> &base_cnf_vec)
+void latin_square::makeCnfsFromPositiveLiterals(std::vector<std::string> &base_cnf_vec, int cur_positive_index)
 {
 	std::string cur_cnf_name, str;
 	std::stringstream sstream, base_sstream;
 	std::ofstream ofile;
-
+	int tmp;
+	
 	for (unsigned base_cnf_vec_index = 0; base_cnf_vec_index < base_cnf_vec.size(); base_cnf_vec_index++) {
 		std::ifstream ifile(base_cnf_vec[base_cnf_vec_index]);
 		while (getline(ifile, str))
 			base_sstream << str << std::endl;
-		
-		for (unsigned i = 0; i < positive_literals.size(); i++) {
-			sstream << out_cnf_global_index;
+		ifile.close(); ifile.clear();
+
+		for (unsigned positive_literals_index = 0;
+			positive_literals_index < positive_literals.size();
+			positive_literals_index++)
+		{
+			sstream << cur_positive_index;
 			cur_cnf_name = base_cnf_vec[base_cnf_vec_index] + "_" + sstream.str();
 			sstream.clear(); sstream.str("");
-			if (positive_literals.size() > 1) {
-				sstream << i;
-				cur_cnf_name += "_" + sstream.str();
-				sstream.clear(); sstream.str("");
-			}
 			cur_cnf_name += ".cnf";
-			ofile.open(cur_cnf_name.c_str(), ios::out | ios::app);
+			ofile.open(cur_cnf_name.c_str(), ios::out);
 			ofile << base_sstream.rdbuf();
-			
+
 			// fixed normalized rows for every DLS from a system
-			int tmp;
 			for (unsigned j = 0; j < ls_system_rank; j++)
 				for (int j2 = 0; j2 < N; j2++) {
 					tmp = j*N*N*N + j2*N + j2 + 1; // row index == 0 here
 					ofile << tmp << " 0" << std::endl;
 				}
-			for (unsigned j = 0; j < positive_literals[i].size(); j++) {
-				ofile << positive_literals[i][j] << " 0";
-				if (j != positive_literals[i].size() - 1)
+			for (unsigned j = 0; j < positive_literals[positive_literals_index].size(); j++) {
+				ofile << positive_literals[positive_literals_index][j] << " 0";
+				if (j != positive_literals[positive_literals_index].size() - 1)
 					ofile << std::endl;
 			}
 			ofile.close(); ofile.clear();
 		}
+		
 		base_sstream.str("");
 		base_sstream.clear();
 	}
-	out_cnf_global_index++;
 }
 
 void latin_square::makePositiveLiteralsFromKnownDls( dls known_dls )
 {
 	// make positive literals for diagonals
 	positive_literals.resize(1);
+	positive_literals[0].resize(0);
 	if (diag_elements > 0) {
 		final_values.resize(1);
 		// main diagonal
@@ -826,7 +825,7 @@ void latin_square::makePositiveLiteralsFromKnownDls( dls known_dls )
 	// for every known row
 	std::stringstream sstream;
 	int tmp;
-	for (unsigned row_index = 1; row_index < rows_count; row_index++) 
+	for (int row_index = 1; row_index < rows_count; row_index++) 
 		for (int col_index = 0; col_index < N; col_index++) {
 			sstream << known_dls[row_index][col_index];
 			sstream >> tmp;
@@ -925,7 +924,7 @@ void latin_square::makePseudotriple(odls_pair &orthogonal_pair, dls &new_dls, od
 
 void latin_square::makeCnfsFromDls()
 {
-	readOdlsPairs("../src_common/ODLS_10_pairs.txt");
+	readOdlsPairs("ODLS_10_pairs.txt");
 	
 	std::vector<dls> dls_vec;
 	for (unsigned i = 0; i < odls_pair_vec.size(); i++) {
@@ -947,11 +946,11 @@ void latin_square::makeCnfsFromDls()
 	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_pr_ext.cnf");
 	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_pw_ext.cnf");
 	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_sq_ext.cnf");*/
-	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_naive_pw_naive.cnf");
+	base_cnf_vec.push_back("LSD10_2_pw_naive_pw_naive.cnf");
 	
 	for (unsigned i = 0; i < max_values_len; i++) {
 		makePositiveLiteralsFromKnownDls(dls_vec[i]);
-		makeCnfsFromPositiveLiterals(base_cnf_vec);
+		makeCnfsFromPositiveLiterals(base_cnf_vec, i);
 	}
 }
 
