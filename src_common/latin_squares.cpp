@@ -940,13 +940,13 @@ void latin_square::makeCnfsFromDls()
 		max_values_len = dls_vec.size();
 
 	std::vector<std::string> base_cnf_vec;
-	/*base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_bm_ext.cnf");
-	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_bn_ext.cnf");
-	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_cm_ext.cnf");
-	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_pr_ext.cnf");
-	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_pw_ext.cnf");
-	base_cnf_vec.push_back("../src_common/DLS_10_2_encodings/LSD10_2_pw_ext_sq_ext.cnf");*/
-	base_cnf_vec.push_back("LSD10_2_pw_naive_pw_naive.cnf");
+	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_2_encodings/LSD10_2_pw_ext_bm_ext.cnf");
+	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_2_encodings/LSD10_2_pw_ext_bn_ext.cnf");
+	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_2_encodings/LSD10_2_pw_ext_cm_ext.cnf");
+	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_2_encodings/LSD10_2_pw_ext_pr_ext.cnf");
+	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_2_encodings/LSD10_2_pw_ext_pw_ext.cnf");
+	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_2_encodings/LSD10_2_pw_ext_sq_ext.cnf");
+	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_2_encodings/LSD10_2_pw_naive_pw_naive.cnf");
 	
 	for (unsigned i = 0; i < max_values_len; i++) {
 		makePositiveLiteralsFromKnownDls(dls_vec[i]);
