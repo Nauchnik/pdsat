@@ -62,10 +62,10 @@ int main( int argc, char* argv[] )
 	ls.ls_system_rank = 2; // number of LS in a system
 	ls.makeCnfsFromDls();
 #endif
-
-	ls.max_values_len = 100;
+	
+	ls.max_values_len = 10;
 	ls.diag_elements = 0;
-	ls.ls_system_rank = 2; // number of LS in a system
+	ls.ls_system_rank = 3; // number of LS in a system
 	ls.N = atoi(argv[1]);
 	ls.rows_count = atoi(argv[2]);
 	ls.makeCnfsFromDls();

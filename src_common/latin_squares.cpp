@@ -940,13 +940,13 @@ void latin_square::makeCnfsFromDls()
 		max_values_len = dls_vec.size();
 
 	std::vector<std::string> base_cnf_vec;
-	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_2_encodings/LSD10_2_pw_ext_bm_ext.cnf");
-	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_2_encodings/LSD10_2_pw_ext_bn_ext.cnf");
-	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_2_encodings/LSD10_2_pw_ext_cm_ext.cnf");
-	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_2_encodings/LSD10_2_pw_ext_pr_ext.cnf");
-	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_2_encodings/LSD10_2_pw_ext_pw_ext.cnf");
-	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_2_encodings/LSD10_2_pw_ext_sq_ext.cnf");
-	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_2_encodings/LSD10_2_pw_naive_pw_naive.cnf");
+	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_3_encodings/LSD10_3_pw_ext_bm_ext.cnf");
+	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_3_encodings/LSD10_3_pw_ext_bn_ext.cnf");
+	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_3_encodings/LSD10_3_pw_ext_cm_ext.cnf");
+	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_3_encodings/LSD10_3_pw_ext_pr_ext.cnf");
+	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_3_encodings/LSD10_3_pw_ext_pw_ext.cnf");
+	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_3_encodings/LSD10_3_pw_ext_sq_ext.cnf");
+	base_cnf_vec.push_back("../../../../Tests/ferrumsat/Latin Square encodings/DLS_10_3_encodings/LSD10_3_pw_naive_pw_naive.cnf");
 	
 	for (unsigned i = 0; i < max_values_len; i++) {
 		makePositiveLiteralsFromKnownDls(dls_vec[i]);
@@ -1003,7 +1003,7 @@ void latin_square::makeHtmlData()
 
 
 // normalize LS by 1st row
-void normalizeLS(dls &cur_DLS)
+void latin_square::normalizeLS(dls &cur_DLS)
 {
 	char ch;
 	dls new_DLS;
@@ -1023,7 +1023,7 @@ void normalizeLS(dls &cur_DLS)
 }
 
 // Only literals which correspond to 1 are to be made
-std::vector<int> makeLiterals(dls cur_dls)
+std::vector<int> latin_square::makeLiteralsFromLS(dls cur_dls)
 {
 	std::vector<int> result_vec;
 	unsigned row_index, column_index;
@@ -1034,7 +1034,7 @@ std::vector<int> makeLiterals(dls cur_dls)
 	return result_vec;
 }
 
-std::vector<dls> getSetUniqueDLS(std::vector<odls_pair> odls_pair_vec)
+std::vector<dls> latin_square::getSetUniqueDLS(std::vector<odls_pair> odls_pair_vec)
 {
 	std::vector<dls> unique_dls_vec;
 
@@ -1079,4 +1079,49 @@ std::vector<dls> getSetUniqueDLS(std::vector<odls_pair> odls_pair_vec)
 	}
 
 	return unique_dls_vec;
+}
+
+void latin_square::printDLS(dls cur_dls)
+{
+	for (unsigned i = 0; i < cur_dls.size(); i++) {
+		for (unsigned j = 0; j < cur_dls[i].size(); j++) {
+			std::cout << cur_dls[i][j];
+			if (j != cur_dls[i].size() - 1)
+				std::cout << " ";
+		}
+	}
+}
+
+void latin_square::constructOlsFromFile()
+{
+	std::ifstream ifile("MayBeTriple.txt");
+	std::string str, tmp_str, cur_dls_row;
+	dls cur_dls;
+	std::vector<dls> dls_vec;
+	std::stringstream sstream;
+	while (getline(ifile, str)) {
+		if (str.size() < 18) continue;
+		sstream << str;
+		while (sstream >> tmp_str) {
+			cur_dls_row += tmp_str;
+			if (cur_dls_row.size() == 10) {
+				cur_dls.push_back(cur_dls_row);
+				cur_dls_row = "";
+			}
+			if (cur_dls.size() == 10) {
+				dls_vec.push_back(cur_dls);
+				cur_dls.clear();
+			}
+		}
+		sstream.clear(); sstream.str("");
+	}
+	ifile.close();
+
+	latin_square ls;
+	odls_pair odls_p;
+	odls_p.dls_1 = dls_vec[0];
+	odls_p.dls_2 = dls_vec[1];
+	odls_pseudotriple pseudotriple;
+	ls.makePseudotriple(odls_p, dls_vec[2], pseudotriple);
+	std::cout << pseudotriple.unique_orthogonal_cells.size();
 }

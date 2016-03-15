@@ -62,6 +62,7 @@ public:
 	vector< vector<int> > positive_literals;
 	stringstream all_answers;
 	unsigned ls_system_rank;
+	std::vector<odls_pair> odls_pair_vec;
 
 	bool ReadLiteralsFromFile( string &input_path, string &error_msg );
 	void WriteCurrentState( ofstream &out_file, double current_time );
@@ -88,12 +89,13 @@ public:
 	void normalizeLS(dls &cur_DLS);
 	void printDLS(dls cur_dls);
 	void constructOLS();
+	std::vector<int> makeLiteralsFromLS(dls cur_dls);
+	void constructOlsFromFile();
 	
 	// work with pseudotriples
 	void readOdlsPairs(std::string known_podls_file_name);
 	void makePseudotriple(odls_pair &orthogonal_pair, dls &new_dls, odls_pseudotriple &pseudotriple);
 private:
-	std::vector<odls_pair> odls_pair_vec;
 	vector< vector<char> > final_values;
 	vector< vector<int> > interrupted_problems;
 	ofstream out_file;
