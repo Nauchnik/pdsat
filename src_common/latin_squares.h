@@ -83,6 +83,11 @@ public:
 	void makePositiveLiteralsFromKnownDls(dls known_dls);
 	void makeCnfsFromDls();
 	void makeHtmlData();
+
+	std::vector<dls> getSetUniqueDLS(std::vector<odls_pair> odls_pair_vec);
+	void normalizeLS(dls &cur_DLS);
+	void printDLS(dls cur_dls);
+	void constructOLS();
 	
 	// work with pseudotriples
 	void readOdlsPairs(std::string known_podls_file_name);
