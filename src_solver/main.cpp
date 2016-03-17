@@ -96,7 +96,8 @@ int main(int argc, char* argv[])
     double parsed_time = cpuTime();
 
 	// передача КНФ решателю, можно делать в цикле
-	Solver S;    
+	Solver S;
+
 	S.verbosity = 2;
 	S.addProblem(cnf);
 	
