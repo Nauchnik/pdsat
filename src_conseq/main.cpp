@@ -63,7 +63,7 @@ int main( int argc, char* argv[] )
 	ls.makeCnfsFromDls();
 #endif
 	
-	ls.max_values_len = 10;
+	ls.max_values_len = 100;
 	ls.diag_elements = 0;
 	ls.ls_system_rank = 3; // number of LS in a system
 	ls.N = atoi(argv[1]);
