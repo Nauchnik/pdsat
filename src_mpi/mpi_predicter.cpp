@@ -2110,6 +2110,7 @@ bool MPI_Predicter :: GetPredict()
 	cnf_to_stop_arr.clear(); // every time get stop-list again
 	std::stringstream sstream;
 	bool isTeBkvUpdated;
+	double max_real_time_sample;
 	
 	// fill arrays of summary and median times in set of CNF
 	for ( unsigned i = 0; i < decomp_set_arr.size(); i++ ) {
@@ -2150,15 +2151,16 @@ bool MPI_Predicter :: GetPredict()
 		//max_real_time_sample = 0;
 
 		isTeBkvUpdated = false;
-		
+		max_real_time_sample = 0;
+
 		// get current predict time
 		if ( te == 0.0 ) {		
 			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ ) {
 				// if real time from node doesn't exist, use roundly time from 0-core
 				if ( cnf_real_time_arr[j] > 0.0 ) {
 					cur_cnf_time = cnf_real_time_arr[j];
-					//if ( cur_cnf_time > max_real_time_sample ) 
-					//	max_real_time_sample = cur_cnf_time; // compute only real time
+					if ( cur_cnf_time > max_real_time_sample ) 
+						max_real_time_sample = cur_cnf_time; // compute only real time
 				}
 				else if ( cnf_start_time_arr[j] > 0 ) {
 					if ( ++cnf_not_solved_check_count[j] > 1 ) // stop if subproblem not solved in more than 1 check
@@ -2218,12 +2220,12 @@ bool MPI_Predicter :: GetPredict()
 				continue;
 			}
 			
-			// don't stop if sample with too simple problems: final - start shows unreal large values
-			/*if ( ( max_real_time_sample > 0 ) && ( max_real_time_sample < MIN_STOP_TIME ) ) {
+			// don't stop if sample with too simple problems: final - start show unreal large values
+			if ( ( max_real_time_sample > 0 ) && ( max_real_time_sample < MIN_STOP_TIME ) ) {
 				//cout << "max_time_sample < MIN_STOP_TIME" << std::endl;
 				//cout << max_time_sample << " < " << MIN_STOP_TIME << std::endl;
 				continue;
-			}*/
+			}
 			
 			for( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; ++j ) {
 				if ( ( cnf_start_time_arr[j] > 0 ) && // if solve of sat-problem was started
