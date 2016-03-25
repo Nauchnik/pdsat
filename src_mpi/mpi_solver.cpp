@@ -22,7 +22,8 @@ MPI_Solver :: MPI_Solver( ) :
 	finding_first_sat_time      ( 0 ),
 	total_start_time            ( 0 ),
 	no_increm                   ( false ),
-	variables_each_integer      ( 0 )
+	variables_each_integer      ( 0 ),
+	isCollectInterruptedInstances ( false )
 {
 	for( unsigned i=0; i < SOLVING_TIME_LEN; ++i )
 		solving_times[i] = 0;
@@ -236,18 +237,18 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 		
 		AddSolvingTimeToArray( cur_problem_state, cnf_time_from_node, solving_times );
 		
-		if ( cur_problem_state == Interrupted ) {
+		if ( ( isCollectInterruptedInstances ) && ( cur_problem_state == Interrupted ) ) {
 			batch_interrupted_count++;
 			if ( cur_interrupted_values.size() < (unsigned)dummy_vec[i].size() ) {
 					std::cerr << "cur_interrupted_values.size() < dummy_vec[i].size()" << std::endl;
 					std::cerr << cur_interrupted_values.size() << " < " << dummy_vec[i].size() << std::endl;
 					return false;
 				}
-				for ( int j = 0; j < dummy_vec[i].size(); ++j )
-					cur_interrupted_values[j] = ( dummy_vec[i][j].x % 2 == 0 ) ? true : false; 
-				interrupted_problems_var_values_from_process.push_back( cur_interrupted_values );
-			}
-			
+			for ( int j = 0; j < dummy_vec[i].size(); ++j )
+				cur_interrupted_values[j] = ( dummy_vec[i][j].x % 2 == 0 ) ? true : false; 
+			interrupted_problems_var_values_from_process.push_back( cur_interrupted_values );
+		}
+		
 		if ( ret == l_True ) {
 			process_sat_count++;
 			std::cout << "process_sat_count " << process_sat_count << std::endl;

@@ -40,6 +40,7 @@ struct Flags
 	bool no_increm;
 	double te; // for (ro es te) predict strategy
 	int variables_each_integer;
+	bool isCollectInterruptedInstances;
 };
 
 // prototypes
@@ -185,6 +186,7 @@ int main( int argc, char** argv )
 		if (myflags.variables_each_integer > 0 )
 			mpi_s.variables_each_integer = myflags.variables_each_integer;
 		mpi_s.no_increm = myflags.no_increm;
+		mpi_s.isCollectInterruptedInstances = myflags.isCollectInterruptedInstances;
 
 		mpi_s.verbosity		   = myflags.verbosity;
 		mpi_s.isConseq         = myflags.IsConseq;
@@ -226,6 +228,9 @@ void WriteUsage( )
 	"\n   -file_assumptions = read assumptions from file"
 	"\n   -verb = {0, 1, 2, 3}  - scale of output info"
 	"\n   -solve_all     - solve all problems, even if SAT was found"
+	"\n   -no_first_stage - no first stage in predict"
+	"\n   -collect_interrupted - collect interrupted instances in the solving mode"
+	"\n   -integer_variables - process only Boolean vectors which correspond to an integer variable"
     "\n   *** deep predict ***"
 	"\n   -deep_predict - (integer) mode of deep predict. 1 - fixed neighborhood of sets for every current best point. "
 	"\n			2 - new neighborhood for every new best point"
@@ -290,6 +295,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.te = 0;
 	myflags.predict_to = 0;
 	myflags.variables_each_integer = 0;
+	myflags.isCollectInterruptedInstances = false;
 	k = 0;
 	
 	// check every input parameters for flag existing
@@ -313,6 +319,8 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.IsFirstStage = false;
 		else if ( hasPrefix_String( argv_string, "-solve_all", value ) )
 			myflags.IsSolveAll = true;
+		else if (hasPrefix_String(argv_string, "-collect_interrupted", value))
+			myflags.isCollectInterruptedInstances = true;
 		else if (hasPrefix_String(argv_string, "-integer_variables=", value))
 			myflags.variables_each_integer = atoi(value.c_str());
 		else if ( hasPrefix_String( argv_string, "-max_L2_hamming_distance=", value ) )
