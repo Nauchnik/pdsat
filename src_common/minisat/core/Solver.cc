@@ -219,6 +219,20 @@ void Solver::resetVarActivity()
 	}
 }
 
+// added
+void Solver::resetOrderVarActivity()
+{
+	if ((core_len <= nVars()) && (start_activity > 0)) {
+		// set default minisat values
+		for (int i = 0; i < activity.size(); ++i)
+			activity[i] = 0.0;
+		for (int v = 0; v < core_len; ++v)
+			varBumpActivity(v, start_activity*(core_len - v));
+		var_decay = 1;
+		clause_decay = 1;
+	}
+}
+
 void Solver::resetIntervalVarActivity(int var_from, int var_to)
 {
 	if ((var_to <= nVars()) && (start_activity > 0)) {

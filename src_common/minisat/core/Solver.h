@@ -58,6 +58,7 @@ public:
 	void clearParams();
 	void getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len );
 	void resetVarActivity();
+	void resetOrderVarActivity();
 	void resetIntervalVarActivity( int var_from, int var_to );
 	bool addProblem(const Problem& p);
     bool addProblem_modified(const Problem& p, int num_of_variables);
