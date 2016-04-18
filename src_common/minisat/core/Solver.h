@@ -63,7 +63,7 @@ public:
 	bool addProblem(const Problem& p);
     bool addProblem_modified(const Problem& p, int num_of_variables);
 	double getEstimation();
-	long long watch_scans;
+	unsigned long long watch_scans;
 	std::string evaluation_type;
 	std::vector <int> scans_log;
 	std::vector <int> levels_log;
