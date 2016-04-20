@@ -75,11 +75,11 @@ public:
     //
     Var     newVar    (bool polarity = true, bool dvar = true); // Add a new variable with parameters specifying variable mode.
 
-    bool    addClause (const vec<Lit>& ps);                     // Add a clause to the solver. 
+    bool    addClause (const vec<Lit>& ps);                     // Add a clause to the solver.
     bool    addEmptyClause();                                   // Add the empty clause, making the solver contradictory.
-    bool    addClause (Lit p);                                  // Add a unit clause to the solver. 
-    bool    addClause (Lit p, Lit q);                           // Add a binary clause to the solver. 
-    bool    addClause (Lit p, Lit q, Lit r);                    // Add a ternary clause to the solver. 
+    bool    addClause (Lit p);                                  // Add a unit clause to the solver.
+    bool    addClause (Lit p, Lit q);                           // Add a binary clause to the solver.
+    bool    addClause (Lit p, Lit q, Lit r);                    // Add a ternary clause to the solver.
     bool    addClause_(      vec<Lit>& ps);                     // Add a clause to the solver without making superflous internal copy. Will
                                                                 // change the passed vector 'ps'.
 
@@ -104,9 +104,9 @@ public:
     void    toDimacs     (const char* file, Lit p);
     void    toDimacs     (const char* file, Lit p, Lit q);
     void    toDimacs     (const char* file, Lit p, Lit q, Lit r);
-    
+
     // Variable mode:
-    // 
+    //
     void    setPolarity    (Var v, bool b); // Declare which polarity the decision heuristic should use for a variable. Requires mode 'polarity_user'.
     void    setDecisionVar (Var v, bool b); // Declare if a variable should be eligible for selection in the decision heuristic.
 
@@ -168,8 +168,6 @@ public:
     //
     uint64_t solves, starts, decisions, rnd_decisions, propagations, conflicts;
     uint64_t dec_vars, clauses_literals, learnts_literals, max_literals, tot_literals;
-    int bitN,up;
-    vec<int> t;
 
 protected:
 
@@ -242,6 +240,10 @@ protected:
     int64_t             conflict_budget;    // -1 means no budget.
     int64_t             propagation_budget; // -1 means no budget.
     bool                asynch_interrupt;
+    vec<int> t;
+    int up;
+    int inc;
+    uint64_t lim;
 
     // Main internal methods:
     //
@@ -287,15 +289,7 @@ protected:
     int      level            (Var x) const;
     double   progressEstimate ()      const; // DELETE THIS ?? IT'S NOT VERY USEFUL ...
     bool     withinBudget     ()      const;
-    int      LBD(Clause& c){
-         int x = 0;
-         up++;
-         for(int k=0;k<c.size();k++){
-            int l = level(var(c[k]));
-            if(t[l] != up){ t[l] = up; x++;}
-         }
-         return x;
-     }
+    int     cR             (Clause& c);
 
     // Static helpers:
     //
@@ -311,7 +305,20 @@ protected:
     static inline int irand(double& seed, int size) {
         return (int)(drand(seed) * size); }
 };
-
+inline int Solver::cR(Clause& c){
+    int x = 0;
+    up++;
+    for(int k=0;k<c.size();k++){
+        int l = level(var(c[k]));
+        if(l == 0)
+            continue;
+        if(t[l] != up){
+            t[l] = up;
+            x++;
+        }
+    }
+    return x > 7 ? 8 : x;
+}
 
 //=================================================================================================
 // Implementation of inline methods:
@@ -370,8 +377,8 @@ inline int      Solver::nLearnts      ()      const   { return learnts.size(); }
 inline int      Solver::nVars         ()      const   { return vardata.size(); }
 inline int      Solver::nFreeVars     ()      const   { return (int)dec_vars - (trail_lim.size() == 0 ? trail.size() : trail_lim[0]); }
 inline void     Solver::setPolarity   (Var v, bool b) { polarity[v] = b; }
-inline void     Solver::setDecisionVar(Var v, bool b) 
-{ 
+inline void     Solver::setDecisionVar(Var v, bool b)
+{
     if      ( b && !decision[v]) dec_vars++;
     else if (!b &&  decision[v]) dec_vars--;
 

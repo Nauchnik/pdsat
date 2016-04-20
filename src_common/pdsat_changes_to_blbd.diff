@@ -1,0 +1,704 @@
+Только в /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat/core: depend.mk
+diff -rwu ./minisat/core/Dimacs.h /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat/core/Dimacs.h
+--- ./minisat/core/Dimacs.h	2010-07-11 01:07:36.000000000 +0900
++++ /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat/core/Dimacs.h	2016-04-21 00:55:35.676007965 +0800
+@@ -78,10 +78,10 @@
+ 
+ // Inserts problem into solver.
+ //
+-template<class Solver>
++/*template<class Solver>
+ static void parse_DIMACS(gzFile input_stream, Solver& S) {
+     StreamBuffer in(input_stream);
+-    parse_DIMACS_main(in, S); }
++    parse_DIMACS_main(in, S); }*/
+ 
+ //=================================================================================================
+ }
+diff -rwu ./minisat/core/Solver.cc /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat/core/Solver.cc
+--- ./minisat/core/Solver.cc	2014-05-03 19:51:40.000000000 +0900
++++ /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat/core/Solver.cc	2016-04-21 00:55:35.676007965 +0800
+@@ -26,10 +26,15 @@
+ - The solver optionally emits a DRUP proof in the file speficied in argv[2]
+ **************************************************************************************************/
+ 
++#ifdef _MPI
++#include <mpi.h>
++#endif
++
+ #include <math.h>
+ 
+ #include "mtl/Sort.h"
+ #include "core/Solver.h"
++#include "utils/System.h"
+ 
+ using namespace Minisat;
+ 
+@@ -105,6 +110,21 @@
+   , conflict_budget    (-1)
+   , propagation_budget (-1)
+   , asynch_interrupt   (false)
++  // added pdsat:
++  //
++  , print_learnts(false)
++  , max_nof_restarts(0)
++  , start_activity(0)
++  , core_len(0)
++  , isPredict(false)
++  , start_solving_time(0)
++  , max_solving_time(0)
++  , rank(-1)
++  , pdsat_verbosity(0)
++  , watch_scans(0)
++  , max_nof_watch_scans(0)
++  , problem_type("")
++  , evaluation_type("time")
+ {}
+ 
+ 
+@@ -116,6 +136,115 @@
+ //=================================================================================================
+ // Minor methods:
+ 
++// remove all learnt clauses and set initial values of some parameters
++void Solver::clearDB()
++{
++	for (int i = 0; i < learnts.size(); ++i)
++		removeClause(learnts[i]);
++
++	learnts.clear();
++	conflicts = 0;
++	max_literals = 0;
++	tot_literals = 0;
++
++	checkGarbage();
++}
++
++
++void Solver::clearPolarity()
++{
++	for (int i = 0; i < nVars(); i++)
++		polarity[i] = true;
++	checkGarbage();
++}
++
++void Solver::clearParams()
++{
++	starts = 0;
++	decisions = 0;
++	rnd_decisions = 0;
++	propagations = 0;
++	ok = true;
++
++	//dec_vars = 0;
++
++	/*for ( int i=0; i < nVars(); i++ )
++	polarity[i] = true;
++	for (int i=0; i<nVars(); i++){
++	activity[i]=i;
++	}
++	rebuildOrderHeap();
++	for (int i=0; i<nVars(); i++){
++	activity[i]=0;
++	}
++	var_inc=1;
++	for (int i = 0; i < learnts.size(); i++){
++	ca[learnts[i]].activity() =0;
++	}
++	cla_inc = 1;
++	for (int i=0; i<clauses.size(); i++){
++	Clause& c = ca[clauses[i]];
++	if (c.size()>1)
++	detachClause(clauses[i], true);
++	std::sort(&c[0],&c[c.size()-1], compare_lits);
++	}
++
++	for (int i=0; i<clauses.size(); i++){
++	if (ca[clauses[i]].size()>1)
++	attachClause(clauses[i]);
++	}*/
++}
++
++void Solver::getActivity(std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len)
++{
++	for (unsigned i = 0; i < activity_vec_len; ++i)
++		var_activity[i] = activity[full_var_choose_order[i] - 1];
++	for (unsigned i = 0; i < activity_vec_len; ++i)
++		if (var_activity[i] > 1e100)
++			for (unsigned j = 0; j < activity_vec_len; ++j) // Rescale:
++				var_activity[j] *= 1e-100;
++}
++
++// added
++void Solver::resetVarActivity()
++{
++	if ((core_len <= nVars()) && (start_activity > 0)) {
++		// set default minisat values
++		for (int i = 0; i < activity.size(); ++i)
++			activity[i] = 0.0;
++		for (int v = 0; v < core_len; ++v)
++			varBumpActivity(v, start_activity);
++		var_decay = 1;
++		clause_decay = 1;
++	}
++}
++
++// added
++void Solver::resetOrderVarActivity()
++{
++	if ((core_len <= nVars()) && (start_activity > 0)) {
++		// set default minisat values
++		for (int i = 0; i < activity.size(); ++i)
++			activity[i] = 0.0;
++		for (int v = 0; v < core_len; ++v)
++			varBumpActivity(v, start_activity*(core_len - v));
++		var_decay = 1;
++		clause_decay = 1;
++	}
++}
++
++void Solver::resetIntervalVarActivity(int var_from, int var_to)
++{
++	if ((var_to <= nVars()) && (start_activity > 0)) {
++		// set default minisat values
++		for (int i = 0; i < activity.size(); ++i)
++			activity[i] = 0.0;
++		for (int v = var_from; v < var_to; ++v)
++			varBumpActivity(v, start_activity);
++		var_decay = 1;
++		clause_decay = 1;
++	}
++}
+ 
+ // Creates a new SAT variable in the solver. If 'decision' is cleared, variable will not be
+ // used as a decision variable (NOTE! This has effects on the meaning of a SATISFIABLE result).
+@@ -147,16 +276,7 @@
+     // Check if clause is satisfied and remove false/duplicate literals:
+     sort(ps);
+ 
+-    vec<Lit>    oc;
+-    oc.clear();
+-
+-    Lit p; int i, j, flag = 0;
+-    for (i = j = 0, p = lit_Undef; i < ps.size(); i++) {
+-        oc.push(ps[i]);
+-        if (value(ps[i]) == l_True || ps[i] == ~p || value(ps[i]) == l_False)
+-          flag = 1;
+-    }
+-
++	Lit p; int i, j;
+     for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
+         if (value(ps[i]) == l_True || ps[i] == ~p)
+             return true;
+@@ -164,17 +284,6 @@
+             ps[j++] = p = ps[i];
+     ps.shrink(i - j);
+ 
+-    if (flag && (output != NULL)) {
+-      for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
+-        fprintf(output, "%i ", (var(ps[i]) + 1) * (-2 * sign(ps[i]) + 1));
+-      fprintf(output, "0\n");
+-
+-      fprintf(output, "d ");
+-      for (i = j = 0, p = lit_Undef; i < oc.size(); i++)
+-        fprintf(output, "%i ", (var(oc[i]) + 1) * (-2 * sign(oc[i]) + 1));
+-      fprintf(output, "0\n");
+-    }
+-
+     if (ps.size() == 0)
+         return ok = false;
+     else if (ps.size() == 1){
+@@ -190,6 +299,7 @@
+ }
+ 
+ 
++
+ void Solver::attachClause(CRef cr) {
+     const Clause& c = ca[cr];
+     assert(c.size() > 1);
+@@ -219,13 +329,6 @@
+ void Solver::removeClause(CRef cr) {
+     Clause& c = ca[cr];
+ 
+-    if (output != NULL) {
+-      fprintf(output, "d ");
+-      for (int i = 0; i < c.size(); i++)
+-        fprintf(output, "%i ", (var(c[i]) + 1) * (-2 * sign(c[i]) + 1));
+-      fprintf(output, "0\n");
+-    }
+-
+     detachClause(cr);
+     // Don't leave pointers to free'd memory!
+     if (locked(c)) vardata[var(c[0])].reason = CRef_Undef;
+@@ -302,7 +405,7 @@
+ |    Pre-conditions:
+ |      * 'out_learnt' is assumed to be cleared.
+ |      * Current decision level must be greater than root level.
+-|  
++|  Solver::
+ |    Post-conditions:
+ |      * 'out_learnt[0]' is the asserting literal at level 'out_btlevel'.
+ |      * If out_learnt.size() > 1 then 'out_learnt[1]' has the greatest decision level of the 
+@@ -547,6 +650,7 @@
+             if(c.learnt()) c.activity() = LBD(c);
+ 
+         NextClause:;
++		watch_scans++; // added
+         }
+         ws.shrink(i - j);
+     }
+@@ -673,7 +777,12 @@
+     vec<Lit>    learnt_clause;
+     starts++;
+ 
++	// BOINC mode - added to speedup solving Latin square problems and decreasie using RAM
++	if (problem_type == "diag")
++		reduceDB();
++
+     for (;;){
++	if (max_nof_watch_scans && ((watch_scans-start_watch_scans)>=max_nof_watch_scans)) return l_Undef;
+         CRef confl = propagate();
+         if (confl != CRef_Undef){
+             // CONFLICT
+@@ -687,6 +796,14 @@
+             if (learnt_clause.size() == 1){
+                 uncheckedEnqueue(learnt_clause[0]);
+             }else{
++				/*if ( print_learnts ) { // added pdsat
++				for ( unsigned i = 0; i < learnt_clause.size(); i++ ) {
++				if ( sign(learnt_clause[i]) )
++				printf( "-" );
++				printf( "%d ", var(learnt_clause[i]) + 1 );
++				}
++				printf("0 \n");
++				}*/
+                 CRef cr = ca.alloc(learnt_clause, true);
+                 learnts.push(cr);
+                 attachClause(cr);
+@@ -694,12 +811,6 @@
+                 ca[cr].activity() = LBD(ca[cr]);
+                 uncheckedEnqueue(learnt_clause[0], cr);
+             }
+-            if (output != NULL) {
+-              for (int i = 0; i < learnt_clause.size(); i++)
+-                fprintf(output, "%i " , (var(learnt_clause[i]) + 1) *
+-                                  (-2 * sign(learnt_clause[i]) + 1) );
+-              fprintf(output, "0\n");
+-            }
+ 
+             varDecayActivity();
+             claDecayActivity();
+@@ -808,9 +919,54 @@
+     return pow(y, seq);
+ }
+ 
++// calculate a number of variables values determined by BCP with a given assumptions
++uint64_t Solver::propagateByAssumptions(const vec<Lit>& assumps)
++{
++	budgetOff();
++	assumps.copyTo(assumptions);
++	// make new decision level for every assumption
++	Lit next = lit_Undef;
++	while (decisionLevel() < assumptions.size()) {
++		// Perform user provided assumption:
++		Lit p = assumptions[decisionLevel()];
++		if (value(p) == l_True) {
++			// Dummy decision level:
++			newDecisionLevel();
++		}
++		else if (value(p) == l_False) {
++			analyzeFinal(~p, conflict);
++			return -1; // conflict with some already determined variable value
++		}
++		else {
++			next = p;
++			break;
++		}
++	}
++	// calculate only for current assumptions
++	propagations = 0;
++	propagate();
++	// go back to 0 level
++	cancelUntil(0);
++	return propagations;
++}
++
+ // NOTE: assumptions passed in member-variable 'assumptions'.
+ lbool Solver::solve_()
+ {
++#ifdef _MPI
++	start_solving_time = MPI_Wtime();
++#else
++	start_solving_time = cpuTime();
++#endif
++
++#ifdef _MPI
++	MPI_Status mpi_status;
++	MPI_Request mpi_request;
++	int iprobe_message,
++		test_message,
++		irecv_message;
++#endif
++
+     model.clear();
+     conflict.clear();
+     if (!ok) return l_False;
+@@ -830,13 +986,65 @@
+         printf("c ===============================================================================\n");
+     }
+ 
++	double cur_time = 0.0;
++	
+     // Search:
+     int curr_restarts = 0;
++    start_watch_scans = watch_scans;
++    //printf("\n START SCANS: %i", start_watch_scans);
+     while (status == l_Undef){
+         int n=nFreeVars();
+         if(n>280 && n < 1000 || n <220) luby_restart=0;
+         if( n>1000 && (int)max_learnts <= 391879 && ((conflicts/30000)%2 || n<4000)) bitN++;
+         else bitN=-1;
++
++	// added pdsat
++#ifdef _MPI
++	cur_time = MPI_Wtime() - start_solving_time;
++#else
++	cur_time = cpuTime() - start_solving_time;
++#endif
++	if (((max_nof_restarts) && (curr_restarts >= max_nof_restarts)) ||
++		((max_solving_time > 0.0) && (cur_time >= max_solving_time)) ||
++		(max_nof_watch_scans && ((max_nof_watch_scans) && ((watch_scans-start_watch_scans)>= max_nof_watch_scans)))
++		)
++	{
++		//progress_estimate = progressEstimate();
++		cancelUntil(0);
++		return l_Undef;
++	}
++
++#ifdef _MPI
++	if ((isPredict) && (evaluation_type == "time")) {
++		if ((pdsat_verbosity > 0) && (rank == 1)) {
++			std::cout << "try to MPI_Iprobe()" << std::endl;
++			std::cout << "rank " << rank << std::endl;
++		}
++		int size;
++		iprobe_message = 0;
++		MPI_Iprobe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &iprobe_message, &mpi_status);
++		//if ( pdsat_verbosity > 0 )
++		//	std::cout << "iprobe_message " << iprobe_message << std::endl;
++		if (iprobe_message) {
++			MPI_Get_count(&mpi_status, MPI_INT, &size);
++			if (size == 1) {
++				MPI_Irecv(&irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request);
++				MPI_Test(&mpi_request, &test_message, &mpi_status);
++				if (test_message) {
++					if (pdsat_verbosity > 0)
++						std::cout << "minisat interrupted after " << curr_restarts << " restarts" << std::endl;
++					cancelUntil(0);
++					return l_Undef;
++				}
++			}
++			else {
++				std::cerr << "In Solver() MPI_Get_count(&status, MPI_UNSIGNED, &size); " << size << std::endl;
++				exit(1);
++			}
++		}
++	}
++#endif
++		
+         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
+         status = search(rest_base * restart_first);
+         if (!withinBudget()) break;
+diff -rwu ./minisat/core/Solver.h /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat/core/Solver.h
+--- ./minisat/core/Solver.h	2014-04-08 19:45:12.000000000 +0900
++++ /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat/core/Solver.h	2016-04-21 00:55:35.676007965 +0800
+@@ -26,16 +26,46 @@
+ #include "mtl/Alg.h"
+ #include "utils/Options.h"
+ #include "core/SolverTypes.h"
+-
++#include <string>
++#include <vector>
+ 
+ namespace Minisat {
+ 
++	typedef Minisat::vec<Minisat::Lit> Disjunct;
++	typedef std::vector< Disjunct* > Problem;
++
+ //=================================================================================================
+ // Solver -- the main class:
+ 
+ class Solver {
+ public:
+ 
++	// added pdsat
++	int max_nof_restarts; // restarts limit
++	double max_solving_time; // limit CPU time
++	long long max_nof_watch_scans; 
++	long long start_watch_scans; // limit of wathes scans
++	double start_solving_time;
++	double start_activity;
++	int core_len;
++	bool isPredict;
++	int rank;
++	int pdsat_verbosity;
++	bool print_learnts;
++	std::string problem_type;
++	void clearDB();
++	void clearPolarity();
++	void clearParams();
++	void getActivity( std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len );
++	void resetVarActivity();
++	void resetOrderVarActivity();
++	void resetIntervalVarActivity( int var_from, int var_to );
++	bool addProblem(const Problem& p);
++    bool addProblem_modified(const Problem& p, int num_of_variables);
++	double getEstimation();
++	long long watch_scans;
++	std::string evaluation_type;
++	
+     // Constructor/Destructor:
+     //
+     Solver();
+@@ -56,12 +86,13 @@
+     // Solving:
+     //
+     bool    simplify     ();                        // Removes already satisfied clauses.
+-    bool    solve        (const vec<Lit>& assumps); // Search for a model that respects a given set of assumptions.
++    lbool   solve        (const vec<Lit>& assumps); // Search for a model that respects a given set of assumptions.
+     lbool   solveLimited (const vec<Lit>& assumps); // Search for a model that respects a given set of assumptions (With resource constraints).
+-    bool    solve        ();                        // Search without assumptions.
++    lbool   solve        ();                        // Search without assumptions.
+     bool    solve        (Lit p);                   // Search for a model that respects a single assumption.
+     bool    solve        (Lit p, Lit q);            // Search for a model that respects two assumptions.
+     bool    solve        (Lit p, Lit q, Lit r);     // Search for a model that respects three assumptions.
++	uint64_t propagateByAssumptions(const vec<Lit>& assumps);
+     bool    okay         () const;                  // FALSE means solver is in a conflicting state
+ 
+     void    toDimacs     (FILE* f, const vec<Lit>& assumps);            // Write CNF to file in DIMACS-format.
+@@ -105,9 +136,6 @@
+     void    checkGarbage(double gf);
+     void    checkGarbage();
+ 
+-
+-    FILE*               output;
+-
+     // Extra results: (read-only member variable)
+     //
+     vec<lbool> model;             // If problem is satisfiable, this vector contains the model (if any).
+@@ -363,11 +391,11 @@
+ // FIXME: after the introduction of asynchronous interrruptions the solve-versions that return a
+ // pure bool do not give a safe interface. Either interrupts must be possible to turn off here, or
+ // all calls to solve must return an 'lbool'. I'm not yet sure which I prefer.
+-inline bool     Solver::solve         ()                    { budgetOff(); assumptions.clear(); return solve_() == l_True; }
++inline lbool    Solver::solve         ()                    { budgetOff(); assumptions.clear(); return solve_(); }
+ inline bool     Solver::solve         (Lit p)               { budgetOff(); assumptions.clear(); assumptions.push(p); return solve_() == l_True; }
+ inline bool     Solver::solve         (Lit p, Lit q)        { budgetOff(); assumptions.clear(); assumptions.push(p); assumptions.push(q); return solve_() == l_True; }
+ inline bool     Solver::solve         (Lit p, Lit q, Lit r) { budgetOff(); assumptions.clear(); assumptions.push(p); assumptions.push(q); assumptions.push(r); return solve_() == l_True; }
+-inline bool     Solver::solve         (const vec<Lit>& assumps){ budgetOff(); assumps.copyTo(assumptions); return solve_() == l_True; }
++inline lbool    Solver::solve(const vec<Lit>& assumps){ budgetOff(); assumps.copyTo(assumptions); return solve_(); }
+ inline lbool    Solver::solveLimited  (const vec<Lit>& assumps){ assumps.copyTo(assumptions); return solve_(); }
+ inline bool     Solver::okay          ()      const   { return ok; }
+ 
+@@ -376,6 +404,36 @@
+ inline void     Solver::toDimacs     (const char* file, Lit p, Lit q){ vec<Lit> as; as.push(p); as.push(q); toDimacs(file, as); }
+ inline void     Solver::toDimacs     (const char* file, Lit p, Lit q, Lit r){ vec<Lit> as; as.push(p); as.push(q); as.push(r); toDimacs(file, as); }
+ 
++// added pdsat
++inline bool Solver::addProblem(const Problem& p)
++{
++	for (size_t i = 0; i < p.size(); i++) {
++		// add variables if needed
++		for (int j = 0; j < p[i]->size(); j++) {
++			Lit& lit = (*p[i])[j];
++			while (var(lit) >= nVars()) newVar();
++			//while(var(lit) >= nVars()) (size_actitity ? newVar(temp_activity[var(lit)]) : newVar());
++		}
++		p[i]->copyTo(add_tmp);
++		if (!addClause_(add_tmp))
++			return false;
++	}
++	return true;
++}
++
++inline bool Solver::addProblem_modified(const Problem& p, int num_of_variables)
++{
++	if (num_of_variables > 0){
++		for (int j = 0; j < num_of_variables; j++)
++			newVar();
++	}
++	for (size_t i = 0; i < p.size(); i++) {
++		p[i]->copyTo(add_tmp);
++		if (!addClause_(add_tmp))
++			return false;
++	}
++	return true;
++}
+ 
+ //=================================================================================================
+ // Debug etc:
+Только в /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat/core: Solver.o
+Только в ./minisat/: doc
+Только в ./minisat/: LICENSE
+diff -rwu ./minisat/mtl/Vec.h /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat/mtl/Vec.h
+--- ./minisat/mtl/Vec.h	2010-07-11 01:07:36.000000000 +0900
++++ /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat/mtl/Vec.h	2016-04-21 00:55:35.676007965 +0800
+@@ -68,6 +68,7 @@
+     void     growTo   (int size);
+     void     growTo   (int size, const T& pad);
+     void     clear    (bool dealloc = false);
++	void     resize   (int size); // added pdsat
+ 
+     // Stack interface:
+     void     push  (void)              { if (sz == cap) capacity(sz+1); new (&data[sz]) T(); sz++; }
+@@ -124,6 +125,14 @@
+         sz = 0;
+         if (dealloc) free(data), data = NULL, cap = 0; } }
+ 
++template<class T>
++void vec<T>::resize(int size) {
++	if (sz == size) return;
++	if (size - sz > 0)
++		growTo(size);
++	else
++		shrink(sz - size); }
++
+ //=================================================================================================
+ }
+ 
+Только в /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat: oldSolver.cc
+Только в /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat: oldSolver.h
+Только в ./minisat/: README
+Только в /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat: .swp
+diff -rwu ./minisat/utils/ParseUtils.h /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat/utils/ParseUtils.h
+--- ./minisat/utils/ParseUtils.h	2010-07-11 01:07:36.000000000 +0900
++++ /home/vader/my_SRC/Backdoors/roeste_parallel/pdsat/src_common/minisat/utils/ParseUtils.h	2016-04-21 00:55:35.676007965 +0800
+@@ -1,16 +1,13 @@
+ /************************************************************************************[ParseUtils.h]
+ Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+ Copyright (c) 2007-2010, Niklas Sorensson
+-
+ Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+ associated documentation files (the "Software"), to deal in the Software without restriction,
+ including without limitation the rights to use, copy, modify, merge, publish, distribute,
+ sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+-
+ The above copyright notice and this permission notice shall be included in all copies or
+ substantial portions of the Software.
+-
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+ NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+@@ -24,7 +21,11 @@
+ #include <stdlib.h>
+ #include <stdio.h>
+ 
+-#include <zlib.h>
++//#include <zlib.h>
++
++// added pdsat
++#include <fstream>
++#include <iostream>
+ 
+ namespace Minisat {
+ 
+@@ -33,50 +34,60 @@
+ 
+ static const int buffer_size = 1048576;
+ 
++	class IStream // added pdsat
++	{
++		std::istream& in;
++		char c;
++	public:
++		IStream(std::istream& s = std::cin) : in(s), c(0){ in.get(c); }
++		int operator * () const { return (int)c; }
++		void operator ++ () { in.get(c); }
++		bool eof() const { return in.eof(); }
++	};
++
++	typedef IStream StreamBuffer; // added pdsat
+ 
++	/*
+ class StreamBuffer {
+     gzFile        in;
+     unsigned char buf[buffer_size];
+     int           pos;
+     int           size;
+-
+     void assureLookahead() {
+         if (pos >= size) {
+             pos  = 0;
+             size = gzread(in, buf, sizeof(buf)); } }
+-
+ public:
+     explicit StreamBuffer(gzFile i) : in(i), pos(0), size(0) { assureLookahead(); }
+-
+     int  operator *  () const { return (pos >= size) ? EOF : buf[pos]; }
+     void operator ++ ()       { pos++; assureLookahead(); }
+     int  position    () const { return pos; }
+ };
+-
+-
+ //-------------------------------------------------------------------------------------------------
+ // End-of-file detection functions for StreamBuffer and char*:
+-
+-
+-static inline bool isEof(StreamBuffer& in) { return *in == EOF;  }
+-static inline bool isEof(const char*   in) { return *in == '\0'; }
+-
++	//static inline bool isEof(StreamBuffer& in) { return *in == EOF;  }
++	//static inline bool isEof(const char*   in) { return *in == '\0'; }
++	*/
+ //-------------------------------------------------------------------------------------------------
+ // Generic parse functions parametrized over the input-stream type.
+ 
+ 
+ template<class B>
+ static void skipWhitespace(B& in) {
+-    while ((*in >= 9 && *in <= 13) || *in == 32)
+-        ++in; }
++		while (!in.eof() && ((*in >= 9 && *in <= 13) || *in == 32)) // added !in.eof() 
++			++in;
++	}
+ 
+ 
+ template<class B>
+ static void skipLine(B& in) {
+     for (;;){
+-        if (isEof(in)) return;
++			if (in.eof()) return;  // win mode
++			//if (isEof(in)) return;
+         if (*in == '\n') { ++in; return; }
+-        ++in; } }
++			++in;
++		}
++	}
+ 
+ 
+ template<class B>
+@@ -87,10 +98,11 @@
+     if      (*in == '-') neg = true, ++in;
+     else if (*in == '+') ++in;
+     if (*in < '0' || *in > '9') fprintf(stderr, "PARSE ERROR! Unexpected char: %c\n", *in), exit(3);
+-    while (*in >= '0' && *in <= '9')
++		while (!in.eof() && *in >= '0' && *in <= '9') // added !in.eof()  
+         val = val*10 + (*in - '0'),
+         ++in;
+-    return neg ? -val : val; }
++		return neg ? -val : val;
++	}
+ 
+ 
+ // String matching: in case of a match the input iterator will be advanced the corresponding
+@@ -113,7 +125,8 @@
+     for (; *str != '\0'; ++str, ++in)
+         if (*str != *in)
+             return false;
+-    return true; }
++		return true;
++	}
+ 
+ 
+ //=================================================================================================

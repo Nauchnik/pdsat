@@ -62,9 +62,9 @@ inline  bool sign      (Lit p)              { return p.x & 1; }
 inline  int  var       (Lit p)              { return p.x >> 1; }
 
 // Mapping Literals to and from compact integers suitable for array indexing:
-inline  int  toInt     (Var v)              { return v; } 
-inline  int  toInt     (Lit p)              { return p.x; } 
-inline  Lit  toLit     (int i)              { Lit p; p.x = i; return p; } 
+inline  int  toInt     (Var v)              { return v; }
+inline  int  toInt     (Lit p)              { return p.x; }
+inline  Lit  toLit     (int i)              { Lit p; p.x = i; return p; }
 
 //const Lit lit_Undef = mkLit(var_Undef, false);  // }- Useful special constants.
 //const Lit lit_Error = mkLit(var_Undef, true );  // }
@@ -77,7 +77,7 @@ const Lit lit_Error = { -1 };  // }
 // Lifted booleans:
 //
 // NOTE: this implementation is optimized for the case when comparisons between values are mostly
-//       between one variable and one constant. Some care had to be taken to make sure that gcc 
+//       between one variable and one constant. Some care had to be taken to make sure that gcc
 //       does enough constant propagation to produce sensible code, and this appears to be somewhat
 //       fragile unfortunately.
 
@@ -98,7 +98,7 @@ public:
     bool  operator != (lbool b) const { return !(*this == b); }
     lbool operator ^  (bool  b) const { return lbool((uint8_t)(value^(uint8_t)b)); }
 
-    lbool operator && (lbool b) const { 
+    lbool operator && (lbool b) const {
         uint8_t sel = (this->value << 1) | (b.value << 3);
         uint8_t v   = (0xF7F755F4 >> sel) & 3;
         return lbool(v); }
@@ -126,8 +126,10 @@ class Clause {
         unsigned learnt    : 1;
         unsigned has_extra : 1;
         unsigned reloced   : 1;
-        unsigned size      : 27; }                            header;
-    union { Lit lit; float act; uint32_t abs; CRef rel; } data[0];
+        unsigned i         : 4;
+        unsigned n         : 4;
+        unsigned size      : 19; }                            header;
+    union { Lit lit; uint32_t act; uint32_t abs; CRef rel; } data[0];
 
     friend class ClauseAllocator;
 
@@ -140,13 +142,13 @@ class Clause {
         header.reloced   = 0;
         header.size      = ps.size();
 
-        for (int i = 0; i < ps.size(); i++) 
+        for (int i = 0; i < ps.size(); i++)
             data[i].lit = ps[i];
 
         if (header.has_extra){
             if (header.learnt)
-                data[header.size].act = 0; 
-            else 
+                data[header.size].act = 0;
+            else
                 calcAbstraction(); }
     }
 
@@ -178,7 +180,10 @@ public:
     Lit          operator [] (int i) const   { return data[i].lit; }
     operator const Lit* (void) const         { return (Lit*)data; }
 
-    float&       activity    ()              { assert(header.has_extra); return data[header.size].act; }
+    int          i ()                         { return header.i;}
+    int          n ()                         { return header.n;}
+    void         o (int i, int x)                    { if(i > 0) header.i = i; header.n = x;}
+    uint32_t&    activity    ()           { assert(header.has_extra); return data[header.size].act; }
     uint32_t     abstraction () const        { assert(header.has_extra); return data[header.size].abs; }
 
     Lit          subsumes    (const Clause& other) const;
@@ -234,15 +239,16 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
     void reloc(CRef& cr, ClauseAllocator& to)
     {
         Clause& c = operator[](cr);
-        
+
         if (c.reloced()) { cr = c.relocation(); return; }
-        
+
         cr = to.alloc(c, c.learnt());
         c.relocate(cr);
-        
-        // Copy extra data-fields: 
+
+        // Copy extra data-fields:
         // (This could be cleaned-up. Generalize Clause-constructor to be applicable here instead?)
         to[cr].mark(c.mark());
+        to[cr].o(c.i(), c.n());
         if (to[cr].learnt())         to[cr].activity() = c.activity();
         else if (to[cr].has_extra()) to[cr].calcAbstraction();
     }
@@ -262,7 +268,7 @@ class OccLists
 
  public:
     OccLists(const Deleted& d) : deleted(d) {}
-    
+
     void  init      (const Idx& idx){ occs.growTo(toInt(idx)+1); dirty.growTo(toInt(idx)+1, 0); }
     // Vec&  operator[](const Idx& idx){ return occs[toInt(idx)]; }
     Vec&  operator[](const Idx& idx){ return occs[toInt(idx)]; }
@@ -321,13 +327,13 @@ class CMap
 
     typedef Map<CRef, T, CRefHash> HashTable;
     HashTable map;
-        
+
  public:
     // Size-operations:
     void     clear       ()                           { map.clear(); }
     int      size        ()                const      { return map.elems(); }
 
-    
+
     // Insert/Remove/Test mapping:
     void     insert      (CRef cr, const T& t){ map.insert(cr, t); }
     void     growTo      (CRef cr, const T& t){ map.insert(cr, t); } // NOTE: for compatibility
@@ -354,11 +360,11 @@ class CMap
 /*_________________________________________________________________________________________________
 |
 |  subsumes : (other : const Clause&)  ->  Lit
-|  
+|
 |  Description:
 |       Checks if clause subsumes 'other', and at the same time, if it can be used to simplify 'other'
 |       by subsumption resolution.
-|  
+|
 |    Result:
 |       lit_Error  - No subsumption or simplification
 |       lit_Undef  - Clause subsumes 'other'

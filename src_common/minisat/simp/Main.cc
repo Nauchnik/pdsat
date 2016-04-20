@@ -143,8 +143,7 @@ int main(int argc, char** argv)
             printf("c ============================[ Problem Statistics ]=============================\n");
             printf("c |                                                                             |\n"); }
         
-      //  S.output = (argc >= 3) ? fopen(argv[2], "wb") : NULL;
-        S.output = (argc >= 3) ? stdout: NULL;
+        S.output = (argc >= 3) ? fopen(argv[2], "wb") : NULL;
         parse_DIMACS(in, S);
         gzclose(in);
 
@@ -169,23 +168,21 @@ int main(int argc, char** argv)
             printf("c |                                                                             |\n"); }
 
         if (!S.okay()){
-            if (S.output != NULL) fprintf(S.output, "0\n");//, fclose(S.output);
+            if (S.output != NULL) fprintf(S.output, "0\n"), fclose(S.output);
             if (S.verbosity > 0){
                 printf("c ===============================================================================\n");
                 printf("c Solved by simplification\n");
                 printStats(S);
                 printf("c \n"); }
             printf("s UNSATISFIABLE\n");
-           /*
-             if (S.output != NULL) {
+            if (S.output != NULL) {
               int c;
               printf("o proof DRUP\n");
               S.output = fopen(argv[2], "r");
               while((c = getc(S.output)) != EOF)
                 putchar(c);
-                fclose(S.output);
-             }
-            */
+              fclose(S.output);
+            }
             exit(20);
         }
 
@@ -204,9 +201,7 @@ int main(int argc, char** argv)
         if (S.verbosity > 0){
             printStats(S);
             printf("c \n"); }
-        if (S.output != NULL &&  ret == l_False) fprintf(S.output, "0\n");
         printf(ret == l_True ? "s SATISFIABLE\n" : ret == l_False ? "s UNSATISFIABLE\n" : "s UNKNOWN\n");
-       /*
         if (S.output != NULL){
             int c;
             if (ret == l_False) {
@@ -219,7 +214,6 @@ int main(int argc, char** argv)
             }
             fclose(S.output);
         }
-        */
         if (ret == l_True){
             printf("v ");
             for (int i = 0; i < S.nVars(); i++)
