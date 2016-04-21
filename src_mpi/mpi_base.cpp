@@ -616,6 +616,7 @@ bool MPI_Base :: ReadIntCNF()
 			continue;
 		if ( line_str[0] == 'c' ) { // in comment string can exist count of input variables
 			//parse string for ex. "c 1452 input variables" or "c input variables 1452"
+			sstream.str(""); sstream.clear();
 			sstream << line_str;
 			sstream >> str1 >> str2;
 			
