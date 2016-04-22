@@ -60,6 +60,7 @@ public:
 	void resetVarActivity();
 	void resetOrderVarActivity();
 	void resetIntervalVarActivity( int var_from, int var_to );
+	void resetVectorVarActivity(std::vector<int> vars);
 	bool addProblem(const Problem& p);
     bool addProblem_modified(const Problem& p, int num_of_variables);
 	double getEstimation();

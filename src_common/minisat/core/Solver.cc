@@ -248,6 +248,23 @@ void Solver::resetIntervalVarActivity(int var_from, int var_to)
 	}
 }
 
+void Solver::resetVectorVarActivity(std::vector<int> vars)
+{
+	int max_var = -1;
+	for (int i = 0; i < vars.size(); ++i)
+		if (vars[i] > max_var) max_var = vars[i];
+	
+	if ((max_var <= nVars()) && (start_activity > 0)) {
+		// set default minisat values
+		for (int i = 0; i < activity.size(); ++i)
+			activity[i] = 0.0;
+		for (int i = 0; i < vars.size(); ++i)
+			varBumpActivity(vars[i], start_activity);
+		var_decay = 1;
+		clause_decay = 1;
+	}
+}
+
 // Creates a new SAT variable in the solver. If 'decision' is cleared, variable will not be
 // used as a decision variable (NOTE! This has effects on the meaning of a SATISFIABLE result).
 //
