@@ -742,6 +742,10 @@ bool MPI_Solver :: ComputeProcessSolve()
 		S->core_len         = core_len;
 		S->start_activity   = start_activity;
 		S->resetVarActivity();
+		std::vector<int> vars;
+		// ... fill vars
+		S->start_activity = 1;
+		S->resetVectorVarActivity(vars);
 
 		if (rank == 1) {
 			std::cout << "S->evaluation_type " << S->evaluation_type << std::endl;
