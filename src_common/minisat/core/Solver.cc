@@ -259,7 +259,7 @@ void Solver::resetVectorVarActivity(std::vector<int> vars)
 		for (int i = 0; i < activity.size(); ++i)
 			activity[i] = 0.0;
 		for (int i = 0; i < vars.size(); ++i)
-			varBumpActivity(vars[i], start_activity);
+			varBumpActivity(vars[i]-1, start_activity);
 		var_decay = 1;
 		clause_decay = 1;
 	}
