@@ -428,13 +428,13 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 		vii.resize(integer_variables);
 		for (unsigned i = 0; i < vii.size(); i++) {
 			vii[i].resize(variables_each_integer);
-			for (unsigned j = 0; j < variables_each_integer; j++)
+			for (int j = 0; j < variables_each_integer; j++)
 				vii[i][j] = j + i*variables_each_integer;
 		}
 		std::cout << "next_cartesian variants" << std::endl;
-		all_tasks_count = pow(variables_each_integer, integer_variables);
+		all_tasks_count = (unsigned)pow(variables_each_integer, integer_variables);
 		cartesian_elements.resize(all_tasks_count);
-		int k = 0;
+		unsigned k = 0;
 		std::cout << "first 10 cartesian_elements " << std::endl;
 		while (next_cartesian(vii, index_arr, cur_vi)) {
 			if (k < 10) {
@@ -738,7 +738,7 @@ bool MPI_Solver :: ComputeProcessSolve()
 		if (evaluation_type == "time")
 			S->max_solving_time = max_solving_time;
 		else if (evaluation_type == "watch_scans")
-			S->max_nof_watch_scans = te;
+			S->max_nof_watch_scans = (long long)te;
 		S->core_len         = core_len;
 		S->start_activity   = start_activity;
 		S->resetVarActivity();
