@@ -83,7 +83,7 @@ public:
 	unsigned all_tasks_count;
 	double te;
 	unsigned first_stream_var_index;
-	unsigned known_last_bits;
+	unsigned known_bits;
 	unsigned keystream_len;
 	unsigned cnf_in_set_count;
 	unsigned input_var_num;

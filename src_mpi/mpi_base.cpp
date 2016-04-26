@@ -36,7 +36,7 @@ MPI_Base :: MPI_Base( ) :
 	activity_vec_len	 ( 0 ),
 	first_stream_var_index ( 0 ),
 	te ( 0 ),
-	known_last_bits ( 0 ),
+	known_bits ( 0 ),
 	keystream_len ( 200 ),
 	isMakeSatSampleAnyWay ( false ),
 	input_var_num ( 0 ),
@@ -634,9 +634,9 @@ bool MPI_Base :: ReadIntCNF()
 
 			sstream >> str3 >> str4; // get and parse words in string
 			
-			if ( str2 == "known_last_bits" ) {
-				std::istringstream( str3 ) >> known_last_bits;
-				std::cout << "known_last_bits " << known_last_bits << std::endl;
+			if ( str2 == "known_bits" ) {
+				std::istringstream( str3 ) >> known_bits;
+				std::cout << "known_bits " << known_bits << std::endl;
 				continue;
 			}
 			if ( ( str2 == "output" ) && ( str3 == "variables" ) ) {
@@ -775,14 +775,14 @@ bool MPI_Base :: ReadIntCNF()
 			std::cout << map_it->first << " " << map_it->second << std::endl;
 	}*/
 
-	if ( known_last_bits ) {
+	if ( known_bits ) {
 		if ( core_len != input_var_num ) {
-			std::cerr << "known_last_bits " << known_last_bits << " with core_len != input_var_num" << std::endl;
+			std::cerr << "known_bits " << known_bits << " with core_len != input_var_num" << std::endl;
 			exit(1);
 		}
-		core_len -= known_last_bits;
+		core_len -= known_bits;
 		full_var_choose_order.resize(core_len);
-		std::cout << "new core_len (less to known_last_bits) " << core_len << std::endl;
+		std::cout << "new core_len (less to known_bits) " << core_len << std::endl;
 	}
 	
 	if ( ( isPredict ) && ( !input_var_num ) ) {
