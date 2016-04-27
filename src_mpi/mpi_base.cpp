@@ -44,7 +44,8 @@ MPI_Base :: MPI_Base( ) :
 	process_sat_count ( 0 ),
 	known_vars_count ( 0 ),
 	isPlainText (false),
-	evaluation_type("time")
+	evaluation_type("time"),
+	rank (0)
 {
 	for ( unsigned i = 0; i < FULL_MASK_LEN; i++ )
 		full_mask[i] = part_mask[i] = mask_value[i] = 0;
@@ -987,10 +988,13 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 							 std::vector< std::vector<bool> > &plain_text_vec_vec,
 							 int rank)
 {
-	std::fstream file( "known_sat_sample", std::ios_base::in );
+	std::stringstream sstream;
+	sstream << "known_sat_sample_" << rank;
+	std::string known_sat_sample_file_name = sstream.str();
+	sstream.str(""); sstream.clear();
+	std::fstream file(known_sat_sample_file_name, std::ios_base::in );
 	std::vector<bool> state_vec, stream_vec, plain_text_vec;
 	std::string str;
-	std::stringstream sstream;
 	getline( file, str );
 	
 	if ( ( isMakeSatSampleAnyWay ) || ( str.size() == 0 ) ) { // empty file
@@ -999,7 +1003,7 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 		std::cout << "file known_sat_sample is empty. making SAT sample" << std::endl;
 		
 		boost::random::mt19937 gen_known_vars;
-		const unsigned known_vars_seed = static_cast <unsigned> (std::time(NULL)) + (unsigned)rank;
+		const unsigned known_vars_seed = static_cast <unsigned> (std::time(NULL)) + (unsigned)rank * 1000000;
 		std::cout << "known_vars_seed " << known_vars_seed << std::endl;
 		gen_known_vars.seed(known_vars_seed);
 
@@ -1007,7 +1011,7 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 		state_vec.resize( input_var_num );
 		for ( unsigned i=0; i < cnf_in_set_count; i++ ) {
 			for ( unsigned j=0; j < input_var_num; j++ )
-				state_vec[j] = j < core_len ? bool_rand(gen): bool_rand(gen_known_vars) ;
+				state_vec[j] = bool_rand(gen_known_vars) ;
 			state_vec_vec.push_back( state_vec );
 		}
 		
@@ -1088,8 +1092,7 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 			sstream << std::endl;
 		}
 		file.close(); file.clear();
-		if ( rank == 0 ) 
-			file.open("known_sat_sample", std::ios_base::out);
+		file.open(known_sat_sample_file_name, std::ios_base::out);
 		file << sstream.rdbuf();
 		delete S;
 	}
