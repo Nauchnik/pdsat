@@ -164,7 +164,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			MPI_Send( &var_count,        1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &core_len,         1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &activity_vec_len, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &known_last_bits,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &known_bits,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &known_vars_count, 1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &input_var_num,    1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &start_activity,   1, MPI_DOUBLE, i + 1, 0, MPI_COMM_WORLD );
@@ -831,7 +831,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	MPI_Recv( &var_count,			  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &core_len,			  1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &activity_vec_len,      1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &known_last_bits,       1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &known_bits,       1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &base_known_vars_count, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &input_var_num,		  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &start_activity,		  1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
@@ -844,7 +844,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		std::cout << "var_count "        << var_count << std::endl;
 		std::cout << "core_len "         << core_len << std::endl;
 		std::cout << "activity_vec_len " << activity_vec_len << std::endl;
-		std::cout << "known_last_bits "  << known_last_bits << std::endl;
+		std::cout << "known_bits "       << known_bits << std::endl;
 		std::cout << "input_var_num "    << input_var_num << std::endl;
 		std::cout << "start_activity "   << start_activity << std::endl;
 	}
@@ -1029,7 +1029,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	if ( rank == 1 ) {
 		std::cout << "Received core_len "         << core_len         << std::endl;
 		std::cout << "Received activity_vec_len " << activity_vec_len << std::endl;
-		std::cout << "Received known_last_bits "  << known_last_bits  << std::endl;
+		std::cout << "Received known_bits "  << known_bits << std::endl;
 		std::cout << "Received full_var_choose_order " << std::endl;
 		for ( unsigned i=0; i < full_var_choose_order.size(); ++i )
 			std::cout << full_var_choose_order[i] << " ";
@@ -1070,7 +1070,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		
 		ProcessListNumber = status.MPI_TAG;
 		
-		if ( (!known_last_bits) && ( message_size-1 > (int)full_var_choose_order.size() ) ) {
+		if ( (!known_bits) && ( message_size-1 > (int)full_var_choose_order.size() ) ) {
 			std::cerr << "message_size > full_var_choose_order.size()" << std::endl;
 			std::cerr << message_size << " > " << full_var_choose_order.size() << std::endl;
 			return false;
@@ -1177,8 +1177,8 @@ bool MPI_Predicter :: ComputeProcessPredict()
 					dummy.push((plain_text_vec_vec[sat_sample_index][cur_plain_text_index]) ? mkLit(cur_var_ind) : ~mkLit(cur_var_ind));
 				}
 			}
-			if ( known_last_bits ) { // add some last known bits
-				for ( unsigned i=0; i < known_last_bits; i++ ) {
+			if (known_bits) { // add some last known bits
+				for ( unsigned i=0; i < known_bits; i++ ) {
 					cur_var_ind = core_len + i;
 					dummy.push( (state_vec_vec[sat_sample_index][cur_var_ind]) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
 				}

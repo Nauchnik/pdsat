@@ -19,7 +19,6 @@ private:
 	unsigned interrupted_count;
 	std::string base_solving_info_file_name;
 	double finding_first_sat_time;
-	double total_start_time;
 public:
 	// Constructor/Destructor:
     MPI_Solver( );

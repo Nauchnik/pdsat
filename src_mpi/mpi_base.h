@@ -50,6 +50,7 @@ protected:
 	std::map<int, unsigned> core_var_indexes; // indexes of variables in core set
 	boost::random::mt19937 gen;
 	unsigned known_vars_count;
+	double total_start_time;
 public:
     MPI_Base();
     ~MPI_Base();

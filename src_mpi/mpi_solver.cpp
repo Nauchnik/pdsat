@@ -20,7 +20,6 @@ MPI_Solver :: MPI_Solver( ) :
 	solving_iteration_count     ( 0 ),
 	interrupted_count           ( 0 ),
 	finding_first_sat_time      ( 0 ),
-	total_start_time            ( 0 ),
 	no_increm                   ( false ),
 	variables_each_integer      ( 0 ),
 	isCollectInterruptedInstances ( false )
@@ -53,6 +52,8 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 	
+	total_start_time = MPI_Wtime();
+
 	if ( rank != 0 ) { // computing processes
 		if ( !ComputeProcessSolve() ) {
 			std::cerr << "in ComputeProcessSovle" << std::endl; 
@@ -61,7 +62,6 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	}
 	else { // rank == 0, control process
 		std::cout << "*** MPI_Solve is running ***" << std::endl;
-		total_start_time = MPI_Wtime();
 
 		sstream << base_solving_info_file_name << "_" << solving_iteration_count;
 		solving_info_file_name = sstream.str();
