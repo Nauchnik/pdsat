@@ -43,6 +43,8 @@ local.properties
 # new
 *.uset
 *.sdf
+*.db
+*.opendb
 
 # Build results
 
