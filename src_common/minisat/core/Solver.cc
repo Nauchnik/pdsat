@@ -1016,60 +1016,58 @@ lbool Solver::solve_()
     while (status == l_Undef){
 	// added pdsat
 #ifdef _MPI
-	cur_time = MPI_Wtime() - start_solving_time;
+		cur_time = MPI_Wtime() - start_solving_time;
 #else
-	cur_time = cpuTime() - start_solving_time;
+		cur_time = cpuTime() - start_solving_time;
 #endif
-	if (((max_nof_restarts) && (curr_restarts >= max_nof_restarts)) ||
-		((max_solving_time > 0.0) && (cur_time >= max_solving_time)) ||
-		(max_nof_watch_scans && ((max_nof_watch_scans) && ((watch_scans-start_watch_scans)>= max_nof_watch_scans)))
-		)
-	{
-		//progress_estimate = progressEstimate();
-		cancelUntil(0);
-		return l_Undef;
-	}
+		if (((max_nof_restarts) && (curr_restarts >= max_nof_restarts)) ||
+			((max_solving_time > 0.0) && (cur_time >= max_solving_time)) ||
+			((max_nof_watch_scans) && ((watch_scans-start_watch_scans)>= max_nof_watch_scans))
+			)
+		{
+			//progress_estimate = progressEstimate();
+			cancelUntil(0);
+			return l_Undef;
+		}
 
 #ifdef _MPI
-	if ((isPredict) && (evaluation_type == "time")) {
-		if ((pdsat_verbosity > 0) && (rank == 1)) {
-			std::cout << "try to MPI_Iprobe()" << std::endl;
-			std::cout << "rank " << rank << std::endl;
-		}
-		int size;
-		iprobe_message = 0;
-		MPI_Iprobe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &iprobe_message, &mpi_status);
-		//if ( pdsat_verbosity > 0 )
-		//	std::cout << "iprobe_message " << iprobe_message << std::endl;
-		if (iprobe_message) {
-			MPI_Get_count(&mpi_status, MPI_INT, &size);
-			if (size == 1) {
-				MPI_Irecv(&irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request);
-				MPI_Test(&mpi_request, &test_message, &mpi_status);
-				if (test_message) {
-					if (pdsat_verbosity > 0)
-						std::cout << "minisat interrupted after " << curr_restarts << " restarts" << std::endl;
-					cancelUntil(0);
-					return l_Undef;
+		if ((isPredict) && (evaluation_type == "time")) {
+			if ((pdsat_verbosity > 0) && (rank == 1)) {
+				std::cout << "try to MPI_Iprobe()" << std::endl;
+				std::cout << "rank " << rank << std::endl;
+			}
+			int size;
+			iprobe_message = 0;
+			MPI_Iprobe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &iprobe_message, &mpi_status);
+			//if ( pdsat_verbosity > 0 )
+			//	std::cout << "iprobe_message " << iprobe_message << std::endl;
+			if (iprobe_message) {
+				MPI_Get_count(&mpi_status, MPI_INT, &size);
+				if (size == 1) {
+					MPI_Irecv(&irecv_message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request);
+					MPI_Test(&mpi_request, &test_message, &mpi_status);
+					if (test_message) {
+						if (pdsat_verbosity > 0)
+							std::cout << "minisat interrupted after " << curr_restarts << " restarts" << std::endl;
+						cancelUntil(0);
+						return l_Undef;
+					}
+				}
+				else {
+					std::cerr << "In Solver() MPI_Get_count(&status, MPI_UNSIGNED, &size); " << size << std::endl;
+					exit(1);
 				}
 			}
-			else {
-				std::cerr << "In Solver() MPI_Get_count(&status, MPI_UNSIGNED, &size); " << size << std::endl;
-				exit(1);
-			}
 		}
-	}
 #endif
-		
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
         status = search(rest_base * restart_first);
         if (!withinBudget()) break;
         curr_restarts++;
     }
-
+	
     if (verbosity >= 1)
         printf("c ===============================================================================\n");
-
 
     if (status == l_True){
         // Extend & copy model:
