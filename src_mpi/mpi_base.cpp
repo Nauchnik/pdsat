@@ -899,8 +899,10 @@ bool MPI_Base :: AnalyzeSATset( double cnf_time_from_node )
 	
 	answer_var_count = core_len;
 	
+#ifdef _MPI
 	sstream << "total_time_from_start " << MPI_Wtime() - total_start_time << " s" << std::endl;
 	sstream << cnf_time_from_node << " s SAT " << std::endl;
+#endif
 	for ( unsigned i = 0; i < b_SAT_set_array.size(); ++i )
 		sstream << b_SAT_set_array[i];
 	sstream << std::endl; 
