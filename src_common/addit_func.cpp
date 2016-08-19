@@ -44,29 +44,29 @@ int Addit_func :: BitCount( unsigned u )
     return ((uCount + (uCount >> 3)) & 030707070707) % 63;
 }
 
-int Addit_func :: ConseqMultip( int low_bound, int high_bound )
+long long Addit_func :: ConseqMultip( long long low_bound, long long high_bound )
 {
 // multiplication low_bound * (low_bound + 1) * ... * high_bound
-	int final_val = 1;
-	for ( int i = low_bound; i <= high_bound; i++ )
+	long long final_val = 1;
+	for (long long i = low_bound; i <= high_bound; i++ )
 		final_val *= i;
 	return final_val;
 }
 
-void Addit_func :: MakeCombinations( int n, int k, std::vector< std::vector<int> > &combinations, bool isOnlySizeCalc )
+void Addit_func :: MakeCombinations(long long n, long long k, std::vector< std::vector<long long> > &combinations, bool isOnlySizeCalc )
 {
 // Generation of set of all k-combinations of a set n
-	int val;
-	std::vector<int> index_arr;
+	long long val;
+	std::vector<long long> index_arr;
 	index_arr.resize(k);
-	unsigned comb_index = 0;
-	combinations.resize( ConseqMultip(n-k+1,n) / ConseqMultip(1, k) );
+	unsigned long long comb_index = 0;
+	combinations.resize(ConseqMultip(n - k + 1, n) / ConseqMultip(1, k));
 	if (isOnlySizeCalc)
 		return;
 	
-	for ( unsigned i = 0; i < combinations.size(); i++ )
+	for ( unsigned long long i = 0; i < combinations.size(); i++ )
 		combinations[i].resize(k);
-	for ( unsigned i = 0; i < index_arr.size(); i++ )
+	for ( unsigned long long i = 0; i < index_arr.size(); i++ )
 		index_arr[i] = i; // start indexes
 	
 	for ( ;; ) {
@@ -81,7 +81,7 @@ void Addit_func :: MakeCombinations( int n, int k, std::vector< std::vector<int>
 
 		if ( val >= 0 ) { // if some values on final positions but not all
 			index_arr[val]++;
-			for ( int i = val+1; i < k; i++ )
+			for ( long long i = val+1; i < k; i++ )
 				index_arr[i] = index_arr[i-1] + 1; // set initial state to all values right to changed one
 		} // if val < 0 then final state - all '1' in tail
 		else
@@ -89,13 +89,13 @@ void Addit_func :: MakeCombinations( int n, int k, std::vector< std::vector<int>
 	}
 }
 
-void Addit_func :: MakePermutations( int n, int k, std::vector< std::vector<int> > &permutations )
+void Addit_func :: MakePermutations( long long n, long long k, std::vector< std::vector<long long> > &permutations )
 {
-	std::vector< std::vector<int> > combinations;
-	std::vector<int> cur_permutation;
+	std::vector< std::vector<long long> > combinations;
+	std::vector<long long> cur_permutation;
 	permutations.reserve( ConseqMultip(n-k+1,n) ); // reserve count of permutations
 	MakeCombinations(n,k,combinations);
-	for( unsigned i=0; i<combinations.size(); ++i ){
+	for( unsigned long long i=0; i<combinations.size(); ++i ){
 		cur_permutation = combinations[i];
 		do permutations.push_back( cur_permutation );
 		while ( next_permutation( cur_permutation.begin(), cur_permutation.end() ) );
