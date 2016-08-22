@@ -1010,17 +1010,9 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 		const unsigned known_vars_seed = static_cast <unsigned> (std::time(NULL)) + (unsigned)rank * 1000000;
 		std::cout << "known_vars_seed " << known_vars_seed << std::endl;
 		gen_known_vars.seed(known_vars_seed);
-
-		// generate randomly state of core variables
-		state_vec.resize( input_var_num );
-		for ( unsigned i=0; i < cnf_in_set_count; i++ ) {
-			for ( unsigned j=0; j < input_var_num; j++ )
-				state_vec[j] = bool_rand(gen_known_vars) ;
-			state_vec_vec.push_back( state_vec );
-		}
 		
 		// additionally plaintext is nedded 
-		if (isPlainText) {
+		/*if (isPlainText) {
 			unsigned ciphertext_len = 0;
 			if (input_cnf_name.find("32") != std::string::npos)
 				ciphertext_len = 32;
@@ -1049,7 +1041,7 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 
 			std::cout << "state_vec_vec.size() " << state_vec_vec.size() << std::endl;
 			std::cout << "state_vec_vec[0].size() " << state_vec_vec[0].size() << std::endl;
-		}
+		}*/
 		
 		// get state of additional variables
 		Problem cnf;
@@ -1063,26 +1055,39 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 		S->addProblem(cnf);
 		vec<Lit> dummy;
 		int cur_var_ind;
-		int state_vec_len = state_vec_vec[0].size();
-		for ( std::vector< std::vector<bool> > :: iterator x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) {
+
+		/*state_vec.resize(input_var_num);
+		for (unsigned i = 0; i < cnf_in_set_count; i++) {
+		for (unsigned j = 0; j < input_var_num; j++)
+		state_vec[j] = bool_rand(gen_known_vars);
+		state_vec_vec.push_back(state_vec);
+		}*/
+
+		//int state_vec_len = state_vec_vec[0].size();
+		//for ( std::vector< std::vector<bool> > :: iterator x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) 
+		state_vec.resize(input_var_num);
+		do
+		{
+			for (unsigned i = 0; i < input_var_num; i++)
+				state_vec[i] = bool_rand(gen_known_vars);
 			cur_var_ind = 0;
-			for ( std::vector<bool> :: iterator y = (*x).begin(); y != (*x).end(); y++ ) {
-				dummy.push( (*y) ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
+			for ( auto &x : state_vec ) {
+				dummy.push( x ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
 				cur_var_ind++;
 			}
 			ret = S->solveLimited( dummy );
-			if ( ret != l_True ) {
-				std::cerr << "in makeSatSample() ret != l_True" << std::endl;
-				exit(1);
-			}
-			for( int i=state_vec_len; i < S->model.size() - (int)keystream_len; i++ )
-				(*x).push_back( (S->model[i] == l_True) ? true : false );
-			for( int i=S->model.size() - keystream_len; i < S->model.size(); i++ )
-				stream_vec.push_back( (S->model[i] == l_True) ? true : false );
-			stream_vec_vec.push_back( stream_vec );
-			stream_vec.clear();
 			dummy.clear();
-		}
+			if ( ret == l_True ) {
+				for (int i = input_var_num; i < S->model.size() - (int)keystream_len; i++)
+					state_vec.push_back((S->model[i] == l_True) ? true : false);
+				state_vec_vec.push_back(state_vec);
+				for (int i = S->model.size() - keystream_len; i < S->model.size(); i++)
+					stream_vec.push_back((S->model[i] == l_True) ? true : false);
+				stream_vec_vec.push_back(stream_vec);
+				stream_vec.clear();
+			}
+		} while (state_vec_vec.size() < cnf_in_set_count);
+
 		sstream << "state" << std::endl;
 		for ( std::vector< std::vector<bool> > :: iterator x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) {
 			for ( std::vector<bool> :: iterator y = (*x).begin(); y != (*x).end(); y++ )
@@ -1134,9 +1139,9 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 	std::cout << std::endl;
 	file.close();
 	
-	if (isPlainText) // return size of input vectors without plain text data
+	/*if (isPlainText) // return size of input vectors without plain text data
 		for (auto &x : state_vec_vec)
-			x.resize(input_var_num);
+			x.resize(input_var_num);*/
 }
 
 std::string MPI_Base::MakeSolverLaunchString( std::string solver_name, std::string cnf_name, double maxtime_solving_time )
