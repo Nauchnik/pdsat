@@ -1065,9 +1065,10 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 
 		//int state_vec_len = state_vec_vec[0].size();
 		//for ( std::vector< std::vector<bool> > :: iterator x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) 
-		state_vec.resize(input_var_num);
+		unsigned long long unsat_genereted_count = 0, undef_genereted_count = 0;
 		do
 		{
+			state_vec.resize(input_var_num);
 			for (unsigned i = 0; i < input_var_num; i++)
 				state_vec[i] = bool_rand(gen_known_vars);
 			cur_var_ind = 0;
@@ -1086,8 +1087,18 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 				stream_vec_vec.push_back(stream_vec);
 				stream_vec.clear();
 			}
+			else if (ret == l_False)
+				unsat_genereted_count++;
+			else if (ret == l_Undef)
+				undef_genereted_count++;
+			if ((unsat_genereted_count) && (unsat_genereted_count % 100000 == 0)) {
+				std::cout << "unsat_generated_count " << unsat_genereted_count << std::endl;
+				//std::cout << "undef_generated_count " << undef_genereted_count << std::endl;
+				std::cout << "state_vec_vec.size() " << state_vec_vec.size() << std::endl;
+			}
 		} while (state_vec_vec.size() < cnf_in_set_count);
-
+		
+		std::cout << "unsat_generated_count " << unsat_genereted_count << std::endl;
 		sstream << "state" << std::endl;
 		for ( std::vector< std::vector<bool> > :: iterator x = state_vec_vec.begin(); x != state_vec_vec.end(); x++ ) {
 			for ( std::vector<bool> :: iterator y = (*x).begin(); y != (*x).end(); y++ )
