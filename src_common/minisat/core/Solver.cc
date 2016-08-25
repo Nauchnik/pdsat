@@ -152,7 +152,6 @@ void Solver::clearDB()
 	checkGarbage();
 }
 
-
 void Solver::clearPolarity()
 {
 	for (int i = 0; i < nVars(); i++)

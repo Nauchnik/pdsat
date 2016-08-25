@@ -1580,7 +1580,7 @@ bool MPI_Predicter :: DeepPredictMain()
 
 	// core_len variants of vectors with Hamming distanse 
 	// get combinations to constuct all vectors on given Hamming distanse
-	std::vector< std::vector<int> > combinations;
+	std::vector< std::vector<long long> > combinations;
 	MakeCombinations(core_len, cur_vars_changing, combinations, true);
 	core_len_combinations_size = combinations.size();
 	combinations.clear();

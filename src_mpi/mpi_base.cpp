@@ -1072,8 +1072,8 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 			for (unsigned i = 0; i < input_var_num; i++)
 				state_vec[i] = bool_rand(gen_known_vars);
 			cur_var_ind = 0;
-			for ( auto &x : state_vec ) {
-				dummy.push( x ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
+			for (unsigned i = 0; i < state_vec.size(); i++) {
+				dummy.push( state_vec[i] ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind ) );
 				cur_var_ind++;
 			}
 			ret = S->solveLimited( dummy );
