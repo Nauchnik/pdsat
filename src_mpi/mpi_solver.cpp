@@ -217,7 +217,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 		prev_conflicts = S->conflicts;
 			
 		cnf_time_from_node = Minisat :: cpuTime();
-		ret = S->solveLimited( dummy_vec[i] );
+		ret = S->solve( dummy_vec[i] );
 		cnf_time_from_node = Minisat :: cpuTime() - cnf_time_from_node;
 		
 		S->watch_scans = 0;
@@ -692,15 +692,6 @@ bool MPI_Solver :: ComputeProcessSolve()
 		if ( rank == 1 )
 			std::cout << "new compute high level iteration" << std::endl;
 		
-		in.open( input_cnf_name ); // read every new batch because CNF can be changed
-		Problem cnf;
-		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
-		in.close();
-		S = new Solver();
-		S->addProblem(cnf);
-		S->verbosity = 0;
-		S->isPredict = false;
-		
 		IsFirstTaskRecieved = false;
 		var_choose_order_int = new int[MAX_CORE_LEN];
 		MPI_Recv( &core_len,                1, MPI_INT,      0, 0, MPI_COMM_WORLD, &status );
@@ -734,14 +725,10 @@ bool MPI_Solver :: ComputeProcessSolve()
 			std::cout << std::endl;
 		}
 		
-		S->evaluation_type = evaluation_type;
-		if (evaluation_type == "time")
-			S->max_solving_time = max_solving_time;
-		else if (evaluation_type == "watch_scans")
-			S->max_nof_watch_scans = (long long)te;
-		S->core_len         = core_len;
-		S->start_activity   = start_activity;
-		S->resetVarActivity();
+		in.open(input_cnf_name); // read every new batch because CNF can be changed
+		Problem cnf;
+		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
+		in.close();
 
 		if (rank == 1) {
 			std::cout << "S->evaluation_type " << S->evaluation_type << std::endl;
@@ -789,6 +776,19 @@ bool MPI_Solver :: ComputeProcessSolve()
 					std::cout << mask_value[i] << " ";
 				std::cout << std::endl;
 			}
+
+			S = new Solver();
+			S->addProblem(cnf);
+			S->verbosity = 0;
+			S->isPredict = false;
+			S->evaluation_type = evaluation_type;
+			if (evaluation_type == "time")
+				S->max_solving_time = max_solving_time;
+			else if (evaluation_type == "watch_scans")
+				S->max_nof_watch_scans = (long long)te;
+			S->core_len = core_len;
+			S->start_activity = start_activity;
+			S->resetVarActivity();
 			
 			if ( !SolverRun( S, process_sat_count, cnf_time_from_node, current_task_index, 
 				             interrupted_problems_var_values_from_process, sat_assignment_from_process ) ) 
@@ -848,9 +848,8 @@ bool MPI_Solver :: ComputeProcessSolve()
 				std::cout << "char_send_arra " << std::endl;
 				std::cout << "char_send_array_len " << char_send_array_len << std::endl;
 			}
+			delete S;
 		}
-		
-		delete S;
 	}
 	
 	return true;
