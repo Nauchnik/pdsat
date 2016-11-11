@@ -26,12 +26,13 @@ const unsigned MAX_POW_VALUE               = 1000;
 const double   MIN_PERCENT_SOLVED_IN_TIME  = 0.5;
 const double   MIN_PERCENT_NO_MULTISAMPLE  = 0.9;
 const unsigned CHECK_ACCURACY_SAMPLE_SIZE_KOEF = 2;
+const unsigned PREDICT_TIMES_LIMITS = 1000;
+const unsigned L_POINTS_RADIUS = 1;
 
 struct unchecked_area
 {
 	boost::dynamic_bitset<> center; // point - center of area. i here means variable # i
 	boost::dynamic_bitset<> checked_points; // i here corresponds to checked point with component # i
-	int radius;
 	double med_var_activity;
 	bool is_partly_checked; // if checked in window mode, then not all points in radius are checked, but we can't chosse it again
 };
@@ -46,7 +47,6 @@ struct point_candidate_to_bkv
 struct checked_area
 {
 	boost::dynamic_bitset<> center; // point - center of area
-	int radius;
 };
 
 struct var_with_activity

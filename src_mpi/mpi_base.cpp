@@ -37,7 +37,7 @@ MPI_Base :: MPI_Base( ) :
 	first_stream_var_index ( 0 ),
 	te ( 0 ),
 	known_bits ( 0 ),
-	keystream_len ( 200 ),
+	output_len ( 200 ),
 	isMakeSatSampleAnyWay ( false ),
 	input_var_num ( 0 ),
 	isSolverSystemCalling ( false ),
@@ -642,12 +642,12 @@ bool MPI_Base :: ReadIntCNF()
 				continue;
 			}
 			if ( ( str2 == "output" ) && ( str3 == "variables" ) ) {
-				std::istringstream( str4 ) >> keystream_len;
+				std::istringstream( str4 ) >> output_len;
 				continue;
 			}
 			if ((str2 == "output") && (str3 == "vars")) {
 				sstream >> str5;
-				std::istringstream(str5) >> keystream_len;
+				std::istringstream(str5) >> output_len;
 				continue;
 			}
 			if ( !Is_InpVar ) {
@@ -791,6 +791,8 @@ bool MPI_Base :: ReadIntCNF()
 		std::cerr << "input_var_num == 0 in predict mode" << std::endl;
 		return false;
 	}
+
+	nonoutput_len = var_count - core_len;
 	
 	std::cout << "ReadIntCNF() done" << std::endl;
 	
@@ -981,9 +983,9 @@ void MPI_Base::MakeSingleSatSample(
 		exit(1);
 	}
 
-	for( int i=state_vec.size(); i < S->model.size() - (int)keystream_len; i++ )
+	for( int i=state_vec.size(); i < S->model.size() - (int)output_len; i++ )
 		state_vec.push_back( (S->model[i] == l_True) ? true : false );
-	for( int i=S->model.size() - keystream_len; i < S->model.size(); i++ )
+	for( int i=S->model.size() - output_len; i < S->model.size(); i++ )
 		stream_vec.push_back( (S->model[i] == l_True) ? true : false );
 }
 
@@ -1079,10 +1081,10 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 			ret = S->solveLimited( dummy );
 			dummy.clear();
 			if ( ret == l_True ) {
-				for (int i = input_var_num; i < S->model.size() - (int)keystream_len; i++)
+				for (int i = input_var_num; i < S->model.size() - (int)output_len; i++)
 					state_vec.push_back((S->model[i] == l_True) ? true : false);
 				state_vec_vec.push_back(state_vec);
-				for (int i = S->model.size() - keystream_len; i < S->model.size(); i++)
+				for (int i = S->model.size() - output_len; i < S->model.size(); i++)
 					stream_vec.push_back((S->model[i] == l_True) ? true : false);
 				stream_vec_vec.push_back(stream_vec);
 				stream_vec.clear();

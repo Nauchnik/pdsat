@@ -146,7 +146,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			var_choose_order = full_var_choose_order;
 		}
 		
-		activity_vec_len = core_len; // if we need check all variables then set core_len = [all variables] - [known variable]
+		activity_vec_len = var_count - output_len; // if we need check all variables then set core_len = [all variables] - [known variable]
 		var_activity = new double[activity_vec_len];
 		for ( unsigned i=0; i < activity_vec_len; i++ )
 			var_activity[i] = 0.0;
@@ -159,7 +159,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		for ( auto &x : full_var_choose_order )
 			core_var_indexes.insert( std::pair<int,unsigned>(x,k++) );
 		
-		// send core_len once to every compute process
+		// send info once to each computing process
 		for( int i=0; i < corecount-1; ++i ) {
 			MPI_Send( &var_count,        1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &core_len,         1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
@@ -172,7 +172,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		}
 		
 		if ( te > 0 ) {
-			first_stream_var_index = var_count - keystream_len;
+			first_stream_var_index = var_count - output_len;
 			std::cout << "first_stream_var_index " << first_stream_var_index << std::endl;
 
 			MakeSatSample(state_vec_vec, stream_vec_vec, plain_text_vec_vec);
@@ -247,6 +247,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		std::cout << "cnf_in_set_count " << cnf_in_set_count << std::endl; 
 		std::cout << "proc_count "    << proc_count          << std::endl;
 		std::cout << "core_len "      << core_len            << std::endl;
+		std::cout << "nonoutput_len " << nonoutput_len       << std::endl;
 		std::cout << "input_var_num " << input_var_num       << std::endl;
  		std::cout << "start_activity "    << start_activity << std::endl;
 		std::cout << "max_var_deep_predict " << max_var_deep_predict << std::endl;
@@ -258,7 +259,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		std::cout << "evaluation_type " << evaluation_type << std::endl;
 		std::cout << "te for backdoor mode " << te << std::endl;
 		//cout << "penalty for (ro, es, te) " << penalty << std::endl;
-		std::cout << "keystream_len " << keystream_len << std::endl;
+		std::cout << "output_len " << output_len << std::endl;
 		std::cout << "isSolverSystemCalling " << isSolverSystemCalling << std::endl;
 		std::cout << std::endl;
 		
@@ -363,7 +364,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 	sstream_control << "In ControlProcessPredict()" << std::endl;
 	
 	if ( te > 0.0 ) {
-		predict_time_limites.resize( 1000 );
+		predict_time_limites.resize(PREDICT_TIMES_LIMITS);
 		predict_time_limit_step = te / (double)predict_time_limites.size();
 		predict_time_limites[predict_time_limites.size() - 1] = te;
 		for ( int i = predict_time_limites.size() - 2; i >= 0; --i )
@@ -831,10 +832,11 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	MPI_Recv( &var_count,			  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &core_len,			  1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &activity_vec_len,      1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &known_bits,       1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &known_bits,            1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &base_known_vars_count, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &input_var_num,		  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &start_activity,		  1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	nonoutput_len = var_count - output_len;
 	if ( input_var_num == 0 ) {
 		std::cerr << "input_var_num == 0" << std::endl;
 		exit(1);
@@ -890,10 +892,10 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		multiset_file.close();
 	}
 	
-	int *full_local_decomp_set = new int[core_len];
-	MPI_Recv( full_local_decomp_set, core_len, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	full_var_choose_order.resize( core_len );
-	for ( unsigned i=0; i < core_len; ++i )
+	int *full_local_decomp_set = new int[nonoutput_len];
+	MPI_Recv( full_local_decomp_set, nonoutput_len, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	full_var_choose_order.resize(nonoutput_len);
+	for ( unsigned i=0; i < nonoutput_len; ++i )
 		full_var_choose_order[i] = full_local_decomp_set[i];
 	delete[] full_local_decomp_set;
 	/*all_vars_set.resize( var_count ); // all vars including additional CNF keystream
@@ -1304,32 +1306,32 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 	unsigned L2_erased_count = 0;
 	std::list<unchecked_area> :: iterator L2_it;
 	
-	if ( IsRecordUpdated ) {
+	if (IsRecordUpdated) {
 		sstream << std::endl << "---Record Updated---" << std::endl;
 		sstream << "solved tasks " << solved_tasks_count << " / " << all_tasks_count << std::endl;
-		sstream << "solved tasks " << (double)( ( solved_tasks_count * 100 ) / all_tasks_count ) << " %" << std::endl;
+		sstream << "solved tasks " << (double)((solved_tasks_count * 100) / all_tasks_count) << " %" << std::endl;
 		sstream << "cur_vars_changing " << cur_vars_changing << std::endl;
-		if ( isRestartNeeded ) {
+		if (isRestartNeeded) {
 			isRestartNeeded = false;
 			sstream << "Warning. IsRestartNeeded == true after end of iteration. Changed to false" << std::endl;
 		}
-		IsRecordUpdated = false;
+
 		// set new unchecked area
-		boost::dynamic_bitset<> bs = IntVecToBitsetPredict( var_choose_order );
+		boost::dynamic_bitset<> bs = IntVecToBitsetPredict(var_choose_order);
 		bool IsCorrectAddingArea = false;
 		// remove points from L2 that too far from record
 		// and find L2 for current record
 		L2_it = L2.begin();
-		while ( L2_it != L2.end() ) {
-			if ( ( (*L2_it).center.count() > bs.count() ) && 
-				 ( (*L2_it).center.count() - bs.count() > MAX_DISTANCE_TO_RECORD )
-				 )
+		while (L2_it != L2.end()) {
+			if (((*L2_it).center.count() > bs.count()) &&
+				((*L2_it).center.count() - bs.count() > MAX_DISTANCE_TO_RECORD)
+				)
 			{
-				L2_it = L2.erase( L2_it );
+				L2_it = L2.erase(L2_it);
 				L2_erased_count++;
 			}
 			else {
-				if ( (*L2_it).center == bs ) {
+				if ((*L2_it).center == bs) {
 					current_unchecked_area = *L2_it;
 					IsCorrectAddingArea = true;
 				}
@@ -1337,33 +1339,39 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 			}
 		}
 
-		std::list<checked_area> :: iterator L1_it = L1.begin();
-		while ( L1_it != L1.end() ) {
-			if ( ( (*L1_it).center.count() > bs.count() ) && 
-				 ( (*L1_it).center.count() - bs.count() > MAX_DISTANCE_TO_RECORD )
-				 )
+		std::list<checked_area> ::iterator L1_it = L1.begin();
+		while (L1_it != L1.end()) {
+			if (((*L1_it).center.count() > bs.count()) &&
+				((*L1_it).center.count() - bs.count() > MAX_DISTANCE_TO_RECORD)
+				)
 			{
-				L1_it = L1.erase( L1_it );
+				L1_it = L1.erase(L1_it);
 				L1_erased_count++;
 			}
 			else ++L1_it;
 		}
-		
+
 		std::cout << "L2_erased_count " << L2_erased_count << std::endl;
 		std::cout << "L1_erased_count " << L1_erased_count << std::endl;
 
-		if ( !IsCorrectAddingArea )
+		if (!IsCorrectAddingArea)
 			sstream << "***Error. !IsCorrectAddingArea" << std::endl;
-		to_string( current_unchecked_area.center, str );
-		str = std::string( str.rbegin(), str.rend() );
+		to_string(current_unchecked_area.center, str);
+		str = std::string(str.rbegin(), str.rend());
 		sstream << "current_unchecked_area center " << std::endl << str << std::endl;
-		to_string( current_unchecked_area.checked_points, str );
-		str = std::string( str.rbegin(), str.rend() );
+		to_string(current_unchecked_area.checked_points, str);
+		str = std::string(str.rbegin(), str.rend());
 		sstream << "current_unchecked_area checked_points " << std::endl << str << std::endl;;
 		// make initial values
 		cur_vars_changing = 1; // start again from Hamming distance == 1
 		unupdated_count = 0;
-	} else { // if there were no better points in checked area
+	}
+	else if (ts_strategy == 4) {
+		sstream << "ts_strategy == 4" << std::endl;
+		sstream << "same center, other neighbourhood" << std::endl;
+		return true;
+	}
+	else { // if there were no better points in a checked area
 		sstream << std::endl << "---Record not updated---" << std::endl;
 		if (ts_strategy == 3) { // restart - choose new first point 
 			isFirstPoint = true;
@@ -1381,7 +1389,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 			var_choose_order = real_var_choose_order;
 			unsigned added_var_count = 0;
 			unsigned var_index = 0;
-			while ( (var_index < var_with_activity_vec.size()) && (added_var_count < 30) ) { // add most active vars to current record and restart from it
+			while ( (var_index < var_with_activity_vec.size()) && (added_var_count < 30) ) { // add most active vars to the current record and restart from it
 				if (std::find(var_choose_order.begin(), var_choose_order.end(), var_with_activity_vec[var_index].var) == var_choose_order.end()) {
 					var_choose_order.push_back(var_with_activity_vec[var_index].var);
 					added_var_count++;
@@ -1420,7 +1428,7 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 			if ( verbosity > 0 )
 				std::cout << "finding new unchecked_area" << std::endl;
 			// find min hamming distance of points in L2 from current record point
-			min_hamming_distance = (unsigned)core_len;
+			min_hamming_distance = (unsigned)nonoutput_len;
 			for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
 				if ( L2_it->is_partly_checked ) // don't choose if choosed already
 					continue;
@@ -1621,6 +1629,8 @@ bool MPI_Predicter :: DeepPredictMain()
 		whole_get_deep_tasks_time += MPI_Wtime( ) - current_time;
 		//cout << "GetDeepPredictTasks() time " << MPI_Wtime( ) - current_time << std::endl;
 
+		IsRecordUpdated = false;
+
 		current_time = MPI_Wtime( );
 		if ( !PrepareForPredict( ) )
 			{ std::cerr << "Error in PrepareForPredict" << std::endl; return false; }
@@ -1656,7 +1666,7 @@ bool MPI_Predicter :: DeepPredictMain()
 			isFirstPoint = false;
 		}
 		
-		// if new best point found then repeat search in same dimension
+		// if new best point found then repeat search in the same dimension
 		if ( !DeepPredictFindNewUncheckedArea( sstream ) )
 			break;
 
@@ -2024,7 +2034,7 @@ std::vector<int> MPI_Predicter :: BitsetToIntVecPredict( boost::dynamic_bitset<>
 
 boost::dynamic_bitset<> MPI_Predicter :: IntVecToBitsetPredict( std::vector<int> &variables_vec )
 {
-	boost::dynamic_bitset<> bs( core_len );
+	boost::dynamic_bitset<> bs( nonoutput_len );
 	for ( unsigned i=0; i<variables_vec.size(); ++i )
 		bs.set( core_var_indexes.find( variables_vec[i] )->second ); // set element to 1
 	return bs;
@@ -2192,7 +2202,7 @@ bool MPI_Predicter :: GetPredict()
 			 )
 		   )
 		{
-			// if all sat-problems were solved then it can be best predict
+			// if all sat-problems were solved then it can be new current best predict
 			set_status_arr[i]     = 2;
 			IsRecordUpdated       = true;
 			best_predict_time     = predict_time_arr[i];
@@ -2206,7 +2216,8 @@ bool MPI_Predicter :: GetPredict()
 			
 			if ( deep_predict ) // Write info about new point in deep mode
 				NewRecordPoint( i );
-			//if ( IsRestartNeeded ) // don't stop immidiatly, new record can be found in calculated points
+			isRestartNeeded = true;
+			//if ( isRestartNeeded ) // don't stop immidiatly, new record can be found in calculated points
 			//	return true;
 		}
 		else if ( ( best_predict_time > 0.0 ) && ( predict_time_arr[i] >= best_predict_time ) && 
@@ -2547,7 +2558,7 @@ bool MPI_Predicter :: IsPointInCheckedArea( boost::dynamic_bitset<> &point )
 	boost::dynamic_bitset<> xor_bs;
 	for ( L1_it = L1.begin(); L1_it != L1.end(); L1_it++ ) {
 		xor_bs = point ^ (*L1_it).center;
-		if ( (int)xor_bs.count() <= (*L1_it).radius )
+		if ( (int)xor_bs.count() <= L_POINTS_RADIUS)
 			return true;
 	}
 	return false;
@@ -2563,7 +2574,7 @@ bool MPI_Predicter :: IsPointInUnCheckedArea( boost::dynamic_bitset<> &point )
 		xor_bs = point ^ (*L2_it).center;
 		if ( (int)xor_bs.none() ) // if new point is center of exist area
 			return true;
-		else if ( (int)xor_bs.count() == (*L2_it).radius ) {
+		else if ( (int)xor_bs.count() == L_POINTS_RADIUS ) {
 			//cout << "xor_bs.count() == (*L2_it).radius" << std::endl;
 			// if exists then check with checked points in area
 			for ( i = 0; i < xor_bs.size(); i++ )
@@ -2581,7 +2592,6 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, std::
 // Add new point as center to list of unchecked areas (L2)
 // Add 1 to checked_points vector of new point and all areas from L2 in
 // Hamming distanse 1 from new point. Area with current center will be modified too.
-// TODO: work with radius > 1
 	std::list<checked_area> :: iterator L1_it;
 	std::list<unchecked_area> :: iterator L2_it;
 	boost::dynamic_bitset<> xor_bs;
@@ -2597,16 +2607,15 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, std::
 	}
 
 	new_ua.center = point;
-	new_ua.radius = 1;
 	new_ua.checked_points.resize( point.size() );
 	new_ua.is_partly_checked = false;
 	
 	for ( L1_it = L1.begin(); L1_it != L1.end(); L1_it++ ) {
 		// necessary condition - points with close count of 1s
-		if ( abs( (int)(*L1_it).center.count() - (int)new_ua.center.count() ) <= (*L1_it).radius ) { 
+		if ( abs( (int)(*L1_it).center.count() - (int)new_ua.center.count() ) <= L_POINTS_RADIUS) {
 			xor_bs = new_ua.center ^ (*L1_it).center;
 			// sufficient condition - points in radius
-			if ( (int)xor_bs.count() <= (*L1_it).radius ) {
+			if ( (int)xor_bs.count() <= L_POINTS_RADIUS) {
 				for ( i = 0; i < xor_bs.size(); i++ )
 					if ( xor_bs[i] == 1 ) break;
 				new_ua.checked_points[i] = 1;
@@ -2621,10 +2630,10 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, std::
 	
 	for ( L2_it = L2.begin(); L2_it != L2.end(); L2_it++ ) {
 		// necessary condition - points with close count of 1s
-		if ( abs( (int)(*L2_it).center.count() - (int)new_ua.center.count() ) <= (*L2_it).radius ) { 
+		if ( abs( (int)(*L2_it).center.count() - (int)new_ua.center.count() ) <= L_POINTS_RADIUS) {
 			xor_bs = new_ua.center ^ (*L2_it).center;
 			// sufficient condition - points in radius
-			if ( (int)xor_bs.count() <= (*L2_it).radius ) {
+			if ( (int)xor_bs.count() <= L_POINTS_RADIUS) {
 				vec_it.push_back( L2_it );
 				for ( i = 0; i < xor_bs.size(); i++ )
 					if ( xor_bs[i] == 1 ) break;
@@ -2643,9 +2652,8 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, std::
 	// vec_it - iterators to changes points from L2
 	for ( unsigned i = 0; i < vec_it.size(); i++ ) {
 		L2_it = vec_it[i];
-		if ( (*L2_it).checked_points.count() == core_len ) {
+		if ( (*L2_it).checked_points.count() == nonoutput_len ) {
 			new_ca.center = (*L2_it).center;
-			new_ca.radius = (*L2_it).radius;
 			L1.push_back( new_ca );
 			if ( current_unchecked_area.center == (*L2_it).center ) {
 				sstream << std::endl << "*** Checked area with Hamming distance " << cur_vars_changing << std::endl;
@@ -2691,17 +2699,23 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 // Make tasks for checking neighbours of current point
 	// var_choose_order - current best decomosition (point)
 	std::cout << std::endl << "*** GetDeepPredictTasks" << std::endl;
-
-	points_to_check = isFirstPoint ? 1 : core_len_combinations_size;
+	std::cout << "ts_strategy " << ts_strategy << std::endl;
+	unsigned vars_to_add_count = nonoutput_len - var_choose_order.size();
+	
+	if ((ts_strategy == 4) && (!isFirstPoint) && (IsRecordUpdated == false)) {
+		points_to_check = var_choose_order.size() * vars_to_add_count;
+		cur_vars_changing = 2;
+	}
+	else {
+		points_to_check = isFirstPoint ? 1 : core_len_combinations_size;
+		cur_vars_changing = 1;
+	}
 	std::cout << "points_to_check " << points_to_check << std::endl;
 	
 	prev_area_best_predict_time = best_predict_time;
 	boost::dynamic_bitset<> new_point;
+	unsigned var_index_to_remove, var_index_to_add;
 	
-	if ( verbosity > 1 ) {
-		std::cout << "AllocateDeepArrays() done" << std::endl;
-		std::cout << "decomp_set_arr.size() " << decomp_set_arr.size() << std::endl;
-	}
 	decomp_set_arr.clear();
 	decomp_set d_s;
 	std::list<decomp_set> points_smaller_center, points_larger_center;
@@ -2712,13 +2726,23 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	for (unsigned cur_point_index = 0; cur_point_index < points_to_check; ++cur_point_index) { // several decomp sets
 		if ( isFirstPoint )
 			new_var_choose_order = var_choose_order;
+		else if ((ts_strategy == 4) && (IsRecordUpdated == false)) {
+			// change every center ariable to each other non-output variable
+			new_point = current_unchecked_area.center; // new point is based on a center point
+			new_point.resize(nonoutput_len);
+			var_index_to_remove = (unsigned)floor((double)cur_point_index / vars_to_add_count);
+			new_point[var_index_to_remove] = 0;
+			var_index_to_add = var_choose_order.size() + cur_point_index % vars_to_add_count;
+			new_point[var_index_to_add] = 1;
+			new_var_choose_order = BitsetToIntVecPredict(new_point);
+		}
 		else {
 			if (current_unchecked_area.checked_points[cur_point_index] == 1) {
 				current_skipped++;
 				continue; // checked already
 			}
-				
-			new_point = current_unchecked_area.center; // new point based on center point
+			
+			new_point = current_unchecked_area.center; // new point is based on a center point
 			new_point[cur_point_index] = (current_unchecked_area.center[cur_point_index] == 1) ? 0 : 1;
 			new_var_choose_order = BitsetToIntVecPredict( new_point );
 		}
@@ -2729,10 +2753,20 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 		d_s.diff_variable_activity = total_var_activity[cur_point_index];
 		decomp_set_arr.push_back( d_s ); // add new decomp set
 	} // for ( int i = 0; i < decomp_set_count; i++ )
+
+	std::cout << "decomp_set_arr" << std::endl;
+	if (ts_strategy == 4) {
+		for (auto &x : decomp_set_arr) {
+			for (auto &y : x.var_choose_order)
+				std::cout << y << " ";
+			std::cout << std::endl;
+		}
+	}
 	
-	if ((ts_strategy == 0) || (ts_strategy == 3))
-		random_shuffle( decomp_set_arr.begin(), decomp_set_arr.end() );
-	else if ( ts_strategy == 1 ) {
+	//if ((ts_strategy == 0) || (ts_strategy == 3))
+	random_shuffle( decomp_set_arr.begin(), decomp_set_arr.end() );
+	
+	if ( ts_strategy == 1 ) {
 		// sort decomp sets by activity
 		std::vector<decomp_set> :: iterator dec_it;
 		std::vector<int> :: iterator vec_it;
@@ -2750,8 +2784,8 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 		}
 	}
 	else if ( ts_strategy == 2 ) {
-		// hold only points with high activity of diff variable (if set larger than center)
-		// of with low activity (if set is smaller than center)
+		// hold only points with high activity of diff variable (if a set larger than the center)
+		// or with low activity (if a set is smaller than the center)
 		if ( decomp_set_arr.size() > TS2_POINTS_COUNT ) {
 			for ( auto &x : decomp_set_arr )
 				if ( x.var_choose_order.size() < var_choose_order.size() )

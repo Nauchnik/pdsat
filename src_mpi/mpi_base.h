@@ -85,7 +85,8 @@ public:
 	double te;
 	unsigned first_stream_var_index;
 	unsigned known_bits;
-	unsigned keystream_len;
+	unsigned output_len;
+	unsigned nonoutput_len;
 	unsigned cnf_in_set_count;
 	unsigned input_var_num;
 	int current_task_index; 

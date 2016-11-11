@@ -222,3 +222,4 @@ pip-log.txt
 .mr.developer.cfg
 *.db
 *.db
+*.db
