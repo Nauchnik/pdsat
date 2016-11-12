@@ -216,6 +216,23 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 		prev_starts    = S->starts;
 		prev_conflicts = S->conflicts;
 			
+		/*
+		// skip dummies with other number of ones
+		unsigned ones_number = 0;
+		for (unsigned t = 0; t<dummy_vec[i].size(); t++)
+		if (!sign(dummy_vec[i][t]))
+			ones_number++;
+			if ((ones_number == 11) || (ones_number == 12)) {
+				cnf_time_from_node = Minisat :: cpuTime();
+				ret = S->solveLimited( dummy_vec[i] );^M
+				cnf_time_from_node = Minisat :: cpuTime() - cnf_time_from_node;<---><------>
+			}
+			else {
+				ret = l_Undef;
+				cnf_time_from_node = 0;
+			}
+		*/
+
 		cnf_time_from_node = Minisat :: cpuTime();
 		ret = S->solve( dummy_vec[i] );
 		cnf_time_from_node = Minisat :: cpuTime() - cnf_time_from_node;

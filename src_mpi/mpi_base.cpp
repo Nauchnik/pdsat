@@ -225,7 +225,7 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask,
 	dummy_vec.resize( problems_count );
 	for( int i=0; i < dummy_vec.size(); ++i )
 		dummy_vec[i].resize( full_mask_var_count );
-	
+
 	unsigned mask, range_mask_ind;
 	int range_mask;
 	unsigned index;
