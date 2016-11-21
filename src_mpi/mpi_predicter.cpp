@@ -143,7 +143,11 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			std::cout << "predict_to changed to core_len" << std::endl;
 			std::cout << predict_to << " changed to " << core_len << std::endl;
 			predict_to = core_len;
-			var_choose_order = full_var_choose_order;
+			std::vector<int> core_var_arr;
+			if (var_choose_order.empty()) {
+				for (unsigned i = 0; i < core_len; i++)
+					var_choose_order.push_back(i + 1);
+			}
 		}
 		
 		activity_vec_len = var_count - output_len; // if we need check all variables then set core_len = [all variables] - [known variable]
@@ -161,13 +165,13 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		
 		// send info once to each computing process
 		for( int i=0; i < corecount-1; ++i ) {
-			MPI_Send( &var_count,        1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &core_len,         1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &activity_vec_len, 1, MPI_INT,  i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &known_bits,  1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &known_vars_count, 1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &input_var_num,    1, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &start_activity,   1, MPI_DOUBLE, i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &var_count,        1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &core_len,         1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &output_len,       1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD);
+			MPI_Send( &activity_vec_len, 1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &known_bits,       1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &known_vars_count, 1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &start_activity,   1, MPI_DOUBLE,    i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &full_var_choose_order[0], full_var_choose_order.size(), MPI_INT, i + 1, 0, MPI_COMM_WORLD);
 		}
 		
@@ -244,11 +248,15 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		std::cout << "schema_type "   << schema_type         << std::endl;
 		std::cout << "corecount "     << corecount           << std::endl;
 		std::cout << "deep_predict  " << deep_predict        << std::endl;
-		std::cout << "cnf_in_set_count " << cnf_in_set_count << std::endl; 
+		std::cout << "cnf_in_set_count " << cnf_in_set_count << std::endl;
 		std::cout << "proc_count "    << proc_count          << std::endl;
+		std::cout << "var_count " << var_count << std::endl;
+		std::cout << "lit_count " << lit_count << std::endl;
+		std::cout << "clause_count " << clause_count << std::endl;
 		std::cout << "core_len "      << core_len            << std::endl;
+		std::cout << "output_len " << output_len << std::endl;
 		std::cout << "nonoutput_len " << nonoutput_len       << std::endl;
-		std::cout << "input_var_num " << input_var_num       << std::endl;
+		std::cout << "activity_vec_len " << activity_vec_len << std::endl;
  		std::cout << "start_activity "    << start_activity << std::endl;
 		std::cout << "max_var_deep_predict " << max_var_deep_predict << std::endl;
 		std::cout << "start_temperature_koef " << start_temperature_koef << std::endl;
@@ -259,7 +267,6 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		std::cout << "evaluation_type " << evaluation_type << std::endl;
 		std::cout << "te for backdoor mode " << te << std::endl;
 		//cout << "penalty for (ro, es, te) " << penalty << std::endl;
-		std::cout << "output_len " << output_len << std::endl;
 		std::cout << "isSolverSystemCalling " << isSolverSystemCalling << std::endl;
 		std::cout << std::endl;
 		
@@ -543,12 +550,12 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 			}
 			
 			// if last tasks were skipped
-			if ( (unsigned)cur_task_index >= all_tasks_count ) {
+			/*if ( (unsigned)cur_task_index >= all_tasks_count ) {
 				sstream_control << "cur_task_index >= all_tasks_count" << std::endl;
 				sstream_control << cur_task_index << " >= " << all_tasks_count << std::endl;
 				sstream_control << "skip" << std::endl;
 				break;
-			}
+			}*/
 			SendPredictTask( ProcessListNumber, current_status.MPI_SOURCE, cur_task_index, cur_decomp_set_index );
 		}
 	} // while ( solved_tasks_count < tasks_count )
@@ -830,25 +837,22 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	unsigned base_known_vars_count = 0;
 	// get core_len before getting tasks
 	MPI_Recv( &var_count,			  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &core_len,			  1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &activity_vec_len,      1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &core_len,			  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &output_len,            1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &activity_vec_len,      1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &known_bits,            1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &base_known_vars_count, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &input_var_num,		  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &start_activity,		  1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv( &start_activity,		  1, MPI_DOUBLE,   0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	nonoutput_len = var_count - output_len;
-	if ( input_var_num == 0 ) {
-		std::cerr << "input_var_num == 0" << std::endl;
-		exit(1);
-	}
 	if ( rank == 1 ) {
-		std::cout << "rank 1" << std::endl;
-		std::cout << "var_count "        << var_count << std::endl;
-		std::cout << "core_len "         << core_len << std::endl;
+		std::cout << "rank 1, received" << std::endl;
+		std::cout << "var_count "        << var_count        << std::endl;
+		std::cout << "core_len "         << core_len         << std::endl;
+		std::cout << "ouptut_len "       << output_len       << std::endl;
+		std::cout << "nonoutput_len "    << nonoutput_len    << std::endl;
 		std::cout << "activity_vec_len " << activity_vec_len << std::endl;
-		std::cout << "known_bits "       << known_bits << std::endl;
-		std::cout << "input_var_num "    << input_var_num << std::endl;
-		std::cout << "start_activity "   << start_activity << std::endl;
+		std::cout << "known_bits "       << known_bits       << std::endl;
+		std::cout << "start_activity "   << start_activity   << std::endl;
 	}
 	if ( !core_len ) {
 		std::cerr << "core_len == 0" << std::endl;
@@ -898,6 +902,13 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	for ( unsigned i=0; i < nonoutput_len; ++i )
 		full_var_choose_order[i] = full_local_decomp_set[i];
 	delete[] full_local_decomp_set;
+	
+	if (rank == 1) {
+		std::cout << "received full_var_choose_order" << std::endl;
+		for (auto &x : full_var_choose_order)
+			std::cout << x << " ";
+		std::cout << std::endl;
+	}
 	/*all_vars_set.resize( var_count ); // all vars including additional CNF keystream
 	for ( unsigned i=0; i < all_vars_set.size(); i++ )
 		all_vars_set[i] = i+1;*/
@@ -1026,17 +1037,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		}
 	}
 	
-	var_choose_order = full_var_choose_order;
-	
-	if ( rank == 1 ) {
-		std::cout << "Received core_len "         << core_len         << std::endl;
-		std::cout << "Received activity_vec_len " << activity_vec_len << std::endl;
-		std::cout << "Received known_bits "  << known_bits << std::endl;
-		std::cout << "Received full_var_choose_order " << std::endl;
-		for ( unsigned i=0; i < full_var_choose_order.size(); ++i )
-			std::cout << full_var_choose_order[i] << " ";
-		std::cout << std::endl;
-	}
+	//var_choose_order = full_var_choose_order;
 	
 	current_task_index = 0;
 	cnf_time_from_node = 0.0;
@@ -1046,7 +1047,10 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	unsigned large_message_count = 0, small_message_count = 0;
 	std::string polarity_file_name;
 	isSolvedOnPreprocessing = 0;
-	
+
+	if (rank == 1)
+		std::cout << "rank 1, before main processing loop" << std::endl;
+
 	for (;;) {
 		do {// get index of current task missing stop-messages
 			MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
@@ -1230,7 +1234,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		}
 		
 		if ( verbosity > 0 )
-			std::cout << "rank " << rank << " sended decision" << std::endl;
+			std::cout << "rank " << rank << " sended subproblem solution" << std::endl;
 	}
 	
 	delete[] var_activity;
@@ -1367,8 +1371,9 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 		unupdated_count = 0;
 	}
 	else if (ts_strategy == 4) {
+		sstream << std::endl << "---Record not updated---" << std::endl;
 		sstream << "ts_strategy == 4" << std::endl;
-		sstream << "same center, other neighbourhood" << std::endl;
+		sstream << "same center, other neighbourhood" << std::endl << std::endl;
 		return true;
 	}
 	else { // if there were no better points in a checked area
@@ -2694,16 +2699,20 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, std::
 	whole_add_new_unchecked_area_time += MPI_Wtime() - current_time;
 }
 
-bool MPI_Predicter :: GetDeepPredictTasks( )
+bool MPI_Predicter :: GetDeepPredictTasks()
 {
 // Make tasks for checking neighbours of current point
 	// var_choose_order - current best decomosition (point)
-	std::cout << std::endl << "*** GetDeepPredictTasks" << std::endl;
-	std::cout << "ts_strategy " << ts_strategy << std::endl;
-	unsigned vars_to_add_count = nonoutput_len - var_choose_order.size();
+	std::stringstream sstream;
+	sstream << std::endl << "*** GetDeepPredictTasks" << std::endl;
+	sstream << "ts_strategy " << ts_strategy << std::endl;
+	unsigned vars_to_add_count;
 	
 	if ((ts_strategy == 4) && (!isFirstPoint) && (IsRecordUpdated == false)) {
-		points_to_check = var_choose_order.size() * vars_to_add_count;
+		vars_to_add_count = nonoutput_len - current_unchecked_area.center.count();
+		sstream << "current_unchecked_area.center.count() " << current_unchecked_area.center.count() << std::endl;
+		sstream << "vars_to_add_count " << vars_to_add_count << std::endl;
+		points_to_check = current_unchecked_area.center.count() * vars_to_add_count;
 		cur_vars_changing = 2;
 	}
 	else {
@@ -2720,8 +2729,8 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	decomp_set d_s;
 	std::list<decomp_set> points_smaller_center, points_larger_center;
 	unsigned current_skipped = 0;
-	std::stringstream sstream;
 	std::vector<int> new_var_choose_order;
+	unsigned ui;
 	//sstream << "current point to check" << std::endl;
 	for (unsigned cur_point_index = 0; cur_point_index < points_to_check; ++cur_point_index) { // several decomp sets
 		if ( isFirstPoint )
@@ -2730,10 +2739,49 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 			// change every center ariable to each other non-output variable
 			new_point = current_unchecked_area.center; // new point is based on a center point
 			new_point.resize(nonoutput_len);
-			var_index_to_remove = (unsigned)floor((double)cur_point_index / vars_to_add_count);
+			ui = (unsigned)floor((double)cur_point_index / vars_to_add_count);
+			unsigned cur_one_index = -1;
+			for (unsigned i=0; i < current_unchecked_area.center.size(); i++) {
+				if (current_unchecked_area.center[i])
+					cur_one_index++;
+				if (cur_one_index == ui) {
+					var_index_to_remove = i;
+					break;
+				}
+			}
+			if (var_index_to_remove >= new_point.size()) {
+				std::cerr << "var_index_to_remove >= new_point.size()" << std::endl;
+				std::cerr << var_index_to_remove << " >= " << new_point.size() << std::endl;
+				exit(1);
+			}
 			new_point[var_index_to_remove] = 0;
-			var_index_to_add = var_choose_order.size() + cur_point_index % vars_to_add_count;
+			ui = cur_point_index % vars_to_add_count;
+			unsigned cur_zero_index = -1;
+			for (unsigned i = 0; i < current_unchecked_area.center.size(); i++) {
+				if (!(current_unchecked_area.center[i]))
+					cur_zero_index++;
+				if (cur_zero_index == ui) {
+					var_index_to_add = i;
+					break;
+				}
+			}
+			if (var_index_to_add >= new_point.size()) {
+				std::cerr << "var_index_to_add >= new_point.size()" << std::endl;
+				std::cerr << var_index_to_add << " >= " << new_point.size() << std::endl;
+				exit(1);
+			}
 			new_point[var_index_to_add] = 1;
+			if (new_point.count() != current_unchecked_area.center.count()) {
+				std::cerr << "new_point.count() >= current_unchecked_area.center.count()" << std::endl;
+				std::cerr << new_point.count() << " != " << current_unchecked_area.center.count() << std::endl;
+				new_var_choose_order = BitsetToIntVecPredict(new_point);
+				for (auto &x : new_var_choose_order) {
+					std::cout << x << " ";
+				}
+				std::cerr << "var_index_to_remove " << var_index_to_remove << std::endl;
+				std::cerr << "var_index_to_add " << var_index_to_add << std::endl;
+				exit(1);
+			}
 			new_var_choose_order = BitsetToIntVecPredict(new_point);
 		}
 		else {
@@ -2822,7 +2870,7 @@ bool MPI_Predicter :: GetDeepPredictTasks( )
 	if ( verbosity > 0 )
 		std::cout << "AllocatePredictArrays() done " << std::endl;
 	
-	sstream << "must be checked " << decomp_set_arr.size() << " from " << points_to_check << std::endl;
+	sstream << "must be checked " << decomp_set_arr.size() << " out from " << points_to_check << std::endl;
 	//sstream << "points_to_check " << points_to_check << std::endl;
 	//sstream << "decomp_set_count " << decomp_set_count << std::endl;
 	sstream << "current_skipped " << current_skipped << std::endl;

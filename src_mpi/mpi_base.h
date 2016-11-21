@@ -88,7 +88,6 @@ public:
 	unsigned output_len;
 	unsigned nonoutput_len;
 	unsigned cnf_in_set_count;
-	unsigned input_var_num;
 	int current_task_index; 
 	int process_sat_count;
 	double cnf_time_from_node;

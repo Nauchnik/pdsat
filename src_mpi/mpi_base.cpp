@@ -39,7 +39,6 @@ MPI_Base :: MPI_Base( ) :
 	known_bits ( 0 ),
 	output_len ( 200 ),
 	isMakeSatSampleAnyWay ( false ),
-	input_var_num ( 0 ),
 	isSolverSystemCalling ( false ),
 	process_sat_count ( 0 ),
 	known_vars_count ( 0 ),
@@ -612,6 +611,7 @@ bool MPI_Base :: ReadIntCNF()
 
 	std::stringstream sstream;
 	std::string str1, str2, str3, str4, str5;
+	unsigned ui;
 	bool Is_InpVar = false, Is_ConstrLen = false, Is_ObjLen = false, Is_ObjVars = false;
 	while ( getline( main_cnf, line_str ) ) {
 		if ( line_str[0] == 'p' )
@@ -652,25 +652,21 @@ bool MPI_Base :: ReadIntCNF()
 			}
 			if ( !Is_InpVar ) {
 				if ((str2 == "input") && (str3 == "variables"))
-					std::istringstream(str4) >> input_var_num;
+					std::istringstream(str4) >> ui;
 				else if ((str2 == "input") && (str3 == "vars")) {
 					sstream >> str5;
-					std::istringstream(str5) >> input_var_num;
+					std::istringstream(str5) >> ui;
 				}
-				std::cout << "input_var_num " << input_var_num << std::endl;
-				if (input_var_num > 0) {
-					if (!core_len)
-						core_len = input_var_num; // if core_len didn't set manually, read from file
-					if ((core_len > MAX_CORE_LEN) || (core_len <= 0)) {
-						core_len = MAX_CORE_LEN;
-						std::cout << "Warning. core_len > MAX_CORE_LEN or <= 0. Changed to MAX_CORE_LEN" << std::endl;
-						std::cout << "core_len " << core_len << " MAX_CORE_LEN " << MAX_CORE_LEN << std::endl;
-					}
-					for (unsigned i = 0; i < core_len; ++i)
-						full_var_choose_order.push_back(i + 1);
-					Is_InpVar = true;
-					continue;
+				std::cout << "input variables " << ui << std::endl;
+				if (!core_len)
+					core_len = ui; // if core_len didn't set manually, read from file
+				if ((core_len > MAX_CORE_LEN) || (core_len <= 0)) {
+					core_len = MAX_CORE_LEN;
+					std::cout << "Warning. core_len > MAX_CORE_LEN or <= 0. Changed to MAX_CORE_LEN" << std::endl;
+					std::cout << "core_len " << core_len << " MAX_CORE_LEN " << MAX_CORE_LEN << std::endl;
 				}
+				Is_InpVar = true;
+				continue;
 			}
 			sstream.str(""); sstream.clear();
 
@@ -777,22 +773,26 @@ bool MPI_Base :: ReadIntCNF()
 			std::cout << map_it->first << " " << map_it->second << std::endl;
 	}*/
 
-	if ( known_bits ) {
-		if ( core_len != input_var_num ) {
-			std::cerr << "known_bits " << known_bits << " with core_len != input_var_num" << std::endl;
-			exit(1);
+	nonoutput_len = var_count - output_len;
+	
+	// if wasn't defined by var_set
+	if (full_var_choose_order.empty()) {
+		if (known_bits) {
+			core_len -= known_bits;
+			for (unsigned i = 0; i < core_len; i++)
+				full_var_choose_order.push_back(i + 1);
+			std::cout << "new core_len (less due to nonzero value of known_bits) " << core_len << std::endl;
 		}
-		core_len -= known_bits;
-		full_var_choose_order.resize(core_len);
-		std::cout << "new core_len (less to known_bits) " << core_len << std::endl;
+		else {
+			for (unsigned i = 0; i < nonoutput_len; i++)
+				full_var_choose_order.push_back(i + 1);
+		}
 	}
 	
-	if ( ( isPredict ) && ( !input_var_num ) ) {
-		std::cerr << "input_var_num == 0 in predict mode" << std::endl;
+	if ( ( isPredict ) && ( !core_len ) ) {
+		std::cerr << "core_len == 0 in predict mode" << std::endl;
 		return false;
 	}
-
-	nonoutput_len = var_count - core_len;
 	
 	std::cout << "ReadIntCNF() done" << std::endl;
 	
@@ -967,11 +967,11 @@ void MPI_Base::MakeSingleSatSample(
 	for (int i=0;i<100000;i++) gen_local;
 
 	if (predefined_vars.empty())
-		predefined_vars.resize(input_var_num, l_Undef);
-	assert( predefined_vars.size()==input_var_num);
+		predefined_vars.resize(core_len, l_Undef);
+	assert( predefined_vars.size()==core_len);
 
 	vec<Lit> dummy;
-	for ( unsigned i=0; i < input_var_num; i++ ){
+	for ( unsigned i=0; i < core_len; i++ ){
 		state_vec.push_back(l_Undef==predefined_vars[i]? bool_rand(gen_local) : l_True==predefined_vars[i]);
 		//state_vec.push_back(bool_rand(gen_local));
 		dummy.push(~mkLit(i, state_vec[i]));
@@ -1058,9 +1058,9 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 		vec<Lit> dummy;
 		int cur_var_ind;
 
-		/*state_vec.resize(input_var_num);
+		/*state_vec.resize(core_len);
 		for (unsigned i = 0; i < cnf_in_set_count; i++) {
-		for (unsigned j = 0; j < input_var_num; j++)
+		for (unsigned j = 0; j < core_len; j++)
 		state_vec[j] = bool_rand(gen_known_vars);
 		state_vec_vec.push_back(state_vec);
 		}*/
@@ -1070,8 +1070,8 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 		unsigned long long unsat_genereted_count = 0, undef_genereted_count = 0;
 		do
 		{
-			state_vec.resize(input_var_num);
-			for (unsigned i = 0; i < input_var_num; i++)
+			state_vec.resize(core_len);
+			for (unsigned i = 0; i < core_len; i++)
 				state_vec[i] = bool_rand(gen_known_vars);
 			cur_var_ind = 0;
 			for (unsigned i = 0; i < state_vec.size(); i++) {
@@ -1081,7 +1081,7 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 			ret = S->solveLimited( dummy );
 			dummy.clear();
 			if ( ret == l_True ) {
-				for (int i = input_var_num; i < S->model.size() - (int)output_len; i++)
+				for (int i = core_len; i < S->model.size() - (int)output_len; i++)
 					state_vec.push_back((S->model[i] == l_True) ? true : false);
 				state_vec_vec.push_back(state_vec);
 				for (int i = S->model.size() - output_len; i < S->model.size(); i++)
@@ -1154,7 +1154,7 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 	
 	/*if (isPlainText) // return size of input vectors without plain text data
 		for (auto &x : state_vec_vec)
-			x.resize(input_var_num);*/
+			x.resize(core_len);*/
 }
 
 std::string MPI_Base::MakeSolverLaunchString( std::string solver_name, std::string cnf_name, double maxtime_solving_time )
