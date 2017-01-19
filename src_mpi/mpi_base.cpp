@@ -998,12 +998,10 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 	sstream << "known_sat_sample_" << rank;
 	std::string known_sat_sample_file_name = sstream.str();
 	sstream.str(""); sstream.clear();
-	std::fstream file(known_sat_sample_file_name, std::ios_base::in );
+	std::fstream known_sat_sample_file(known_sat_sample_file_name, std::ios_base::in );
 	std::vector<bool> state_vec, stream_vec, plain_text_vec;
-	std::string str;
-	getline( file, str );
 	
-	if ( ( isMakeSatSampleAnyWay ) || ( str.size() == 0 ) ) { // empty file
+	if ( ( isMakeSatSampleAnyWay ) || (!known_sat_sample_file.is_open()) ) { // empty file
 	//if ( file.peek() == fstream::traits_type::eof() ) { // if file is empty
 		// make [sample_size] different pairs <register_state, keystream> via generating secret keys
 		std::cout << "file known_sat_sample is empty. making SAT sample" << std::endl;
@@ -1113,12 +1111,14 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 				sstream << *y;
 			sstream << std::endl;
 		}
-		file.close(); file.clear();
-		file.open(known_sat_sample_file_name, std::ios_base::out);
-		file << sstream.rdbuf();
+		known_sat_sample_file.close(); known_sat_sample_file.clear();
+		known_sat_sample_file.open(known_sat_sample_file_name, std::ios_base::out);
+		known_sat_sample_file << sstream.rdbuf();
 		delete S;
 	}
 	else {
+		std::string str;
+		getline(known_sat_sample_file,str);
 		std::cout << "reading state and stream from file" << std::endl;
 		bool isState = false, isStream = false;
 		do {
@@ -1145,12 +1145,12 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 					stream_vec.clear();
 				}
 			}
-		} while( getline( file, str ) );
+		} while( getline(known_sat_sample_file, str ) );
 		std::cout << "state_vec_vec.size() "  << state_vec_vec.size()  << std::endl;
 		std::cout << "stream_vec_vec.size() " << stream_vec_vec.size() << std::endl;
 	}
 	std::cout << std::endl;
-	file.close();
+	known_sat_sample_file.close();
 	
 	/*if (isPlainText) // return size of input vectors without plain text data
 		for (auto &x : state_vec_vec)
