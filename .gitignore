@@ -227,3 +227,5 @@ pip-log.txt
 *.db
 VS_mpi/Parallel-SAT.VC.db
 *.db
+*.db
+VS_mpi/Parallel-SAT.VC.db
