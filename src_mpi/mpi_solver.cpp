@@ -471,8 +471,8 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 		// log(a)/log(b) = log(_a)b
 		unsigned max_possible_tasks_count = (unsigned)(pow(2, ceil(log(corecount - 1) / log(2)))) * (unsigned)(pow(2, koef_val));
 		std::cout << "max_possible_tasks_count " << max_possible_tasks_count << std::endl;
-		std::cout << "current part_mask_var_count " << part_mask_var_count << std::endl;
 		part_mask_var_count = (unsigned)(log(max_possible_tasks_count) / log(2));
+		std::cout << "part_mask_var_count " << part_mask_var_count << std::endl;
 		if (part_mask_var_count > var_choose_order.size())
 			part_mask_var_count = var_choose_order.size();
 		// change batch size to treshold value if needed
@@ -497,7 +497,7 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 	
 	std::cout << "all_tasks_count " << all_tasks_count << std::endl;
 	
-	if ( (int)all_tasks_count < corecount-1 ) {
+	if ( all_tasks_count < (unsigned int)corecount-1 ) {
 		std::cerr << "Error. all_tasks_count < corecount-1" << std::endl; 
 		std::cerr << all_tasks_count << " < " << corecount-1 << std::endl;
 		MPI_Abort( MPI_COMM_WORLD, 0 );

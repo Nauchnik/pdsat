@@ -284,7 +284,6 @@ bool MPI_Base :: GetValuesFromVarChoose( unsigned &part_var_power )
 	return true;
 }
 
-// Get values for sending using order by var choose array
 //---------------------------------------------------------
 bool MPI_Base::getValuesFromIntegers(std::vector<std::vector<int>> cartesian_elements)
 {
