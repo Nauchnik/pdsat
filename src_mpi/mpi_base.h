@@ -130,6 +130,7 @@ public:
 	bool MakeAssignsFromMasks( unsigned *full_mask, 
 							   unsigned *part_mask, 
 						       unsigned *value, 
+							   Minisat::vec<Lit> &known_dummy,
 							   Minisat::vec< Minisat::vec<Minisat::Lit> > &dummy_vec );
 	//bool MakeAssignsFromFile( int current_task_index, unsigned long long before_binary_length, Minisat::vec< Minisat::vec<Minisat::Lit> > &dummy_vec );
 	

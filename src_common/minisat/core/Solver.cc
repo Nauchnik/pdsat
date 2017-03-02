@@ -196,16 +196,6 @@ void Solver::clearParams()
 	}*/
 }
 
-void Solver::getActivity(std::vector<int> &full_var_choose_order, double *&var_activity, unsigned activity_vec_len)
-{
-	for (unsigned i = 0; i < activity_vec_len; ++i)
-		var_activity[i] = activity[full_var_choose_order[i] - 1];
-	for (unsigned i = 0; i < activity_vec_len; ++i)
-		if (var_activity[i] > 1e100)
-			for (unsigned j = 0; j < activity_vec_len; ++j) // Rescale:
-				var_activity[j] *= 1e-100;
-}
-
 // added
 void Solver::resetVarActivity()
 {
@@ -854,7 +844,7 @@ lbool Solver::search(int nof_conflicts)
             if (decisionLevel() == 0 && !simplify())
                 return l_False;
 
-//            if (learnts.size()-nAssigns() >= max_learnts)
+//          if (learnts.size()-nAssigns() >= max_learnts)
             if(conflicts > lim){
                 // Reduce the set of learnt clauses:
                 reduceDB();
@@ -879,6 +869,9 @@ lbool Solver::search(int nof_conflicts)
 
             if (next == lit_Undef){
                 // New variable decision:
+				if ( evaluation_type == "prep" ) // don't solve, just BCP
+					return l_NonPrep;
+
                 decisions++;
                 next = pickBranchLit();
 
@@ -1061,6 +1054,7 @@ lbool Solver::solve_()
 #endif
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
         status = search(rest_base * restart_first);
+		if (status == l_NonPrep) break;
         if (!withinBudget()) break;
         curr_restarts++;
     }

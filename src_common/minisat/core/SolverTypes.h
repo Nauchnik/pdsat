@@ -84,6 +84,7 @@ const Lit lit_Error = { -1 };  // }
 #define l_True  (lbool((uint8_t)0)) // gcc does not do constant propagation if these are real constants.
 #define l_False (lbool((uint8_t)1))
 #define l_Undef (lbool((uint8_t)2))
+#define l_NonPrep (lbool((uint8_t)3)) // instance wasn't solved on BCP, and it was iterrupted
 
 class lbool {
     uint8_t value;

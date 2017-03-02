@@ -193,7 +193,10 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 	
 	unsigned long long before_binary_length = 0;
 	
-	MakeAssignsFromMasks( full_mask, part_mask, mask_value, dummy_vec );
+	vec<Lit> known_dummy;
+	MakeAssignsFromMasks( full_mask, part_mask, mask_value, known_dummy, dummy_vec );
+	for (int i = 0; i < known_dummy.size(); i++) // add oneliteral clauses
+		S->addClause(known_dummy[i]);
 	
 	if ( ( verbosity > 1 ) && ( rank == 1 ) ) {
 		std::cout << "dummy_vec size " << dummy_vec.size() << std::endl;
@@ -747,12 +750,8 @@ bool MPI_Solver :: ComputeProcessSolve()
 		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
 		in.close();
 
-		if (rank == 1) {
-			std::cout << "S->evaluation_type " << S->evaluation_type << std::endl;
-			std::cout << "S->max_solving_time " << S->max_solving_time << std::endl;
-			std::cout << "S->max_nof_watch_scans " << S->max_nof_watch_scans << std::endl;
+		if (rank == 1)
 			std::cout << "before loop of recv tasks" << std::endl;
-		}
 		
 		for (;;) {
 			// get index of current task

@@ -33,7 +33,6 @@ MPI_Base :: MPI_Base( ) :
 	isPredict            ( false ),
 	max_solving_time     ( 0 ),
 	max_nof_restarts     ( 0 ),
-	activity_vec_len	 ( 0 ),
 	first_stream_var_index ( 0 ),
 	te ( 0 ),
 	known_bits ( 0 ),
@@ -209,52 +208,70 @@ bool MPI_Base :: MakeAssignsFromFile( int current_task_index, unsigned long long
 bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask, 
 									   unsigned *part_mask, 
 									   unsigned *mask_value,
+									   vec<Lit> &known_dummy,
 									   vec< vec<Lit> > &dummy_vec )
 {
-// for predict with minisat2.2. convert masks to vector of Literals
-	unsigned variate_vars_count = 0;
+    // convert masks to a vector of Literals
+	unsigned variate_vars_count = 0, known_vars_count = 0;
 	full_mask_var_count = 0;
 	for ( unsigned i = 0; i < FULL_MASK_LEN; i++ ) {
 		variate_vars_count  += BitCount( full_mask[i] ^ part_mask[i] );
 		full_mask_var_count += BitCount( full_mask[i] );
 	}
+	known_vars_count = full_mask_var_count - variate_vars_count;
 	
-	// determine count of assumptions and lenght of every one
-	int problems_count = 1 << variate_vars_count;
-	dummy_vec.resize( problems_count );
-	for( int i=0; i < dummy_vec.size(); ++i )
-		dummy_vec[i].resize( full_mask_var_count );
-
-	unsigned mask, range_mask_ind;
-	int range_mask;
-	unsigned index;
+	unsigned mask;
 	int cur_var_ind;
-	bool IsPositiveLiteral, IsAddingLiteral;
+	
+	// get literals which can be assigned once (from part_mask)
+	for (unsigned i = 0; i < FULL_MASK_LEN; i++) {
+		for (unsigned j = 0; j < UINT_LEN; j++) {
+			mask = (1 << j);
+			cur_var_ind = i * UINT_LEN + j;
+			if (part_mask[i] & mask) // one common vector send by control process
+				known_dummy.push((mask_value[i] & mask) ? mkLit(cur_var_ind) : ~mkLit(cur_var_ind) );
+		}
+	}
 
+	if (known_dummy.size() != known_vars_count) {
+		std::cerr << "known_dummy.size() != known_vars_count" << std::endl;
+		std::cerr << known_dummy.size() << " != " << known_vars_count << std::endl;
+		MPI_Abort( MPI_COMM_WORLD, 0 );
+	}
+	
+	if (verbosity > 2)
+		std::cout << "known_dummy.size() " << known_dummy.size() << std::endl;
+
+	// determine the number of assumptions and their lengths
+	int problems_count = 1 << variate_vars_count;
+	dummy_vec.resize(problems_count);
+	for (int i = 0; i < dummy_vec.size(); ++i)
+		dummy_vec[i].resize(variate_vars_count);
+
+	// get array of literals which must be checked
 	for ( int lint = 0; lint < problems_count; lint++ ) {
-		range_mask = 1;
-		range_mask_ind = 1;
-		index = 0;
+		unsigned range_mask = 1;
+		unsigned range_mask_ind = 1;
+		unsigned index = 0;
 		for ( unsigned i = 0; i < FULL_MASK_LEN; i++ ) {
 			for ( unsigned j = 0; j < UINT_LEN; j++ ) {
 				mask = ( 1 << j );
 				cur_var_ind = i * UINT_LEN + j;
-				IsAddingLiteral = false;
-				if ( part_mask[i] & mask ) { // one common vector send by control process
-					IsPositiveLiteral = ( mask_value[i] & mask ) ? true : false;
-					IsAddingLiteral = true;
-				}
-				else if ( full_mask[i] & mask ) { // set of vectors
-					IsPositiveLiteral = ( lint & range_mask ) ? true : false;
+				if ( ( full_mask[i] & mask ) && !( part_mask[i] & mask ) ) { // set of vectors
 					range_mask = 1 << range_mask_ind;
 					range_mask_ind++;
-					IsAddingLiteral = true;
+					dummy_vec[lint][index++] = (lint & range_mask) ? mkLit(cur_var_ind) : ~mkLit(cur_var_ind);
 				}
-				if ( !IsAddingLiteral ) continue;
-				dummy_vec[lint][index++] = IsPositiveLiteral ? mkLit( cur_var_ind ) : ~mkLit( cur_var_ind );
 			}
 		}
 	}
+
+	if (verbosity > 2)
+		std::cout << "dummy_vec.size() " << dummy_vec.size() << std::endl;
+
+	if (verbosity > 0)
+		std::cout << "MakeAssignsFromMasks() done " << std::endl;
+
 	return true;
 }
 

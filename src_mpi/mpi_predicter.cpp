@@ -13,7 +13,6 @@ MPI_Predicter :: MPI_Predicter( ) :
 	isDecDecomp         ( false ),
 	isSimulatedGranted  ( false ),
 	deep_predict_file_name ( "deep_predict" ),
-	var_activity_file_name ( "sorted_var_activity" ),
 	cur_temperature ( 0 ),
 	min_temperature ( 20 ),
 	temperature_multiply_koef ( 0.9 ),
@@ -63,27 +62,6 @@ MPI_Predicter :: MPI_Predicter( ) :
 
 MPI_Predicter :: ~MPI_Predicter( )
 { }
-
-// comparison for sorting
-bool ua_compareByMedActivity(const unchecked_area &a, const unchecked_area &b)
-{
-	return a.med_var_activity > b.med_var_activity;
-}
-
-bool ds_compareByMedActivity(const decomp_set &a, const decomp_set &b)
-{
-	return a.med_var_activity > b.med_var_activity;
-}
-
-bool ds_compareByDiffActivity(const decomp_set &a, const decomp_set &b)
-{
-	return a.diff_variable_activity < b.diff_variable_activity;
-}
-
-bool var_compareByActivity(const var_with_activity &a, const var_with_activity &b)
-{
-	return a.activity < b.activity;
-}
 
 //---------------------------------------------------------
 bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
@@ -150,15 +128,6 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			}
 		}
 		
-		activity_vec_len = var_count - output_len; // if we need check all variables then set core_len = [all variables] - [known variable]
-		var_activity = new double[activity_vec_len];
-		for ( unsigned i=0; i < activity_vec_len; i++ )
-			var_activity[i] = 0.0;
-		total_var_activity.resize( activity_vec_len );
-		for( auto &x : total_var_activity ) x = 0;
-		//for( std::vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it )
-		//	*it = 0;
-
 		unsigned k=0;
 		for ( auto &x : full_var_choose_order )
 			core_var_indexes.insert( std::pair<int,unsigned>(x,k++) );
@@ -168,7 +137,6 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			MPI_Send( &var_count,        1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &core_len,         1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &output_len,       1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD);
-			MPI_Send( &activity_vec_len, 1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &known_bits,       1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &known_vars_count, 1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &start_activity,   1, MPI_DOUBLE,    i + 1, 0, MPI_COMM_WORLD );
@@ -256,7 +224,6 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		std::cout << "core_len "      << core_len            << std::endl;
 		std::cout << "output_len " << output_len << std::endl;
 		std::cout << "nonoutput_len " << nonoutput_len       << std::endl;
-		std::cout << "activity_vec_len " << activity_vec_len << std::endl;
  		std::cout << "start_activity "    << start_activity << std::endl;
 		std::cout << "max_var_deep_predict " << max_var_deep_predict << std::endl;
 		std::cout << "start_temperature_koef " << start_temperature_koef << std::endl;
@@ -271,8 +238,6 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		std::cout << std::endl;
 		
 		DeepPredictMain();
-		
-		delete[] var_activity;
 	}
 	else { // if rank != 0
 		if ( !ComputeProcessPredict( ) ) {
@@ -480,15 +445,8 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 		// then get 1 more mes
 		MPI_Recv( &process_sat_count,          1, MPI_INT,    current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 		MPI_Recv( &cnf_time_from_node,         1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		if ( !isSolverSystemCalling ) {
+		if ( !isSolverSystemCalling )
 			MPI_Recv( &isSolvedOnPreprocessing,    1, MPI_INT, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-			MPI_Recv( var_activity, activity_vec_len, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-			// update total activity
-			for( unsigned i=0; i < total_var_activity.size(); ++i )
-				if( ( total_var_activity[i] += var_activity[i] ) > 1e200 )
-					for( unsigned j=0; j < total_var_activity.size(); ++j ) // Rescale:
-						total_var_activity[j] *= 1e-200;
-		}
 		
 		if ( verbosity > 1 )
 			std::cout << "Received result with current_task_index " << task_index_from_node << std::endl;
@@ -772,42 +730,26 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 		}
 	}
 	
-	if ( evaluation_type == "time" )
+	if (evaluation_type == "time")
 		cnf_time_from_node = MPI_Wtime() - cnf_time_from_node;
 	else if (evaluation_type == "propagation")
 		cnf_time_from_node = (double)S->propagations;
 	else if (evaluation_type == "watch_scans")
 		cnf_time_from_node = (double)S->watch_scans;
+	else if (evaluation_type == "prep")
+		cnf_time_from_node = MIN_SOLVE_TIME;
 
 	if ((verbosity > 2) && (rank == 1))
 		std::cout << "After S->solveLimited( dummy )" << std::endl;
 
-	if ((S->starts - prev_starts <= 1) && (S->conflicts == prev_conflicts)) {
-		isSolvedOnPreprocessing = 1;  // solved by BCP
-		//S->printTrail();
-		/*std::stringstream tmp_sstream;
-		tmp_sstream << "prepr_dummy_" << rank;
-		std::ofstream ofile(tmp_sstream.str(), std::ios_base::app);
-		ofile << "var_choose_order size " << var_choose_order.size() << std::endl;
-		for (int i = 0; i < var_choose_order.size(); i++)
-			ofile << var_choose_order[i] << " ";
-		ofile << std::endl;
-		ofile << "dummy size " << dummy.size() << std::endl;
-		for (int i = 0; i < dummy.size(); i++)
-			ofile << sign(dummy[i]) ? "0" : "1";
-		ofile << std::endl;
-		ofile.close(); ofile.clear();*/
-	}							   
+	if ((S->starts - prev_starts <= 1) && (S->conflicts == prev_conflicts))
+		isSolvedOnPreprocessing = 1;  // solved by BCP							   
 	
 	if ( ( te > 0 ) && ( ret == l_False ) && ( !isMultiSetMode ) ) { // in ro es te mode all instances are satisfiable
 		std::cerr << "( te > 0 ) && ( ret == l_False ) " << std::endl;
 		exit(1);
 	}
-	
-	S->getActivity( full_var_choose_order, var_activity, activity_vec_len ); // get activity of Solver
 
-	if ( ( verbosity > 2 ) && ( rank == 1 ) )
-		std::cout << "After S->getActivity" << std::endl;
 	if ( cnf_time_from_node < MIN_SOLVE_TIME ) // TODO. maybe 0 - but why?!
 		cnf_time_from_node = MIN_SOLVE_TIME;
 	if ( ret == l_True ) {
@@ -839,7 +781,6 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	MPI_Recv( &var_count,			  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &core_len,			  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &output_len,            1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &activity_vec_len,      1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &known_bits,            1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &base_known_vars_count, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
 	MPI_Recv( &start_activity,		  1, MPI_DOUBLE,   0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
@@ -850,7 +791,6 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		std::cout << "core_len "         << core_len         << std::endl;
 		std::cout << "ouptut_len "       << output_len       << std::endl;
 		std::cout << "nonoutput_len "    << nonoutput_len    << std::endl;
-		std::cout << "activity_vec_len " << activity_vec_len << std::endl;
 		std::cout << "known_bits "       << known_bits       << std::endl;
 		std::cout << "start_activity "   << start_activity   << std::endl;
 	}
@@ -1042,8 +982,6 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	current_task_index = 0;
 	cnf_time_from_node = 0.0;
 	int ProcessListNumber;
-	var_activity = new double[activity_vec_len];
-	//all_var_activity = new double[all_vars_set.size()];
 	unsigned large_message_count = 0, small_message_count = 0;
 	std::string polarity_file_name;
 	isSolvedOnPreprocessing = 0;
@@ -1228,16 +1166,13 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		MPI_Send( &current_task_index,         1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &process_sat_count,          1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
 		MPI_Send( &cnf_time_from_node,         1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
-		if ( !isSolverSystemCalling ) {
+		if ( !isSolverSystemCalling )
 			MPI_Send( &isSolvedOnPreprocessing,    1, MPI_INT,    0, ProcessListNumber, MPI_COMM_WORLD );
-			MPI_Send( var_activity, activity_vec_len, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD );
-		}
 		
 		if ( verbosity > 0 )
 			std::cout << "rank " << rank << " sended subproblem solution" << std::endl;
 	}
 	
-	delete[] var_activity;
 	MPI_Finalize();
 	return true;
 }
@@ -1378,35 +1313,6 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 	}
 	else { // if there were no better points in a checked area
 		sstream << std::endl << "---Record not updated---" << std::endl;
-		if (ts_strategy == 3) { // restart - choose new first point 
-			isFirstPoint = true;
-			best_predict_time = HUGE_DOUBLE;
-			L1.clear();
-			L2.clear();
-			std::vector<var_with_activity> var_with_activity_vec;
-			var_with_activity vwa;
-			for (unsigned i = 0; i < total_var_activity.size(); i++) {
-				vwa.var = i + 1;
-				vwa.activity = total_var_activity[i];
-				var_with_activity_vec.push_back(vwa);
-				sort(var_with_activity_vec.begin(), var_with_activity_vec.end(), var_compareByActivity);
-			}
-			var_choose_order = real_var_choose_order;
-			unsigned added_var_count = 0;
-			unsigned var_index = 0;
-			while ( (var_index < var_with_activity_vec.size()) && (added_var_count < 30) ) { // add most active vars to the current record and restart from it
-				if (std::find(var_choose_order.begin(), var_choose_order.end(), var_with_activity_vec[var_index].var) == var_choose_order.end()) {
-					var_choose_order.push_back(var_with_activity_vec[var_index].var);
-					added_var_count++;
-				}
-				var_index++;
-			}
-			sstream << "var_choose_order.size() " << var_choose_order.size() << std::endl;
-			for (auto &x : var_choose_order)
-				sstream << x << " ";
-			sstream << std::endl;
-			return true;
-		}
 
 		checked_area c_a;
 		unupdated_count++;
@@ -1521,23 +1427,6 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 				sstream << "L2_index "					 << L2_index                   << std::endl;
 				power_values.clear();
 			}
-			/*else if ( ts_strategy > 0 ) { // sort areas from L2 by median of var activities of centers
-				// update activity of points from L2
-				for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it ) {
-					(*L2_it).med_var_activity = 0;
-					for ( unsigned i=0; i < (*L2_it).center.size(); ++i )
-						if ( (*L2_it).center[i] )
-							(*L2_it).med_var_activity += total_var_activity[i];
-					(*L2_it).med_var_activity /= (*L2_it).center.count();
-				}
-				L2_matches.sort( ua_compareByMedActivity );
-				if ( verbosity > 0 ) { 
-					std::cout << "L2 after sorting. total_var_activity : center.count()";
-					for ( L2_it = L2_matches.begin(); L2_it != L2_matches.end(); ++L2_it )
-						std::cout << (*L2_it).med_var_activity << " : " << (*L2_it).center.count() << std::endl;
-				}
-				current_unchecked_area = (*L2_matches.begin());
-			}*/
 			
 			L2_matches.clear();
 			
@@ -1920,7 +1809,7 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	WritePredictToFile( 0, 0 );
 	predict_file_name = "predict";
 		
-	std::ofstream graph_file, var_activity_file;
+	std::ofstream graph_file;
 	if ( ( isFirstPoint ) && ( ts_strategy != 3 ) ) {
 		graph_file.open( "graph_file", std::ios_base::out ); // erase info from previous launches 
 		if ( te == 0.0 )
@@ -1930,21 +1819,10 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		if ( deep_predict == 5 ) // simulated annealing
 			graph_file << " cur_temperature";
 		graph_file << std::endl;
-		//if ( !isSolverSystemCalling ) 
-		//	var_activity_file.open( var_activity_file_name.c_str(), std::ios_base::out );
 	}
 	else {
 		graph_file.open( "graph_file", std::ios_base::app );
 	}
-
-	/*if ( !isSolverSystemCalling ) {
-		var_activity_file << record_count << std::endl;
-		//for( auto &x : total_var_activity )
-		//	var_activity_file << x << " ";
-		for( std::vector<double> :: iterator it = total_var_activity.begin(); it != total_var_activity.end(); ++it )
-			var_activity_file << *it << " ";
-		var_activity_file << std::endl;
-	}*/
 	
 	graph_file << record_count << " " << best_var_num << " " << best_predict_time << " ";
 	if ( te == 0.0 )
@@ -1967,46 +1845,6 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	}
 	
 	graph_file.close();
-	
-	if (!isSolverSystemCalling) {
-		// print most active variables on the current moment
-		std::vector<var_with_activity> var_with_activity_vec;
-		std::vector<int> tmp_var_choose_order;
-		var_with_activity vwa;
-		for (unsigned i = 0; i < total_var_activity.size(); i++) {
-			vwa.var = i + 1;
-			vwa.activity = total_var_activity[i];
-			var_with_activity_vec.push_back(vwa);
-			sort(var_with_activity_vec.begin(), var_with_activity_vec.end(), var_compareByActivity);
-		}
-		
-		tmp_var_choose_order = real_var_choose_order;
-		unsigned added_var_count = 0;
-		unsigned var_index = 0;
-		while ((var_index < var_with_activity_vec.size()) && (added_var_count < 30)) { // add most active vars to current record and restart from it
-			if (std::find(tmp_var_choose_order.begin(), tmp_var_choose_order.end(), var_with_activity_vec[var_index].var) == tmp_var_choose_order.end()) {
-				tmp_var_choose_order.push_back(var_with_activity_vec[var_index].var);
-				added_var_count++;
-			}
-			var_index++;
-		}
-
-		var_activity_file.open(var_activity_file_name.c_str(), std::ios_base::app);
-		var_activity_file << std::endl << "***" << std::endl;
-		for ( auto &x : var_with_activity_vec )
-			var_activity_file << " " << x.var << " " << x.activity;
-		var_activity_file << std::endl << "real_var_choose_order and then + most active vars one by one " << std::endl;
-		unsigned cur_print_set_power = real_var_choose_order.size();
-		
-		for (unsigned i = 0; i < 32; i++) {
-			for (unsigned j = 0; j < cur_print_set_power + i; j++) {
-				if (j < tmp_var_choose_order.size() )
-					var_activity_file << tmp_var_choose_order[j] << " ";
-			}
-			var_activity_file << std::endl;
-		}
-		var_activity_file.close();
-	}
 }
 
 bool MPI_Predicter :: checkSimulatedGranted( double predict_time )
@@ -2798,7 +2636,6 @@ bool MPI_Predicter :: GetDeepPredictTasks()
 		d_s.var_choose_order = new_var_choose_order;
 		d_s.cur_var_changing = cur_vars_changing;
 		d_s.IsAddedToL2      = false;
-		d_s.diff_variable_activity = total_var_activity[cur_point_index];
 		decomp_set_arr.push_back( d_s ); // add new decomp set
 	} // for ( int i = 0; i < decomp_set_count; i++ )
 
@@ -2814,36 +2651,14 @@ bool MPI_Predicter :: GetDeepPredictTasks()
 	//if ((ts_strategy == 0) || (ts_strategy == 3))
 	random_shuffle( decomp_set_arr.begin(), decomp_set_arr.end() );
 	
-	if ( ts_strategy == 1 ) {
-		// sort decomp sets by activity
-		std::vector<decomp_set> :: iterator dec_it;
-		std::vector<int> :: iterator vec_it;
-		for ( dec_it = decomp_set_arr.begin(); dec_it != decomp_set_arr.end(); ++dec_it ) {
-			(*dec_it).med_var_activity = 0;
-			for ( vec_it = (*dec_it).var_choose_order.begin(); vec_it != (*dec_it).var_choose_order.end(); ++vec_it )
-				(*dec_it).med_var_activity += total_var_activity[ core_var_indexes.find(*vec_it)->second ];
-			(*dec_it).med_var_activity /= (*dec_it).var_choose_order.size();
-		}
-		sort( decomp_set_arr.begin(), decomp_set_arr.end(), ds_compareByMedActivity );
-		if ( verbosity > 0 ) {
-			std::cout << "decomp_set_arr activity" << std::endl;
-			for ( dec_it = decomp_set_arr.begin(); dec_it != decomp_set_arr.end(); ++dec_it )
-				std::cout << (*dec_it).med_var_activity << std::endl;
-		}
-	}
-	else if ( ts_strategy == 2 ) {
-		// hold only points with high activity of diff variable (if a set larger than the center)
-		// or with low activity (if a set is smaller than the center)
+	if ( ts_strategy == 2 ) {
 		if ( decomp_set_arr.size() > TS2_POINTS_COUNT ) {
 			for ( auto &x : decomp_set_arr )
 				if ( x.var_choose_order.size() < var_choose_order.size() )
 					points_smaller_center.push_back( x );
 				else if ( x.var_choose_order.size() > var_choose_order.size() )
 					points_larger_center.push_back( x );
-			points_smaller_center.sort( ds_compareByDiffActivity );
-			points_larger_center.sort( ds_compareByDiffActivity );
 			decomp_set_arr.clear();
-			// get smaller points with lowest values of activity of a diff variable
 			unsigned k=0;
 			std::list<decomp_set>::iterator list_dec_it;
 			for ( list_dec_it = points_smaller_center.begin(); list_dec_it != points_smaller_center.end(); list_dec_it++ ) {
@@ -2851,7 +2666,6 @@ bool MPI_Predicter :: GetDeepPredictTasks()
 				if ( ++k == TS2_POINTS_COUNT / 2  )
 					break;
 			}
-			// get lareger points with highest values of activity of a diff variable
 			k = 0;
 			std::list<decomp_set>::reverse_iterator list_dec_rit;
 			for ( list_dec_rit = points_larger_center.rbegin(); list_dec_rit != points_larger_center.rend(); list_dec_rit++ ) {

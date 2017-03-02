@@ -33,7 +33,6 @@ struct unchecked_area
 {
 	boost::dynamic_bitset<> center; // point - center of area. i here means variable # i
 	boost::dynamic_bitset<> checked_points; // i here corresponds to checked point with component # i
-	double med_var_activity;
 	bool is_partly_checked; // if checked in window mode, then not all points in radius are checked, but we can't chosse it again
 };
 
@@ -49,20 +48,12 @@ struct checked_area
 	boost::dynamic_bitset<> center; // point - center of area
 };
 
-struct var_with_activity
-{
-	int var;
-	double activity;
-};
-
 struct decomp_set
 {
 	std::vector<int> var_choose_order; // indexes of variables in decomp set 
 	//int set_var_count; // count of known vars - may be different for every set
 	int cur_var_changing; // how many vars were changed in current decomp_set relatively to last best point
 	bool IsAddedToL2;
-	double med_var_activity;
-	double diff_variable_activity; // variable by which set differs from current center point
 };
 
 struct point_struct
@@ -110,7 +101,6 @@ public:
 	int global_skipped_points_count;
 	int decomp_sets_in_block;
 	std::string deep_predict_file_name;
-	std::string var_activity_file_name;
 	
 	std::list<checked_area> L1; // areas where all points were checked
 	std::list<unchecked_area> L2; // areas where not all points were checked
@@ -181,7 +171,6 @@ private:
 	std::vector<bool> cnf_issat_arr;
 	std::vector<int> cnf_prepr_arr;
 	std::vector<int> cnf_status_arr;
-	std::vector<double> total_var_activity;
 	// array of block sum lengths for mass predict. in fact it is count of vars for paralleling
 	std::vector<int> sum_block_lens_arr;
 	std::vector<int> sorted_index_array;
@@ -201,7 +190,6 @@ private:
 	std::string predict_file_name;
 	unsigned record_count;
 	bool IsRecordUpdated;
-	double *var_activity;
 
 	int *array_message;
 	unsigned array_message_size;
