@@ -66,6 +66,7 @@ public:
 	double getEstimation();
 	long long watch_scans;
 	std::string evaluation_type;
+	bool isNonPrepFastExit;
 	
     // Constructor/Destructor:
     //

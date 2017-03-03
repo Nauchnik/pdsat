@@ -127,6 +127,7 @@ Solver::Solver() :
   , max_nof_watch_scans(0)
   , problem_type("")
   , evaluation_type("time")
+  , isNonPrepFastExit (false)
 {}
 
 
@@ -785,7 +786,7 @@ lbool Solver::search(int nof_conflicts)
 		reduceDB();
 
     for (;;){
-	if (max_nof_watch_scans && ((watch_scans-start_watch_scans)>=max_nof_watch_scans)) return l_Undef;
+		if (max_nof_watch_scans && ((watch_scans-start_watch_scans)>=max_nof_watch_scans)) return l_Undef;
         CRef confl = propagate();
         if (confl != CRef_Undef){
             // CONFLICT
@@ -831,7 +832,6 @@ lbool Solver::search(int nof_conflicts)
                            (int)dec_vars - (trail_lim.size() == 0 ? trail.size() : trail_lim[0]), nClauses(), (int)clauses_literals,
                            (int)max_learnts, nLearnts(), (double)learnts_literals/nLearnts(), progressEstimate()*100);
             }
-
         }else{
             // NO CONFLICT
             if (nof_conflicts >= 0 && conflictC >= nof_conflicts || !withinBudget()){
@@ -869,8 +869,10 @@ lbool Solver::search(int nof_conflicts)
 
             if (next == lit_Undef){
                 // New variable decision:
-				if ( evaluation_type == "prep" ) // don't solve, just BCP
-					return l_NonPrep;
+				if (evaluation_type == "prep") { // don't solve, just BCP
+					isNonPrepFastExit = true;
+					return l_Undef;
+				}
 
                 decisions++;
                 next = pickBranchLit();
@@ -1017,11 +1019,10 @@ lbool Solver::solve_()
 			((max_nof_watch_scans) && ((watch_scans-start_watch_scans)>= max_nof_watch_scans))
 			)
 		{
-			//progress_estimate = progressEstimate();
 			cancelUntil(0);
 			return l_Undef;
 		}
-
+		
 #ifdef _MPI
 		if ((isPredict) && (evaluation_type == "time")) {
 			if ((pdsat_verbosity > 0) && (rank == 1)) {
@@ -1054,8 +1055,8 @@ lbool Solver::solve_()
 #endif
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
         status = search(rest_base * restart_first);
-		if (status == l_NonPrep) break;
-        if (!withinBudget()) break;
+		if (isNonPrepFastExit) break;
+		if (!withinBudget()) break;
         curr_restarts++;
     }
 	
@@ -1070,6 +1071,7 @@ lbool Solver::solve_()
         ok = false;
 
     cancelUntil(0);
+
     return status;
 }
 

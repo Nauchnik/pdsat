@@ -218,23 +218,6 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 		// save current state to check differences
 		prev_starts    = S->starts;
 		prev_conflicts = S->conflicts;
-			
-		/*
-		// skip dummies with other number of ones
-		unsigned ones_number = 0;
-		for (unsigned t = 0; t<dummy_vec[i].size(); t++)
-		if (!sign(dummy_vec[i][t]))
-			ones_number++;
-			if ((ones_number == 11) || (ones_number == 12)) {
-				cnf_time_from_node = Minisat :: cpuTime();
-				ret = S->solveLimited( dummy_vec[i] );^M
-				cnf_time_from_node = Minisat :: cpuTime() - cnf_time_from_node;<---><------>
-			}
-			else {
-				ret = l_Undef;
-				cnf_time_from_node = 0;
-			}
-		*/
 
 		cnf_time_from_node = Minisat :: cpuTime();
 		ret = S->solve( dummy_vec[i] );
@@ -243,11 +226,9 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 		S->watch_scans = 0;
 		if ( no_increm )
 			S->clearDB(); // clear database if incremental solving disabled
-			
-		//ret = S->solveLimited( dummy_vec[i], true, false ); // for SimpSolver
 
 		total_time += cnf_time_from_node;
-			
+		
 		if ( ret == l_Undef )
 			cur_problem_state = Interrupted; // interrupted cause of restarts or time limit
 		else if ( ( S->starts - prev_starts <= 1 ) && ( S->conflicts == prev_conflicts ) )
@@ -294,26 +275,6 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 				std::cout << b_SAT_set_array[j];
 		}
 	}
-
-	/*if ( batch_interrupted_count ) {
-		std::fstream file( new_assumptions_file_name.c_str(), std::ios_base::in );
-		if ( file.peek() == std::fstream::traits_type::eof() ) { // if file is empty
-			file.close();
-			file.open( new_assumptions_file_name.c_str(), std::ios_base::out );
-			file << var_choose_order.size();  // write length of boolean vectors
-			file.close();
-		}
-		else file.close();
-			
-		ofile.open( new_assumptions_file_name.c_str(), std::ios_base::out | std::ios_base::app | std::ios_base::binary );
-		unsigned long long ul;
-		for( unsigned i=0; i < vec_bitset.size(); ++i ) {
-			//ul = vec_bitset[i].to_ullong();
-			ul = BitsetToUllong( vec_bitset[i] );
-			ofile.write( (char*)&ul, sizeof(ul) );
-		}
-		ofile.close();
-	}*/
 	
 	solving_times[2] = total_time / dummy_vec.size(); // med time for current batch
 
@@ -994,6 +955,7 @@ void MPI_Solver :: PrintParams( )
 	std::cout << std::endl << "max_solving_time "         << max_solving_time;
 	std::cout << std::endl << "max_nof_restarts "         << max_nof_restarts;
 	std::cout << std::endl << "var_count "                << var_count;
+	std::cout << std::endl << "evaluation_type "          << evaluation_type;
 	std::cout << std::endl;
 }
 

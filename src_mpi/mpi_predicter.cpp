@@ -1910,15 +1910,11 @@ double MPI_Predicter::getCurPredictTime(unsigned cur_var_num, int cur_cnf_in_set
 			continue;
 		else {
 			cur_probability = (double)cur_solved_in_time / (double)cur_cnf_in_set_count;
+			if (evaluation_type == "prep")
+				cur_time_limit = 1;
 			point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
 			if ( point_cur_predict_time < point_best_predict_time ) {
 				point_best_predict_time = point_cur_predict_time;
-				/*if (cur_percent_solved_in_time < MIN_PERCENT_NO_MULTISAMPLE) {
-					candidate_point.center = IntVecToBitsetPredict(var_choose_order);
-					candidate_point.sample_size = cnf_in_set_count;
-					candidate_point.predict_value = point_cur_predict_time;
-					continue; // don't set as a BKV right now - a check is needed
-				}*/
 				point_best_solved_in_time = cur_solved_in_time;
 				point_best_time_limit     = cur_time_limit;
 			}
@@ -2005,9 +2001,9 @@ bool MPI_Predicter :: GetPredict()
 
 		isTeBkvUpdated = false;
 		max_real_time_sample = 0;
-
+		
 		// get current predict time
-		if ( te == 0.0 ) {		
+		if ( ( te == 0.0 ) && (evaluation_type != "prep") ) {
 			for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ ) {
 				// if real time from node doesn't exist, use roundly time from 0-core
 				if ( cnf_real_time_arr[j] > 0.0 ) {
@@ -2030,7 +2026,7 @@ bool MPI_Predicter :: GetPredict()
 			cur_predict_time = med_time_arr[i] / (double)proc_count;
 			cur_predict_time *= pow( 2.0, (double)cur_var_num );
 		}
-		else if ( te > 0.0 ) // here med_time_arr in (0,1)
+		else if ( ( te > 0.0 ) || (evaluation_type == "prep") ) // here med_time_arr in (0,1)
 			cur_predict_time = getCurPredictTime(cur_var_num, cur_cnf_in_set_count, i, decomp_set_arr[i].var_choose_order);
 		
 		predict_time_arr[i] = cur_predict_time;
