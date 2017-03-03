@@ -698,38 +698,6 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 
 	ret = S->solve();
 	
-	if ( (isMultiSetMode) && ( ret != l_True ) ) {
-		unsigned total_solves = 1;
-		unsigned solves_cur_iteration;
-		unsigned cur_assumption_count;
-		int cur_var_ind;
-		vec<Lit> cur_dummy;
-		boost::dynamic_bitset<> bs;
-		for (unsigned cur_set_index = 0; cur_set_index < multi_var_choose_order.size(); cur_set_index++) {
-			cur_assumption_count = cur_set_index + 1;
-			solves_cur_iteration = 1 << cur_assumption_count;
-			bs.resize(cur_assumption_count);
-			for (unsigned solve_index = 0; solve_index < solves_cur_iteration; solve_index++) {
-				UllongToBitset((unsigned long long)solve_index, bs);
-				cur_dummy.clear();
-				for (unsigned assumption_index = 0; assumption_index < cur_assumption_count; assumption_index++) {
-					cur_var_ind = multi_var_choose_order[cur_set_index][var_choose_order.size() + assumption_index] - 1;
-					cur_dummy.push((bs[assumption_index] == 1) ? mkLit(cur_var_ind) : ~mkLit(cur_var_ind));
-				}
-				ret = S->solve(cur_dummy);
-				total_solves++;
-				if (ret == l_True)
-					break;
-			}
-			if (ret == l_True)
-				break;
-		}
-		if (ret == l_True) {
-			std::cout << "total_solves " << total_solves << std::endl;
-			std::cout << "ret " << (ret==l_True) << std::endl;
-		}
-	}
-	
 	if (evaluation_type == "time")
 		cnf_time_from_node = MPI_Wtime() - cnf_time_from_node;
 	else if (evaluation_type == "propagation")
