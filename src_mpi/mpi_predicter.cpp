@@ -1902,17 +1902,25 @@ double MPI_Predicter::getCurPredictTime(unsigned cur_var_num, int cur_cnf_in_set
 	for ( auto &cur_time_limit : predict_time_limites ) {
 		//ofile << cur_time_limit << " ";
 		cur_solved_in_time = 0;
-		for ( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++ )
-			if ( ( cnf_issat_arr[j] ) && ( cnf_real_time_arr[j] > 0.0 ) && ( cnf_real_time_arr[j] <= cur_time_limit ) )
-				cur_solved_in_time++;
+		if (evaluation_type == "prep") {
+			for (unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++)
+				if (cnf_prepr_arr[j])
+					cur_solved_in_time++;
+		}
+		else {
+			for (unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; j++)
+				if ((cnf_issat_arr[j]) && (cnf_real_time_arr[j] > 0.0) && (cnf_real_time_arr[j] <= cur_time_limit))
+					cur_solved_in_time++;
+		}
 		cur_percent_solved_in_time = (double)cur_solved_in_time * 100 / (double)cur_cnf_in_set_count;
 		if (cur_percent_solved_in_time <= MIN_PERCENT_SOLVED_IN_TIME)
 			continue;
 		else {
 			cur_probability = (double)cur_solved_in_time / (double)cur_cnf_in_set_count;
 			if (evaluation_type == "prep")
-				cur_time_limit = 1;
-			point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
+				point_cur_predict_time = pow(2.0, (double)cur_var_num) * 3.0 / cur_probability;
+			else
+				point_cur_predict_time = pow( 2.0, (double)cur_var_num ) * cur_time_limit * 3.0 / cur_probability;
 			if ( point_cur_predict_time < point_best_predict_time ) {
 				point_best_predict_time = point_cur_predict_time;
 				point_best_solved_in_time = cur_solved_in_time;

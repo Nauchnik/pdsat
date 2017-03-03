@@ -871,7 +871,7 @@ lbool Solver::search(int nof_conflicts)
                 // New variable decision:
 				if (evaluation_type == "prep") { // don't solve, just BCP
 					isNonPrepFastExit = true;
-					return l_Undef;
+					return l_True;
 				}
 
                 decisions++;
@@ -1003,8 +1003,8 @@ lbool Solver::solve_()
     }
 
 	double cur_time = 0.0;
-    // Search:
     int curr_restarts = 0;
+	isNonPrepFastExit = false;
     start_watch_scans = watch_scans;
     //printf("\n START SCANS: %i", start_watch_scans);
     while (status == l_Undef){
@@ -1062,8 +1062,8 @@ lbool Solver::solve_()
 	
     if (verbosity >= 1)
         printf("c ===============================================================================\n");
-
-    if (status == l_True){
+	
+    if ( (status == l_True) && (!isNonPrepFastExit) ) {
         // Extend & copy model:
         model.growTo(nVars());
         for (int i = 0; i < nVars(); i++) model[i] = value(i);
