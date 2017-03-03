@@ -711,16 +711,16 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 		std::cout << "After S->solveLimited( dummy )" << std::endl;
 
 	if ((S->starts - prev_starts <= 1) && (S->conflicts == prev_conflicts))
-		isSolvedOnPreprocessing = 1;  // solved by BCP							   
-	
-	if ( ( te > 0 ) && ( ret == l_False ) && ( !isMultiSetMode ) ) { // in ro es te mode all instances are satisfiable
+		isSolvedOnPreprocessing = 1;  // solved by BCP		
+
+	if ( ( te > 0 ) && ( ret == l_False ) ) { // in ro es te mode all instances are satisfiable
 		std::cerr << "( te > 0 ) && ( ret == l_False ) " << std::endl;
 		exit(1);
 	}
 
 	if ( cnf_time_from_node < MIN_SOLVE_TIME ) // TODO. maybe 0 - but why?!
 		cnf_time_from_node = MIN_SOLVE_TIME;
-	if ( ret == l_True ) {
+	if ( ( ret == l_True ) && (!(S->isNonPrepFastExit))) {
 		process_sat_count++;
 		if ( te == 0 ) {
  			std::cout << "SAT found" << std::endl;

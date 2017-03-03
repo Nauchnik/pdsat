@@ -793,6 +793,11 @@ lbool Solver::search(int nof_conflicts)
             conflicts++; conflictC++;
             if (decisionLevel() == 0) return l_False;
 
+			if (evaluation_type == "prep") { // don't solve, just BCP
+				isNonPrepFastExit = true;
+				return l_Undef;
+			}
+			
             learnt_clause.clear();
             analyze(confl, learnt_clause, backtrack_level);
 //            cancelUntil(backtrack_level);
@@ -869,11 +874,6 @@ lbool Solver::search(int nof_conflicts)
 
             if (next == lit_Undef){
                 // New variable decision:
-				if (evaluation_type == "prep") { // don't solve, just BCP
-					isNonPrepFastExit = true;
-					return l_True;
-				}
-
                 decisions++;
                 next = pickBranchLit();
 
@@ -1063,7 +1063,7 @@ lbool Solver::solve_()
     if (verbosity >= 1)
         printf("c ===============================================================================\n");
 	
-    if ( (status == l_True) && (!isNonPrepFastExit) ) {
+    if ( status == l_True ) {
         // Extend & copy model:
         model.growTo(nVars());
         for (int i = 0; i < nVars(); i++) model[i] = value(i);
