@@ -710,7 +710,7 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	if ((verbosity > 2) && (rank == 1))
 		std::cout << "After S->solveLimited( dummy )" << std::endl;
 	
-	if (S->decisions <= prev_decisions + 1) // && (S->conflicts == prev_conflicts))
+	if ((S->decisions <= prev_decisions + 1) && (!(S->isNonPrepFastExit)) ) // && (S->conflicts == prev_conflicts))
 		isSolvedOnPreprocessing = 1;  // solved by BCP		
 	
 	if ( ( te > 0 ) && ( ret == l_False ) ) { // in ro es te mode all instances are satisfiable
@@ -718,7 +718,7 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 		exit(1);
 	}
 
-	if ( cnf_time_from_node < MIN_SOLVE_TIME ) // TODO. maybe 0 - but why?!
+	if ( cnf_time_from_node < MIN_SOLVE_TIME )
 		cnf_time_from_node = MIN_SOLVE_TIME;
 	if ( ( ret == l_True ) && (!(S->isNonPrepFastExit))) {
 		process_sat_count++;
