@@ -781,10 +781,6 @@ lbool Solver::search(int nof_conflicts)
     vec<Lit>    learnt_clause;
     starts++;
 
-	// BOINC mode - added to speedup solving Latin square problems and decreasie using RAM
-	if (problem_type == "diag")
-		reduceDB();
-
     for (;;){
 		if (max_nof_watch_scans && ((watch_scans-start_watch_scans)>=max_nof_watch_scans)) return l_Undef;
         CRef confl = propagate();
@@ -792,11 +788,6 @@ lbool Solver::search(int nof_conflicts)
             // CONFLICT
             conflicts++; conflictC++;
             if (decisionLevel() == 0) return l_False;
-
-			if (evaluation_type == "prep") { // don't solve, just BCP
-				isNonPrepFastExit = true;
-				return l_Undef;
-			}
 			
             learnt_clause.clear();
             analyze(confl, learnt_clause, backtrack_level);
@@ -880,6 +871,11 @@ lbool Solver::search(int nof_conflicts)
                 if (next == lit_Undef)
                     // Model found:
                     return l_True;
+				
+				if ((decisions==1)&&(evaluation_type == "prep")) { // don't solve, just BCP
+					isNonPrepFastExit = true;
+					return l_Undef;
+				}
             }
 
             // Increase decision level and enqueue 'next'
@@ -888,7 +884,6 @@ lbool Solver::search(int nof_conflicts)
         }
     }
 }
-
 
 double Solver::progressEstimate() const
 {
@@ -1055,8 +1050,7 @@ lbool Solver::solve_()
 #endif
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
         status = search(rest_base * restart_first);
-		if (isNonPrepFastExit) break;
-		if (!withinBudget()) break;
+		if ( (isNonPrepFastExit) || (!withinBudget()) ) break;
         curr_restarts++;
     }
 	

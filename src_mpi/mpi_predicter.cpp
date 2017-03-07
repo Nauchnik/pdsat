@@ -651,7 +651,7 @@ bool MPI_Predicter :: solverSystemCalling( vec<Lit> &dummy )
 bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy ) 
 {
 	int prev_sat_sample_index = -1;
-	uint64_t prev_starts, prev_conflicts;
+	uint64_t prev_conflicts, prev_decisions;
 	lbool ret;
 	std::stringstream sstream;
 	std::string cur_state_file_name;
@@ -686,8 +686,8 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	else if (evaluation_type == "watch_scans")
 		S->max_nof_watch_scans = (int)te;
 	
-	prev_starts    = S->starts;
-	prev_conflicts = S->conflicts;
+	//prev_conflicts = S->conflicts;
+	prev_decisions = S->decisions;
 	isSolvedOnPreprocessing = 0;
 	
 	S->resetVarActivity();
@@ -709,10 +709,10 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 
 	if ((verbosity > 2) && (rank == 1))
 		std::cout << "After S->solveLimited( dummy )" << std::endl;
-
-	if ((S->starts - prev_starts <= 1) && (S->conflicts == prev_conflicts))
+	
+	if (S->decisions <= prev_decisions + 1) // && (S->conflicts == prev_conflicts))
 		isSolvedOnPreprocessing = 1;  // solved by BCP		
-
+	
 	if ( ( te > 0 ) && ( ret == l_False ) ) { // in ro es te mode all instances are satisfiable
 		std::cerr << "( te > 0 ) && ( ret == l_False ) " << std::endl;
 		exit(1);
