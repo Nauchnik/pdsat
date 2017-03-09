@@ -1313,9 +1313,10 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( std::stringstream &sstrea
 					continue;
 				xor_bs = (*L2_it).center ^ bs;
 				if ( xor_bs.count() == 0 ) {
-					std::cerr << "xor_bs == 0. current center in L2" << std::endl;
+					/*std::cerr << "xor_bs == 0. current center in L2" << std::endl;
 					std::cerr << "(*L2_it).checked_points.count() " << (*L2_it).checked_points.count() << std::endl;
-					MPI_Abort( MPI_COMM_WORLD, 0 );
+					MPI_Abort( MPI_COMM_WORLD, 0 );*/
+					continue;
 				}
 				if ( xor_bs.count() < min_hamming_distance )
 					min_hamming_distance = xor_bs.count();
