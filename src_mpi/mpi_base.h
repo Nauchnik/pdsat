@@ -49,7 +49,6 @@ protected:
 	std::vector<bool> b_SAT_set_array;
 	std::map<int, unsigned> core_var_indexes; // indexes of variables in core set
 	boost::random::mt19937 gen;
-	unsigned known_vars_count;
 	double total_start_time;
 public:
     MPI_Base();
@@ -77,6 +76,7 @@ public:
 
 	// Common CNF input data
 	unsigned var_count;
+	unsigned known_vars_count;
 	unsigned lit_count;
 	unsigned clause_count;
 	unsigned full_mask_var_count;

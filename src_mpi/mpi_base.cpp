@@ -236,7 +236,9 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask,
 	if (known_dummy.size() != known_vars_count) {
 		std::cerr << "known_dummy.size() != known_vars_count" << std::endl;
 		std::cerr << known_dummy.size() << " != " << known_vars_count << std::endl;
+#ifdef _MPI
 		MPI_Abort( MPI_COMM_WORLD, 0 );
+#endif
 	}
 	
 	if (verbosity > 2)
