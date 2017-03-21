@@ -1042,7 +1042,7 @@ lbool Solver::solve_()
 					}
 				}
 				else {
-					std::cerr << "In Solver() MPI_Get_count(&status, MPI_UNSIGNED, &size); " << size << std::endl;
+					std::cerr << "In Solver::solve() MPI_Get_count(&status, MPI_UNSIGNED, &size); " << size << std::endl;
 					exit(1);
 				}
 			}

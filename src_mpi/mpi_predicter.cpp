@@ -1571,7 +1571,8 @@ bool MPI_Predicter :: DeepPredictMain()
 	sstream << std::endl;
 	sstream << "global_count_var_changing" << std::endl;
 	int points_count = 0;
-	for ( int i = 0; i < max_var_deep_predict; i++ ) {
+	for ( int i = 0; i < 
+		max_var_deep_predict; i++ ) {
 		sstream << i + 1 << ":" << global_count_var_changing[i] << " ";
 		points_count += global_count_var_changing[i];
 	}
@@ -1647,7 +1648,7 @@ bool MPI_Predicter :: PrepareForPredict()
 	
 	for( unsigned i = 0; i < all_tasks_count; i++ ) {
 		cnf_status_arr[i]     = 0; // status WAIT
-		cnf_start_time_arr[i] = 0.0;
+		cnf_start_time_arr[i] = -1;
 		cnf_real_time_arr[i]  = 0.0;
 		cnf_prepr_arr[i]      = 0;
 		cnf_issat_arr[i]      = false;
@@ -1974,7 +1975,6 @@ bool MPI_Predicter :: GetPredict()
 		solved_cnf_count_arr[i] = solved_in_sample_count;
 
 		sum_time_arr[i] = 0.0; // init value of sum - every time must start from 0.0
-		//max_real_time_sample = 0;
 
 		isTeBkvUpdated = false;
 		max_real_time_sample = 0;
@@ -1988,7 +1988,7 @@ bool MPI_Predicter :: GetPredict()
 					if ( cur_cnf_time > max_real_time_sample ) 
 						max_real_time_sample = cur_cnf_time; // compute only real time
 				}
-				else if ( cnf_start_time_arr[j] > 0 ) {
+				else if ( cnf_start_time_arr[j] >= 0 ) {
 					if ( ++cnf_not_solved_check_count[j] > 1 ) // stop if subproblem not solved in more than 1 check
 						cur_cnf_time = ( MPI_Wtime() - cnf_start_time_arr[j] );
 					else cur_cnf_time = 0.0;
@@ -2048,15 +2048,14 @@ bool MPI_Predicter :: GetPredict()
 			}
 			
 			// don't stop if sample with too simple problems: final - start show unreal large values
-			if ( ( max_real_time_sample > 0 ) && ( max_real_time_sample < MIN_STOP_TIME ) ) {
-				//cout << "max_time_sample < MIN_STOP_TIME" << std::endl;
-				//cout << max_time_sample << " < " << MIN_STOP_TIME << std::endl;
-				continue;
+			if ( (IsFirstStage) || 
+				 ( ( max_real_time_sample > 0 ) && ( max_real_time_sample < MIN_STOP_TIME ) ) ) {
+				continue; // don't stop too simple instances
 			}
 			
 			for( unsigned j = set_index_arr[i]; j < set_index_arr[i + 1]; ++j ) {
-				if ( ( cnf_start_time_arr[j] > 0 ) && // if solve of sat-problem was started
-					 ( cnf_status_arr[j] == 0    ) )  // and still running
+				if ( ( cnf_start_time_arr[j] >= 0 ) && // if solve of sat-problem was started
+					 ( cnf_status_arr[j] == 0 ) )  // and still running
 				{
 					cnf_to_stop_arr.push_back( j ); // then mark it for stopping
 					cur_cnf_to_stop_count++;
@@ -2064,7 +2063,7 @@ bool MPI_Predicter :: GetPredict()
 					if ( verbosity > 0 )
 						std::cout << std::endl << " marked STOP to CNF # " << j << std::endl;
 				}
-				else if ( cnf_start_time_arr[j] == 0.0 ) { // skip sat-problem if solving wasn't started
+				else if ( cnf_start_time_arr[j] == -1 ) { // skip sat-problem if solving wasn't started
 					cur_cnf_to_skip_count++;
 					cnf_status_arr[j] = 1; // set status STOP to CNF
 					//cout << "\n cnf_to_skip_count " << cnf_to_skip_count << std::endl;
