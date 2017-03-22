@@ -391,8 +391,11 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 				
 				if ( isRestartNeeded ) {
 					std::cout << "Fast exit in ControlProcessPredict cause of IsRestartNeeded" << std::endl;
+					std::cout << "Sending stop-messages to all computing processes" << std::endl;
+					for (unsigned i = 1; i < corecount; i++) {
+						MPI_Isend(&stop_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_request);
+					}
 					isRestartNeeded = false;
-					sstream_control << "IsRestartNeeded true" << std::endl;
 					return true;
 				}
 				
