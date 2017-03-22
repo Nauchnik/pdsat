@@ -252,8 +252,14 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	return true;
 }
 
-void MPI_Predicter :: SendPredictTask( int ProcessListNumber, unsigned process_number_to_send, int &cur_task_index, unsigned &cur_decomp_set_index )
+void MPI_Predicter :: SendPredictTask( int ProcessListNumber, 
+	                                   unsigned process_number_to_send, 
+	                                   int &cur_task_index, 
+	                                   unsigned &cur_decomp_set_index )
 {
+	if (cur_task_index >= all_tasks_count)
+		return;
+
 	if ( verbosity > 1 )
 		std::cout << "SendPredictTask() start" << std::endl;
 	
@@ -266,13 +272,15 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber, unsigned process_n
 		if ( cur_decomp_set_index > decomp_set_arr.size() - 1 ) {
 			std::cerr << "cur_decomp_set_index > decomp_set_arr.size() - 1" << std::endl;
 			std::cerr << cur_decomp_set_index << " > " << decomp_set_arr.size() - 1 << std::endl;
+			std::cerr << "cur_task_index " << cur_task_index << std::endl;
+			std::cerr << "all_tasks_count " << all_tasks_count << std::endl;
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 
 		for (auto &x : decomp_set_arr[cur_decomp_set_index].var_choose_order) {
 			if ((x <= 0) || ((unsigned)x > var_count)) {
 				std::cerr << "wrong decomp_set_arr[cur_decomp_set_index].var_choose_order element " << x << std::endl;
-				exit(1);
+				MPI_Abort(MPI_COMM_WORLD, 0);
 			}
 		}
 		if (array_message_size)
