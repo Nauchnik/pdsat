@@ -416,7 +416,7 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 							std::cerr << "cnf_to_stop_arr[i] >= node_list.size()" << std::endl;
 							return false;
 						}
-						MPI_Isend(&stop_message, 1, MPI_INT, node_list[cnf_to_stop_arr[i]], 0,
+						MPI_Isend(&stop_message, 1, MPI_INT, node_list.at(cnf_to_stop_arr.at(i)), 0,
 								   MPI_COMM_WORLD, &mpi_request );
 						if ( verbosity > 0 )
 							std::cout << "stop-message was send to node # " 
