@@ -83,7 +83,6 @@ public:
 	bool isFirstPoint;
 	bool isMultiSetMode;
 	
-	int stop_message;
 	std::string multiset_file_name;
 	std::vector<std::vector<int>> multi_var_choose_order;
 	

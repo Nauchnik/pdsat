@@ -33,7 +33,7 @@ MPI_Solver :: ~MPI_Solver( )
 {}
 
 //---------------------------------------------------------
-bool MPI_Solver :: MPI_Solve( int argc, char **argv )
+void MPI_Solver :: MPI_Solve( int argc, char **argv )
 {
 // Solve subproblems with MPI
 	MPI_Init( &argc, &argv );
@@ -44,8 +44,6 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 	double iteration_start_time, iteration_final_time;
 	double whole_final_time;
 	std::stringstream sstream;
-	int break_message = -1;
-	int stop_message  = -2;
 	
 	if ( corecount < 2 ) { 
 		std::cerr << "corecount < 2"; 
@@ -56,7 +54,7 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 
 	if ( rank != 0 ) { // computing processes
 		if ( !ComputeProcessSolve() ) {
-			std::cerr << "in ComputeProcessSovle" << std::endl; 
+			std::cerr << "in ComputeProcessSolve()" << std::endl; 
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 	}
@@ -115,13 +113,13 @@ bool MPI_Solver :: MPI_Solve( int argc, char **argv )
 		WriteTimeToFile( whole_final_time );
 		
 		// send messages for finalizing
+		std::cout << "sending finalize messages" << std::endl;
+		int val_int = FINALIZE_MESSAGE;
 		for ( int i = 1; i < corecount; i++ )
-			MPI_Send( &stop_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
-		
-		MPI_Finalize( );
+			MPI_Send( &val_int, 1, MPI_INT, i, 0, MPI_COMM_WORLD );
 	}
-
-	return 0;
+	
+	MPI_Finalize();
 }
 
 void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
@@ -684,7 +682,7 @@ bool MPI_Solver :: ComputeProcessSolve()
 		
 		var_choose_order.resize(0);
 		for( unsigned i=0; i < MAX_CORE_LEN; ++i ) {
-			if ( var_choose_order_int[i] == -1 )
+			if ( var_choose_order_int[i] == BREAK_MESSAGE )
 				break;
 			if ( var_choose_order_int[i] <= 0 ) {
 				std::cerr << "var_choose_order_int[i] <= 0" << std::endl;
@@ -721,14 +719,14 @@ bool MPI_Solver :: ComputeProcessSolve()
 			if ( ( rank == 1 ) && ( verbosity > 2 ) )
 				std::cout << "recv current_task_index " << current_task_index << std::endl;
 			
-			if ( current_task_index == -1 ) {
+			if ( current_task_index == BREAK_MESSAGE) {
 				if ( rank == 1 )
 					std::cout << "breaking low level loop while computing" << std::endl;
 				break; // stop and get new init values for solving iteration
 			}
-			else if ( current_task_index == -2 ) {
-				MPI_Finalize( ); // finalize-message from control process
-				break;
+			else if (current_task_index == FINALIZE_MESSAGE) {
+				std::cout << "computing process " << rank << " is finilizing" << std::endl;
+				return true;
 			}
 			
 			// with assumptions file we need only current_task_index for reading values from file 

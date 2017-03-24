@@ -38,6 +38,8 @@ const unsigned FULL_MASK_LEN = 625;
 const unsigned SOLVING_TIME_LEN = 15; // info about time of solving tasks
 const double   SOLVER_PARSE_SIMP_TIME = 0.03; // solver parse time + simplification time
 const long double HUGE_DOUBLE = 1e+308;
+const int BREAK_MESSAGE = -1;
+const int FINALIZE_MESSAGE = -2;
 
 enum ProblemStates{Solved, SolvedOnPreprocessing, Interrupted};
 

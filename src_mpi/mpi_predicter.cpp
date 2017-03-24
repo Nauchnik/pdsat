@@ -50,7 +50,6 @@ MPI_Predicter :: MPI_Predicter( ) :
 	predict_time_limit_step ( 0 ),
 	template_cnf_size ( 0 ),
 	array_message_size ( 0 ),
-	stop_message (-1),
 	isMultiSetMode ( false ),
 	multiset_file_name ( "multiset" ),
 	core_len_combinations_size ( 0 ),
@@ -241,13 +240,13 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	}
 	else { // if rank != 0
 		if ( !ComputeProcessPredict( ) ) {
-			std::cout << std::endl << "Error in ComputeProcessPredict" << std::endl;
+			std::cerr << std::endl << "Error in ComputeProcessPredict" << std::endl;
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 			return false;
 		}
 	}
 
-	MPI_Abort( MPI_COMM_WORLD, 0 );
+	MPI_Finalize();
 
 	return true;
 }
@@ -331,7 +330,6 @@ void MPI_Predicter :: SendPredictTask( int ProcessListNumber,
 
 bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::stringstream &sstream_control )
 {
-// Predicting of compute cost
 	if ( verbosity > 0 ) {
 		std::cout << "Start ControlProcessPredict()" << std::endl;
 		unsigned count = 0;
@@ -397,33 +395,36 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 					std::cerr << "Error in GetPredict " << std::endl; return false; 
 				}
 				
-				if ( isRestartNeeded ) {
-					std::cout << "Fast exit in ControlProcessPredict cause of IsRestartNeeded" << std::endl;
-					std::cout << "Sending stop-messages to all computing processes" << std::endl;
-					for (unsigned i = 1; i < corecount; i++) {
-						MPI_Isend(&stop_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_request);
+				// send break-messages to computing processes
+				if (!isSolverSystemCalling) {
+					if (isRestartNeeded) {
+						std::cout << "Fast exit in ControlProcessPredict cause of IsRestartNeeded" << std::endl;
+						std::cout << "Sending break-messages to all computing processes" << std::endl;
+						int val_int = BREAK_MESSAGE;
+						for (unsigned i = 1; i < corecount; i++)
+							MPI_Isend(&val_int, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_request);
+						isRestartNeeded = false;
+						return true;
 					}
-					isRestartNeeded = false;
-					return true;
-				}
-				
-				// send stop-messages to computing processes
-				if ( !isSolverSystemCalling ) {
-					if ( ( verbosity > 0 ) && ( cnf_to_stop_arr.size() > 0 ) )
-						std::cout << "cnf_to_stop_count " << cnf_to_stop_arr.size() << std::endl;
-					for ( unsigned i = 0; i < cnf_to_stop_arr.size(); i++ ) {
-						if (cnf_to_stop_arr[i] >= node_list.size()) {
-							std::cerr << "cnf_to_stop_arr[i] >= node_list.size()" << std::endl;
-							return false;
+					else {
+						// sending break-messages to processes from the array
+						if ((verbosity > 0) && (cnf_to_stop_arr.size() > 0))
+							std::cout << "cnf_to_stop_count " << cnf_to_stop_arr.size() << std::endl;
+						for (unsigned i = 0; i < cnf_to_stop_arr.size(); i++) {
+							if (cnf_to_stop_arr[i] >= node_list.size()) {
+								std::cerr << "cnf_to_stop_arr[i] >= node_list.size()" << std::endl;
+								return false;
+							}
+							int val_int = BREAK_MESSAGE;
+							MPI_Isend(&val_int, 1, MPI_INT, node_list.at(cnf_to_stop_arr.at(i)), 0,
+								MPI_COMM_WORLD, &mpi_request);
+							if (verbosity > 0)
+								std::cout << "break-message was send to process # "
+								<< node_list[cnf_to_stop_arr[i]] << std::endl;
 						}
-						MPI_Isend(&stop_message, 1, MPI_INT, node_list.at(cnf_to_stop_arr.at(i)), 0,
-								   MPI_COMM_WORLD, &mpi_request );
-						if ( verbosity > 0 )
-							std::cout << "stop-message was send to node # " 
-								      << node_list[cnf_to_stop_arr[i]] << std::endl;
 					}
 				}
-				
+
 				get_predict_time = MPI_Wtime() - get_predict_time;
 				
 				while ( ceil(get_predict_time) > predict_every_sec ) {
@@ -982,14 +983,19 @@ bool MPI_Predicter :: ComputeProcessPredict()
 				MPI_Recv(&current_task_index, message_size, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 			else if ( message_size > 1 )
 				break; // stop and recv array message
-			else if ( ( message_size > 1 ) && ( current_task_index == -1 ) ) {
-				std::cerr << "( message_size > 1 ) && ( current_task_index == -1 )" << std::endl;
+			else if ( ( message_size > 1 ) && ( current_task_index == BREAK_MESSAGE ) ) {
+				std::cerr << "( message_size > 1 ) && ( current_task_index == BREAK_MESSAGE )" << std::endl;
 				std::cerr << "message_size " << message_size << std::endl;
 				return false;
 			}
-			if ( ( current_task_index == -1 ) && ( verbosity > 1 ) && ( rank == -1 ) )
-				std::cout << "on node " << rank << " stop-message was skipped" << std::endl;
-		} while ( current_task_index == -1 ); // skip stop-messages
+			if ( ( current_task_index == BREAK_MESSAGE ) && ( verbosity > 1 ) && ( rank == 1 ) )
+				std::cout << "on the process " << rank << " break-message was skipped" << std::endl;
+		} while ( current_task_index == BREAK_MESSAGE); // skip stop-messages
+
+		if (current_task_index == FINALIZE_MESSAGE) {
+			std::cout << "computing process " << rank << " stopped because of finalize message";
+			return true;
+		}
 		
 		ProcessListNumber = status.MPI_TAG;
 		
@@ -1152,7 +1158,6 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			std::cout << "rank " << rank << " sended subproblem solution" << std::endl;
 	}
 	
-	MPI_Finalize();
 	return true;
 }
 
@@ -1511,6 +1516,15 @@ bool MPI_Predicter :: DeepPredictMain()
 		if ( verbosity > 0 )
 			std::cout << "PrepareForPredict() done" << std::endl;
 
+		if ((var_choose_order.size() <= 30) && (1 << var_choose_order.size() < cnf_in_set_count)) {
+			std::cout << "1 << var_choose_order.size() < cnf_in_set_count)" << std::endl;
+			std::cout << "finilize all computing process" << std::endl;
+			int val_int = FINALIZE_MESSAGE;
+			for (unsigned i = 1; i < corecount; i++)
+				MPI_Isend(&val_int, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_request);
+			return true;
+		}
+
 		if ( !ControlProcessPredict( ProcessListNumber++, sstream_control ) )
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 		
@@ -1555,10 +1569,11 @@ bool MPI_Predicter :: DeepPredictMain()
 		if ( ( !IsFirstStage ) || ( ts_strategy == 3 ) ) {
 			if ( verbosity > 1 )
 				std::cout << "Extra stop sending " << std::endl;
+			int val_int = BREAK_MESSAGE;
 			for ( int i = 1; i < corecount; i++ ) {
-				MPI_Isend(&stop_message, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_request);
+				MPI_Isend(&val_int, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_request);
 				if ( verbosity > 0 )
-					std::cout << "stop-message was send to node # " << i << std::endl;
+					std::cout << "break-message was send to process # " << i << std::endl;
 			}
 		}
 	} // while

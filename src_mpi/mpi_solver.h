@@ -34,7 +34,7 @@ public:
 	bool isCollectInterruptedInstances;
 	int variables_each_integer;
 	
-	bool MPI_Solve( int argc, char **argv );
+	void MPI_Solve( int argc, char **argv );
 	bool ControlProcessSolve( std::vector<int> extern_var_choose_order, 
 		                      std::vector<std::vector<bool>> &interrupted_problems_var_values,
 							  std::vector<satisfying_assignment> &satisfying_assignments );

@@ -192,13 +192,9 @@ int main( int argc, char** argv )
 		mpi_s.isConseq         = myflags.IsConseq;
 		mpi_s.isSolveAll       = myflags.IsSolveAll;
 
-		if ( !mpi_s.MPI_Solve( argc, argv ) ) {
-			printf( "\n Error in MPI_Solve" );
-			return 1;
-		}
-		mpi_s.~MPI_Solver( );
+		mpi_s.MPI_Solve(argc, argv);
 	}
-
+	
 	return 0;
 }
 
