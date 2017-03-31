@@ -2729,3 +2729,242 @@ bool MPI_Predicter :: GetDeepPredictTasks()
 
 	return true;
 }
+
+bool MPI_Predicter::gen_valid_assumptions(std::vector<int> d_set, std::vector<int> diapason_start,
+	uint64_t diapason_size, uint64_t number_of_assumptions, uint64_t& total_count, std::vector<std::vector<int>> & vector_of_assumptions) {
+	assert(d_set.size() == diapason_start.size());
+	vector_of_assumptions.clear();
+	total_count = 0;
+	bool res = true;
+
+	uint64_t t_cnt = 0;
+	uint64_t valid_cnt = 0;
+
+	model.clear();
+	conflict.clear();
+
+	lbool status = l_Undef;
+
+	start_watch_scans = watch_scans;
+	double pt0 = cpuTime();
+
+	for (int i = 0; i < d_set.size(); i++) {
+		assumptions.push(mkLit(d_set[i] - 1));
+	}
+	std::vector<int> cur_as = diapason_start;
+
+
+	while (status == l_Undef) {
+		cancelUntil(0);
+		t_cnt++;
+		for (int i = 0; i < d_set.size(); i++) {
+			if (cur_as[i] == 0) {
+				assumptions[i] = ~mkLit(d_set[i] - 1);
+			}
+			else {
+				assumptions[i] = mkLit(d_set[i] - 1);
+			}
+		}
+
+		lbool s_status = search_limited();
+		if (s_status == l_Undef) {
+			valid_cnt++;
+			vector_of_assumptions.push_back(cur_as);
+		}
+
+		int c = 1;
+		for (int j = cur_as.size() - 1; ((j >= 0) && (c == 1)); j--) {
+			if (cur_as[j] == 0) {
+				cur_as[j] = 1;
+				c = 0;
+			}
+			else {
+				cur_as[j] = 0;
+			}
+		}
+		if (c == 1) {
+			status = l_False;
+		}
+
+		if ((t_cnt >= diapason_size) || (valid_cnt >= number_of_assumptions)) {
+			status = l_False;
+		}
+	}
+
+	if (vector_of_assumptions.size()<number_of_assumptions)
+		res = false;
+
+	double pt1 = cpuTime();
+
+	cancelUntil(0);
+	total_count = t_cnt;
+
+	return res;
+}
+
+static inline int maj(int a, int b, int c) {
+	int res = 0;
+	if (((a > 0) && (b > 0)) || ((a > 0) && (c > 0)) || ((b > 0) && (c > 0)))
+		res = 1;
+	return res;
+}
+static inline std::vector<int> add_binary(std::vector<int> a, std::vector<int> b) {
+	assert(a.size() == b.size());
+	std::vector<int> c(a.size());
+	int carry = 0;
+
+	for (int i = 0; i <a.size(); i++) {
+		c[i] = carry^a[i] ^ b[i];
+		carry = maj(carry, a[i], b[i]);
+	}
+	return c;
+}
+
+static inline std::vector<int> subtract_binary(std::vector<int> a, std::vector<int> b) {
+	assert(a.size() == b.size());
+	std::vector<int> c(a.size());
+	int carry = 0;
+	//a-b
+	for (int i = 0; i <c.size(); i++) {
+		//borrow first 
+		if (a[i] < b[i]) {
+			//borrow
+			for (int j = i + 1; j <c.size(); j++) {
+				if (a[j] == 0) {
+					a[j] = 1;
+				}
+				else {
+					a[j] = 0;
+					break;
+				}
+			}
+			c[i] = 1;
+		}
+		else {
+			c[i] = a[i] - b[i];
+		}
+	}
+	return c;
+}
+
+bool MPI_Predicter::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> diapason_start,
+	uint64_t diapason_size, uint64_t number_of_assumptions, uint64_t& total_count, std::vector<std::vector<int>> & vector_of_assumptions) {
+	assert(d_set.size() == diapason_start.size());
+
+	assumptions.clear();
+	cancelUntil(0);
+
+	vector_of_assumptions.clear();
+	total_count = 0;
+	bool res = true;
+
+	uint64_t t_cnt = 0;
+	uint64_t valid_cnt = 0;
+
+	model.clear();
+	conflict.clear();
+
+	lbool   status = l_Undef;
+
+	int curr_restarts = 0;
+	start_watch_scans = watch_scans;
+	double pt0 = cpuTime();
+
+
+	for (int i = 0; i < d_set.size(); i++) {
+		assumptions.push(mkLit(d_set[i] - 1));
+	}
+
+
+	std::vector<int> cur_as(diapason_start.size());
+	for (int i = 0; i < diapason_start.size(); i++) {
+		cur_as[diapason_start.size() - 1 - i] = diapason_start[i];
+	}
+
+	std::vector<int> diapason_end = cur_as;
+
+	std::vector<int> add1(diapason_start.size());
+	for (int i = 0; i < add1.size(); i++) {
+		add1[i] = 1 & (diapason_size >> i);
+	}
+
+	diapason_end = add_binary(cur_as, add1);
+	std::vector<int> de_inv(diapason_end.size());
+	for (int i = 0; i < diapason_end.size(); i++) {
+		de_inv[de_inv.size() - 1 - i] = diapason_end[i];
+	}
+	diapason_end = de_inv;
+
+	int cu = 0;
+	while (status == l_Undef) {
+		cancelUntil(cu);
+		t_cnt++;
+		std::vector<int> cur_as_inv(cur_as);
+		for (int i = 0; i < cur_as.size(); i++) {
+			cur_as_inv[cur_as.size() - 1 - i] = cur_as[i];
+		}
+
+		for (int i = 0; i < d_set.size(); i++) {
+			if (cur_as_inv[i] == 0) {
+				assumptions[i] = ~mkLit(d_set[i] - 1);
+			}
+			else {
+				assumptions[i] = mkLit(d_set[i] - 1);
+			}
+		}
+
+
+		lbool s_status = search_limited();
+		if (s_status == l_Undef) {
+			valid_cnt++;
+			vector_of_assumptions.push_back(cur_as_inv);
+		}
+		std::vector<int> old_ca(cur_as);
+
+		int g = cur_as.size() - decisionLevel() - 1;
+		if (g <0) {
+			g = 0;
+		}
+		for (int i = 0; i <g; i++) {
+			cur_as[i] = 0;
+		}
+		int c = 1;
+		for (int j = g; ((j <cur_as.size()) && (c == 1)); j++) {
+			if (cur_as[j] == 0) {
+				cur_as[j] = 1;
+				cu = j;
+				c = 0;
+			}
+			else {
+				cur_as[j] = 0;
+			}
+		}
+		if (c == 1) {
+			status = l_False;
+		}
+
+		if (cur_as_inv>diapason_end) {
+			status = l_False;
+		}
+		if (valid_cnt >= number_of_assumptions) {
+			status = l_False;
+		}
+		std::vector<int> dif = subtract_binary(cur_as, old_ca);
+		uint64_t v = 0;
+		for (int u = 0; u < dif.size(); u++) {
+			if (dif[u] == 1) {
+				v += 1ULL << u;
+			}
+		}
+		t_cnt += v;
+	}
+
+	if (vector_of_assumptions.size()<number_of_assumptions)
+		res = false;
+
+	double pt1 = cpuTime();
+	cancelUntil(0);
+	total_count = t_cnt;
+
+	return res;
+}

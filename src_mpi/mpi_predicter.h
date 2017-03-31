@@ -214,6 +214,11 @@ private:
 	std::vector<long double> med_time_arr;
 	std::vector<long double> predict_time_arr;
 	std::vector<long double> predict_part_time_arr;
+
+	bool gen_valid_assumptions(std::vector<int> d_set, std::vector<int> diapason_start, uint64_t diapason_size,
+		uint64_t number_of_assumptions, uint64_t& total_count, std::vector<std::vector<int>> & vector_of_assumptions);
+	bool gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> diapason_start,uint64_t diapason_size, 
+		uint64_t number_of_assumptions, uint64_t& total_count, std::vector<std::vector<int>> & vector_of_assumptions);
 };
 
 #endif
