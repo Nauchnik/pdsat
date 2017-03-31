@@ -213,8 +213,7 @@ void Solver::resetVarActivity()
 
 // added
 void Solver::resetOrderVarActivity()
-{
-	if ((core_len <= nVars()) && (start_activity > 0)) {
+{ ((core_len <= nVars()) && (start_activity > 0)) {
 		// set default minisat values
 		for (int i = 0; i < activity.size(); ++i)
 			activity[i] = 0.0;
