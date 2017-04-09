@@ -41,6 +41,7 @@ struct Flags
 	double te; // for (ro es te) predict strategy
 	int variables_each_integer;
 	bool isCollectInterruptedInstances;
+	bool isIntervalPredict;
 };
 
 // prototypes
@@ -137,6 +138,7 @@ int main( int argc, char** argv )
 		mpi_p.IsFirstStage = myflags.IsFirstStage;
 		if ( myflags.te > 0 )
 			mpi_p.te = myflags.te;
+		mpi_p.isIntervalPredict = myflags.isIntervalPredict;
 
 		// Predict compute cost
 		if ( !mpi_p.MPI_Predict( argc, argv ) ) {
@@ -241,6 +243,7 @@ void WriteUsage( )
 	"\n   -eval - type of prediction evaluation {time, propagation}";
 	"\n   -no_increm - disable incremental mode while solving";
 	"\n   -te - time limit for backdoor strategy in predict";
+	"\n   -interval_predict - estimation of intervals";
 }
 
 //---------------------------------------------------------
@@ -292,6 +295,7 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.predict_to = 0;
 	myflags.variables_each_integer = 0;
 	myflags.isCollectInterruptedInstances = false;
+	myflags.isIntervalPredict = false;
 	k = 0;
 	
 	// check every input parameters for flag existing
@@ -317,6 +321,8 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.IsSolveAll = true;
 		else if (hasPrefix_String(argv_string, "-collect_interrupted", value))
 			myflags.isCollectInterruptedInstances = true;
+		else if (hasPrefix_String(argv_string, "-interval_predict", value))
+			myflags.isIntervalPredict = true;
 		else if (hasPrefix_String(argv_string, "-integer_variables=", value))
 			myflags.variables_each_integer = atoi(value.c_str());
 		else if ( hasPrefix_String( argv_string, "-max_L2_hamming_distance=", value ) )

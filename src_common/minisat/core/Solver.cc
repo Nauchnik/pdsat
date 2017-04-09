@@ -212,8 +212,8 @@ void Solver::resetVarActivity()
 }
 
 // added
-void Solver::resetOrderVarActivity()
-{ ((core_len <= nVars()) && (start_activity > 0)) {
+void Solver::resetOrderVarActivity() { 
+	if ((core_len <= nVars()) && (start_activity > 0)) {
 		// set default minisat values
 		for (int i = 0; i < activity.size(); ++i)
 			activity[i] = 0.0;
@@ -1196,4 +1196,285 @@ void Solver::garbageCollect()
         printf("c |  Garbage collection:   %12d bytes => %12d bytes             |\n",
                ca.size()*ClauseAllocator::Unit_Size, to.size()*ClauseAllocator::Unit_Size);
     to.moveTo(ca);
+}
+
+bool Solver::gen_valid_assumptions(std::vector<int> d_set, std::vector<int> diapason_start,
+	unsigned long long diapason_size, unsigned long long number_of_assumptions, unsigned long long &total_count,
+	std::vector<std::vector<int>> & vector_of_assumptions) 
+{
+	assert(d_set.size() == diapason_start.size());
+	vector_of_assumptions.clear();
+	total_count = 0;
+	bool res = true;
+
+	uint64_t t_cnt = 0;
+	uint64_t valid_cnt = 0;
+
+	model.clear();
+	conflict.clear();
+
+	lbool status = l_Undef;
+
+	start_watch_scans = watch_scans;
+	double pt0 = cpuTime();
+
+	for (int i = 0; i < d_set.size(); i++) {
+		assumptions.push(mkLit(d_set[i] - 1));
+	}
+	std::vector<int> cur_as = diapason_start;
+
+	while (status == l_Undef) {
+		cancelUntil(0);
+		t_cnt++;
+		for (int i = 0; i < d_set.size(); i++) {
+			if (cur_as[i] == 0) {
+				assumptions[i] = ~mkLit(d_set[i] - 1);
+			}
+			else {
+				assumptions[i] = mkLit(d_set[i] - 1);
+			}
+		}
+
+		lbool s_status = search_limited();
+		if (s_status == l_Undef) {
+			valid_cnt++;
+			vector_of_assumptions.push_back(cur_as);
+		}
+
+		int c = 1;
+		for (int j = cur_as.size() - 1; ((j >= 0) && (c == 1)); j--) {
+			if (cur_as[j] == 0) {
+				cur_as[j] = 1;
+				c = 0;
+			}
+			else {
+				cur_as[j] = 0;
+			}
+		}
+		if (c == 1) {
+			status = l_False;
+		}
+
+		if ((t_cnt >= diapason_size) || (valid_cnt >= number_of_assumptions)) {
+			status = l_False;
+		}
+	}
+
+	if (vector_of_assumptions.size()<number_of_assumptions)
+		res = false;
+
+	double pt1 = cpuTime();
+
+	cancelUntil(0);
+	total_count = t_cnt;
+
+	return res;
+}
+
+bool Solver::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> diapason_start,
+	unsigned long long diapason_size, unsigned long long number_of_assumptions, unsigned long long &total_count, std::vector<std::vector<int>> & vector_of_assumptions)
+{
+	assert(d_set.size() == diapason_start.size());
+
+	assumptions.clear();
+	cancelUntil(0);
+
+	vector_of_assumptions.clear();
+	total_count = 0;
+	bool res = true;
+
+	uint64_t t_cnt = 0;
+	uint64_t valid_cnt = 0;
+
+	model.clear();
+	conflict.clear();
+
+	lbool   status = l_Undef;
+
+	int curr_restarts = 0;
+	start_watch_scans = watch_scans;
+	double pt0 = cpuTime();
+
+
+	for (int i = 0; i < d_set.size(); i++) {
+		assumptions.push(mkLit(d_set[i] - 1));
+	}
+
+
+	std::vector<int> cur_as(diapason_start.size());
+	for (int i = 0; i < diapason_start.size(); i++) {
+		cur_as[diapason_start.size() - 1 - i] = diapason_start[i];
+	}
+
+	std::vector<int> diapason_end = cur_as;
+
+	std::vector<int> add1(diapason_start.size());
+	for (int i = 0; i < add1.size(); i++) {
+		add1[i] = 1 & (diapason_size >> i);
+	}
+
+	diapason_end = add_binary(cur_as, add1);
+	std::vector<int> de_inv(diapason_end.size());
+	for (int i = 0; i < diapason_end.size(); i++) {
+		de_inv[de_inv.size() - 1 - i] = diapason_end[i];
+	}
+	diapason_end = de_inv;
+
+	int cu = 0;
+	while (status == l_Undef) {
+		cancelUntil(cu);
+		t_cnt++;
+		std::vector<int> cur_as_inv(cur_as);
+		for (int i = 0; i < cur_as.size(); i++) {
+			cur_as_inv[cur_as.size() - 1 - i] = cur_as[i];
+		}
+
+		for (int i = 0; i < d_set.size(); i++) {
+			if (cur_as_inv[i] == 0) {
+				assumptions[i] = ~mkLit(d_set[i] - 1);
+			}
+			else {
+				assumptions[i] = mkLit(d_set[i] - 1);
+			}
+		}
+
+		lbool s_status; // TODO = search_limited();
+		if (s_status == l_Undef) {
+			valid_cnt++;
+			vector_of_assumptions.push_back(cur_as_inv);
+		}
+		std::vector<int> old_ca(cur_as);
+
+		int g = cur_as.size() - decisionLevel() - 1;
+		if (g <0) {
+			g = 0;
+		}
+		for (int i = 0; i <g; i++) {
+			cur_as[i] = 0;
+		}
+		int c = 1;
+		for (int j = g; ((j <cur_as.size()) && (c == 1)); j++) {
+			if (cur_as[j] == 0) {
+				cur_as[j] = 1;
+				cu = j;
+				c = 0;
+			}
+			else {
+				cur_as[j] = 0;
+			}
+		}
+		if (c == 1) {
+			status = l_False;
+		}
+
+		if (cur_as_inv>diapason_end) {
+			status = l_False;
+		}
+		if (valid_cnt >= number_of_assumptions) {
+			status = l_False;
+		}
+		std::vector<int> dif = subtract_binary(cur_as, old_ca);
+		uint64_t v = 0;
+		for (int u = 0; u < dif.size(); u++) {
+			if (dif[u] == 1) {
+				v += 1ULL << u;
+			}
+		}
+		t_cnt += v;
+	}
+
+	if (vector_of_assumptions.size()<number_of_assumptions)
+		res = false;
+
+	double pt1 = cpuTime();
+	cancelUntil(0);
+	total_count = t_cnt;
+
+	return res;
+}
+
+lbool Solver::search_limited() 
+{
+	//search limited by Stepan Kochemazov
+	assert(ok);
+	int         backtrack_level;
+	int         conflictC = 0;
+	vec<Lit>    learnt_clause;
+	starts++;
+	//lbool status = l_Undef;
+	// BOINC mode - added to speedup solving Latin square problems and decreasie using RAM
+
+	for (;;) {
+		CRef confl = propagate();
+		if (confl != CRef_Undef) {
+			// CONFLICT
+			conflicts++; conflictC++;
+			if (decisionLevel() == 0) return l_False;
+
+			learnt_clause.clear();
+			analyze(confl, learnt_clause, backtrack_level);
+			cancelUntil(backtrack_level);
+
+			if (learnt_clause.size() == 1) {
+				uncheckedEnqueue(learnt_clause[0]);
+			}
+			else {
+				CRef cr = ca.alloc(learnt_clause, true);
+				learnts.push(cr);
+				attachClause(cr);
+				//claBumpActivity(ca[cr]);
+				//ca[cr].activity() = LBD(ca[cr]);
+				uncheckedEnqueue(learnt_clause[0], cr);
+			}
+
+			varDecayActivity();
+			claDecayActivity();
+
+			if (--learntsize_adjust_cnt == 0) {
+				learntsize_adjust_confl *= learntsize_adjust_inc;
+				learntsize_adjust_cnt = (int)learntsize_adjust_confl;
+				// max_learnts             *= learntsize_inc;
+			}
+
+		}
+		else {
+			// NO CONFLICT		
+			/*
+			// Simplify the set of problem clauses:
+			if (decisionLevel() == 0 && !simplify())
+			return l_False;
+
+			if (learnts.size() - nAssigns() >= max_learnts)
+			// Reduce the set of learnt clauses:
+			reduceDB();
+			*/
+			Lit next = lit_Undef;
+			while (decisionLevel() < assumptions.size()) {
+				// Perform user provided assumption:
+				Lit p = assumptions[decisionLevel()];
+				if (value(p) == l_True) {
+					// Dummy decision level:
+					newDecisionLevel();
+				}
+				else if (value(p) == l_False) {
+					analyzeFinal(~p, conflict);
+					return l_False;
+				}
+				else {
+					next = p;
+					break;
+				}
+			}
+
+			if (next == lit_Undef) {
+				// New variable decision:
+				return l_Undef;
+			}
+
+			// Increase decision level and enqueue 'next'
+			newDecisionLevel();
+
+			uncheckedEnqueue(next);
+		}
+	}
 }

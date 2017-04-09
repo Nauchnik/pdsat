@@ -45,7 +45,7 @@ public:
 
 	void PrintParams();
 	void WriteSolvingTimeInfo( double *solving_times, unsigned solved_tasks_count );
-	void AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
+	void AddSolvingTimeToArray( const ProblemStates cur_problem_state, const double cnf_time_from_node, 
    	                            double *solving_times );
 	bool SolverRun( Minisat::Solver *&S, unsigned long long &process_sat_count, double &cnf_time_from_node, 
 				    int current_task_index, std::vector< std::vector<bool> > &interrupted_problems_var_values_from_process,

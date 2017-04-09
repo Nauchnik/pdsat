@@ -28,6 +28,8 @@ const double   MIN_PERCENT_NO_MULTISAMPLE  = 0.9;
 const unsigned CHECK_ACCURACY_SAMPLE_SIZE_KOEF = 2;
 const unsigned PREDICT_TIMES_LIMITS = 1000;
 const unsigned L_POINTS_RADIUS = 1;
+const unsigned long long INTERVAL_PREDICT_SIZE = 1000000;
+const unsigned long long INTERVAL_ASSUMPTIONS_REQUIRED = 1000;
 
 struct unchecked_area
 {
@@ -81,10 +83,6 @@ public:
 	bool isDecDecomp;
 	bool isSimulatedGranted;
 	bool isFirstPoint;
-	bool isMultiSetMode;
-	
-	std::string multiset_file_name;
-	std::vector<std::vector<int>> multi_var_choose_order;
 	
 	double cur_temperature;
 	double min_temperature;
@@ -118,7 +116,8 @@ public:
 	double prev_area_best_predict_time;
 	double predict_time_limit_step;
 	unsigned points_to_check;
-	
+	bool isIntervalPredict;
+
 	Problem cnf;
 	//unsigned prev_best_decomp_set_power;
 	//unsigned prev_best_sum;
@@ -163,6 +162,8 @@ public:
 		                  unsigned &cur_decomp_set_index );
 	std::vector<int> BitsetToIntVecPredict( boost::dynamic_bitset<> &bs );
 	boost::dynamic_bitset<> IntVecToBitsetPredict( std::vector<int> &variables_vec );
+	bool calculateIntervalEstimation(const int &ProcessListNumber);
+	bool solvePredictSatInstance(const int &ProcessListNumber);
 private:
 	std::vector<decomp_set> decomp_set_arr;
 	std::vector<double> cnf_real_time_arr;
@@ -214,11 +215,6 @@ private:
 	std::vector<long double> med_time_arr;
 	std::vector<long double> predict_time_arr;
 	std::vector<long double> predict_part_time_arr;
-
-	bool gen_valid_assumptions(std::vector<int> d_set, std::vector<int> diapason_start, uint64_t diapason_size,
-		uint64_t number_of_assumptions, uint64_t& total_count, std::vector<std::vector<int>> & vector_of_assumptions);
-	bool gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> diapason_start,uint64_t diapason_size, 
-		uint64_t number_of_assumptions, uint64_t& total_count, std::vector<std::vector<int>> & vector_of_assumptions);
 };
 
 #endif

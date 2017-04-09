@@ -36,9 +36,12 @@ MPI_Solver :: ~MPI_Solver( )
 void MPI_Solver :: MPI_Solve( int argc, char **argv )
 {
 // Solve subproblems with MPI
+#ifdef _MPI
 	MPI_Init( &argc, &argv );
 	MPI_Comm_size( MPI_COMM_WORLD, &corecount );
 	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+
+	gen.seed(static_cast<unsigned>(rank));
 
 	isPredict = false;
 	double iteration_start_time, iteration_final_time;
@@ -46,15 +49,15 @@ void MPI_Solver :: MPI_Solve( int argc, char **argv )
 	std::stringstream sstream;
 	
 	if ( corecount < 2 ) { 
-		std::cerr << "corecount < 2"; 
+		std::cerr << "corecount < 2";
 		MPI_Abort( MPI_COMM_WORLD, 0 );
 	}
 	
-	total_start_time = MPI_Wtime();
+	total_start_time = getCurrentTime();
 
 	if ( rank != 0 ) { // computing processes
 		if ( !ComputeProcessSolve() ) {
-			std::cerr << "in ComputeProcessSolve()" << std::endl; 
+			std::cerr << "in ComputeProcessSolve()" << std::endl;
 			MPI_Abort( MPI_COMM_WORLD, 0 );
 		}
 	}
@@ -65,9 +68,9 @@ void MPI_Solver :: MPI_Solve( int argc, char **argv )
 		solving_info_file_name = sstream.str();
 		sstream.clear(); sstream.str("");
 		std::cout << "solving_info_file_name " << solving_info_file_name << std::endl; 
-			
-		iteration_start_time = MPI_Wtime();
-			
+
+		iteration_start_time = getCurrentTime();
+
 		std::vector<std::vector<bool>> interrupted_problems_var_values;
 		std::vector< satisfying_assignment > satisfying_assignments;
 		ControlProcessSolve( var_choose_order, interrupted_problems_var_values, satisfying_assignments );
@@ -105,10 +108,10 @@ void MPI_Solver :: MPI_Solve( int argc, char **argv )
 			ofile.close();
 		}
 			
-		iteration_final_time = MPI_Wtime() - iteration_start_time;
+		iteration_final_time = getCurrentTime() - iteration_start_time;
 		WriteTimeToFile( iteration_final_time );
 		
-		whole_final_time = MPI_Wtime() - total_start_time;
+		whole_final_time = getCurrentTime() - total_start_time;
 		solving_info_file_name = base_solving_info_file_name + "_total";
 		WriteTimeToFile( whole_final_time );
 		
@@ -120,9 +123,10 @@ void MPI_Solver :: MPI_Solve( int argc, char **argv )
 	}
 	
 	MPI_Finalize();
+#endif
 }
 
-void MPI_Solver :: AddSolvingTimeToArray( ProblemStates cur_problem_state, double cnf_time_from_node, 
+void MPI_Solver :: AddSolvingTimeToArray( const ProblemStates cur_problem_state, const double cnf_time_from_node, 
 										  double *solving_times )
 {
 	// solving_times[0]  == min
@@ -217,10 +221,13 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 		prev_starts    = S->starts;
 		prev_conflicts = S->conflicts;
 
-		cnf_time_from_node = Minisat :: cpuTime();
+		cnf_time_from_node = getCurrentTime();
 		ret = S->solve( dummy_vec[i] );
-		cnf_time_from_node = Minisat :: cpuTime() - cnf_time_from_node;
-		
+		cnf_time_from_node = getCurrentTime() - cnf_time_from_node;
+
+		if (cnf_time_from_node < 0)
+			cnf_time_from_node = MIN_SOLVE_TIME;
+
 		S->watch_scans = 0;
 		if ( no_increm )
 			S->clearDB(); // clear database if incremental solving disabled
@@ -262,7 +269,6 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 			if ( !AnalyzeSATset( cnf_time_from_node ) ) {
 				// is't needed to deallocate memory - MPI_Abort will do it	
 				std::cout << "Error in Analyzer" << std::endl;
-				MPI_Abort( MPI_COMM_WORLD, 0 );
 				return false;
 			}
 			if ( !isSolveAll )
@@ -368,6 +374,7 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 									    std::vector<std::vector<bool>> &interrupted_problems_var_values,
 										std::vector<satisfying_assignment> &satisfying_assignments )
 {
+#ifdef _MPI
 	interrupted_problems_var_values.clear();
 	std::vector<bool> cur_interrupted_problems_var_values;
 	satisfying_assignment cur_satisfying_assignment;
@@ -623,7 +630,7 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 			sat_count += process_sat_count;
 			std::cout << "sat_count " << sat_count << std::endl;
 			if ( finding_first_sat_time == 0 ) // first time only
-				finding_first_sat_time = MPI_Wtime() - total_start_time;
+				finding_first_sat_time = getCurrentTime() - total_start_time;
 		}
 		
 		WriteSolvingTimeInfo( solving_times, solved_tasks_count );
@@ -644,12 +651,14 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 	sort(interrupted_problems_var_values.begin(), interrupted_problems_var_values.end());
 
 	solving_iteration_count++;
-	
+#endif	
+
 	return true;
 }
 
 bool MPI_Solver :: ComputeProcessSolve()
 {
+#ifdef _MPI
 	minisat22_wrapper m22_wrapper;
 	Solver *S;
 	MPI_Status status;
@@ -826,7 +835,8 @@ bool MPI_Solver :: ComputeProcessSolve()
 			delete S;
 		}
 	}
-	
+#endif
+
 	return true;
 }
 
@@ -844,8 +854,8 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 	double cnf_time_from_node;
 	//PBSolver_cut pbs_cut;
 	std::stringstream solve_sstream;
-	double start_sec;
-	double final_sec;
+	double start_sec = 0;
+	double final_sec = 0;
 	Solver *S;
 	std::vector<std::vector<bool>> interrupted_problems_var_values_from_process, sat_assignments_from_process;
 
@@ -891,8 +901,9 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 		std::string out_file_name = sstream.str( );
 		sstream.str( "" );
 		sstream.clear();
-		
-		start_sec = MPI_Wtime( ); // get init time
+
+		start_sec = getCurrentTime(); // get init time
+
 		input_cnf_name = &cnf_files[rank][0]; // set current name of file
 		std::cout << std::endl << "input_cnf_name is " << input_cnf_name;
 		unsigned int zero_mask[FULL_MASK_LEN];
@@ -916,14 +927,13 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 		if ( process_sat_count ) {
 			if ( !AnalyzeSATset( cnf_time_from_node ) ) {
 				// is't needed to deallocate memory - MPI_Abort will do it	
-				std::cout << "\n Error in Analyzer" << std::endl;
-				MPI_Abort( MPI_COMM_WORLD, 0 );
+				std::cerr << "Error in Analyzer" << std::endl;
 				return false;
 			}
 		}
 		
-		final_sec = MPI_Wtime( ) - start_sec;
-		
+		final_sec = getCurrentTime() - start_sec;
+
 		sstream << input_cnf_name << " " << final_sec << " sec" << std::endl;
 		out_file.open( out_file_name.c_str( ), std::ios_base :: out ); // open and clear out file
 		out_file << sstream.rdbuf( );
@@ -933,7 +943,9 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 		out_file.close( ); 		
 	}
 
+#ifdef _MPI
 	MPI_Finalize( ); // MPI end
+#endif
 
 	std::cout << std::endl << "End of ControlConseqProcessSolve";
 	return true;

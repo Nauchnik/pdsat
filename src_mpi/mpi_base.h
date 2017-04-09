@@ -52,6 +52,15 @@ protected:
 	std::map<int, unsigned> core_var_indexes; // indexes of variables in core set
 	boost::random::mt19937 gen;
 	double total_start_time;
+	inline static double getCurrentTime() 
+	{ 
+#ifdef _MPI
+		return MPI_Wtime();
+#else
+		return cpuTime();
+#endif
+	}
+	
 public:
     MPI_Base();
     ~MPI_Base();
@@ -90,6 +99,7 @@ public:
 	unsigned output_len;
 	unsigned nonoutput_len;
 	unsigned cnf_in_set_count;
+	unsigned base_known_vars_count;
 	int current_task_index; 
 	int process_sat_count;
 	double cnf_time_from_node;

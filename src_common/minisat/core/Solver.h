@@ -130,8 +130,15 @@ public:
     void    setPropBudget(int64_t x);
     void    budgetOff();
     void    interrupt();          // Trigger a (potentially asynchronous) interruption of the solver.
-    void    clearInterrupt();     // Clear interrupt indicator flag.
-
+    void    clearInterrupt();     // Clear interrupt indicator flag
+	
+	// By Stepan Kochemazov
+	bool gen_valid_assumptions(std::vector<int> d_set, std::vector<int> diapason_start, unsigned long long diapason_size,
+		unsigned long long number_of_assumptions, unsigned long long &total_count, std::vector<std::vector<int>> & vector_of_assumptions);
+	bool gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> diapason_start, unsigned long long diapason_size,
+		unsigned long long number_of_assumptions, unsigned long long& total_count, std::vector<std::vector<int>> & vector_of_assumptions);
+	lbool search_limited();
+	
     // Memory managment:
     //
     virtual void garbageCollect();
@@ -291,7 +298,7 @@ protected:
     int      level            (Var x) const;
     double   progressEstimate ()      const; // DELETE THIS ?? IT'S NOT VERY USEFUL ...
     bool     withinBudget     ()      const;
-    int     cR             (Clause& c);
+    int     cR                (Clause& c);
 
     // Static helpers:
     //
@@ -306,24 +313,76 @@ protected:
     // Returns a random integer 0 <= x < size. Seed must never be 0.
     static inline int irand(double& seed, int size) {
         return (int)(drand(seed) * size); }
+
+	// pdsat
+
+	static inline int maj(int a, int b, int c)
+	{
+		int res = 0;
+		if (((a > 0) && (b > 0)) || ((a > 0) && (c > 0)) || ((b > 0) && (c > 0)))
+			res = 1;
+		return res;
+	}
+
+	static inline std::vector<int> add_binary(std::vector<int> a, std::vector<int> b)
+	{
+		assert(a.size() == b.size());
+		std::vector<int> c(a.size());
+		int carry = 0;
+
+		for (int i = 0; i <a.size(); i++) {
+			c[i] = carry^a[i] ^ b[i];
+			carry = maj(carry, a[i], b[i]);
+		}
+		return c;
+	}
+
+	static inline std::vector<int> subtract_binary(std::vector<int> a, std::vector<int> b)
+	{
+		assert(a.size() == b.size());
+		std::vector<int> c(a.size());
+		int carry = 0;
+		//a-b
+		for (int i = 0; i <c.size(); i++) {
+			//borrow first 
+			if (a[i] < b[i]) {
+				//borrow
+				for (int j = i + 1; j <c.size(); j++) {
+					if (a[j] == 0) {
+						a[j] = 1;
+					}
+					else {
+						a[j] = 0;
+						break;
+					}
+				}
+				c[i] = 1;
+			}
+			else {
+				c[i] = a[i] - b[i];
+			}
+		}
+		return c;
+	}
 };
-inline int Solver::cR(Clause& c){
-    int x = 0;
-    up++;
-    for(int k=0;k<c.size();k++){
-        int l = level(var(c[k]));
-        if(l == 0)
-            continue;
-        if(t[l] != up){
-            t[l] = up;
-            x++;
-        }
-    }
-    return x > 7 ? 8 : x;
-}
 
 //=================================================================================================
 // Implementation of inline methods:
+
+inline int Solver::cR(Clause& c) {
+	int x = 0;
+	up++;
+	for (int k = 0; k<c.size(); k++) {
+		int l = level(var(c[k]));
+		if (l == 0)
+			continue;
+		if (t[l] != up) {
+			t[l] = up;
+			x++;
+		}
+	}
+	return x > 7 ? 8 : x;
+}
 
 inline CRef Solver::reason(Var x) const { return vardata[x].reason; }
 inline int  Solver::level (Var x) const { return vardata[x].level; }

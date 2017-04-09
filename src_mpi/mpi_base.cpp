@@ -44,12 +44,11 @@ MPI_Base :: MPI_Base( ) :
 	isPlainText (false),
 	evaluation_type("time"),
 	rank (0),
-	total_start_time (0.0)
+	total_start_time (0.0),
+	base_known_vars_count(0)
 {
 	for ( unsigned i = 0; i < FULL_MASK_LEN; i++ )
 		full_mask[i] = part_mask[i] = mask_value[i] = 0;
-
-	gen.seed( static_cast<unsigned>(std::time(0)) );
 }
 
 MPI_Base :: ~MPI_Base( )
@@ -102,108 +101,6 @@ bool MPI_Base :: GetMainMasksFromVarChoose( std::vector<int> &var_choose_order )
 	
 	return true;
 }
-/*
-bool MPI_Base :: MakeAssignsFromFile( int current_task_index, unsigned long long before_binary_length, vec< vec<Lit> > &dummy_vec )
-{
-	if ( verbosity > 0 )
-		std::cout << "MakeAssignsFromFile()" << std::endl;
-
-	if ( current_task_index < 0 ) {
-		std::cerr << "current_task_index < 0" << std::endl;
-		return false;
-	}
-	
-	if ( var_choose_order.size() == 0 ) {
-		std::cerr << "var_choose_order.size() == 0 " << std::endl;
-		return false;
-	}
-	
-	// int rslos_num = 1;
-	unsigned long long basic_batch_size = (unsigned long long)floor( (double)assumptions_count / (double)all_tasks_count );
-	// calculate count of bathes with additional size (+1)
-	unsigned long long batch_addit_size_count = assumptions_count - basic_batch_size*all_tasks_count;
-	unsigned long long cur_batch_size = basic_batch_size;
-	if ( (unsigned long long)current_task_index < batch_addit_size_count )
-		cur_batch_size++;
-
-	unsigned max_int = (1 << 31);
-	if ( cur_batch_size > (unsigned long long)max_int ) {
-		std::cerr << "cur_batch_size > (unsigned long long)max_int" << std::endl;
-		return false;
-	}
-	// skip unuseful strings
-	unsigned long long previous_problems_count = (unsigned long long)current_task_index*basic_batch_size;
-	if ( (unsigned long long)current_task_index < batch_addit_size_count )
-		previous_problems_count += (unsigned long long)current_task_index; // add some 1 to sum
-	else
-		previous_problems_count += batch_addit_size_count;
-	
-	std::string str, str1;
-	//cout << "before_binary_length " << before_binary_length << std::endl;
-	ifile.seekg( before_binary_length, ifile.beg ); // skip some bytes
-	
-	char *cc = new char[3];
-	cc[2] = '\0';
-	ifile.read(cc,2);
-	std::stringstream sstream;
-	unsigned header_value;
-	sstream << cc;
-	sstream >> header_value;
-	delete[] cc;
-	//ifile >> header_value; // read header in text mode
-	if ( header_value != var_choose_order.size() ) {
-		std::cerr << "header_value != var_choose_order.size()" << std::endl;
-		std::cerr << header_value << " != " << var_choose_order.size() << std::endl;
-		std::cerr << "cc " << cc << std::endl;
-		return false;
-	}
-	
-	// reading values from file
-	dummy_vec.resize( (unsigned)cur_batch_size );
-	boost::dynamic_bitset<> d_bitset;
-	d_bitset.resize( var_choose_order.size() );
-	int cur_var_ind;
-	unsigned long long ul;
-	unsigned long long byte_count = before_binary_length + 2 + sizeof(ul)*previous_problems_count;
-	std::stringstream sstream_info;
-	sstream_info << "current_task_index "      << current_task_index << std::endl;
-	sstream_info << "all_tasks_count "         << all_tasks_count << std::endl;
-	sstream_info << "previous_problems_count " << previous_problems_count << std::endl;
-	sstream_info << "basic_batch_size "        << basic_batch_size  << std::endl;
-	sstream_info << "cur_batch_size "          << cur_batch_size << std::endl;
-	sstream_info << "byte_count "              << byte_count << std::endl;
-	if ( verbosity > 0 )
-		std::cout << sstream_info.str() << std::endl;
-	ifile.clear();
-	ifile.seekg( byte_count, ifile.beg ); // skip some bytes
-	if ( ifile.fail() || ifile.eof() ) {
-		std::cerr << "Error. ifile.fail() || ifile.eof()" << std::endl;
-		std::cerr << sstream_info.str();
-		return false;
-	}
-	for ( unsigned i=0; i < (unsigned)cur_batch_size; ++i ) {
-		if ( !(ifile.read( (char*)&ul, sizeof(ul) ) ) ) {
-			std::cerr << "Error. !ifile.read( (char*)&ul, sizeof(ul) )" << std::endl;
-			std::cerr << sstream_info.str();
-			return false;
-		}
-		UllongToBitset( ul, d_bitset );
-		if ( d_bitset.size() != var_choose_order.size() ) {
-			std::cerr << "d_bitset.size() != var_choose_order.size()" << std::endl;
-			std::cerr << d_bitset.size() << " != " << var_choose_order.size() << std::endl;
-			return false;
-		}
-		for ( unsigned j=0; j < var_choose_order.size(); ++j ) {
-			cur_var_ind = var_choose_order[j] - 1;
-			if ( d_bitset[j] == 1 )
-				dummy_vec[i].push( mkLit( cur_var_ind ) );
-			else 
-				dummy_vec[i].push( ~mkLit( cur_var_ind ) );
-		}
-	}
-	ifile.close();
-	return true;
-}*/
 
 bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask, 
 									   unsigned *part_mask, 
