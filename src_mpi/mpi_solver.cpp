@@ -176,7 +176,6 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 	sat_assignment_from_process.clear();
 	process_sat_count = 0;
 	vec< vec<Lit> > dummy_vec;
-	lbool ret;
 	double total_time = 0;
 	unsigned long long current_tasks_solved = 0;
 	ProblemStates cur_problem_state;
@@ -220,7 +219,8 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 		// save current state to check differences
 		prev_starts    = S->starts;
 		prev_conflicts = S->conflicts;
-
+		
+		lbool ret = l_Undef;
 		cnf_time_from_node = getCurrentTime();
 		ret = S->solve( dummy_vec[i] );
 		cnf_time_from_node = getCurrentTime() - cnf_time_from_node;
@@ -268,15 +268,15 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 			// check res file for SAT set existing
 			if ( !AnalyzeSATset( cnf_time_from_node ) ) {
 				// is't needed to deallocate memory - MPI_Abort will do it	
-				std::cout << "Error in Analyzer" << std::endl;
+				std::cerr << "Error in Analyzer" << std::endl;
 				return false;
 			}
 			if ( !isSolveAll )
 				break;
 			sat_assignment_from_process.push_back( b_SAT_set_array );
-			std::cout << "satisfying assignment.size() " << b_SAT_set_array.size() << std::endl;
+			/*std::cout << "satisfying assignment.size() " << b_SAT_set_array.size() << std::endl;
 			for ( unsigned j=0; j < b_SAT_set_array.size() ; j++ )
-				std::cout << b_SAT_set_array[j];
+				std::cout << b_SAT_set_array[j];*/
 		}
 	}
 	

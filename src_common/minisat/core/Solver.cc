@@ -871,7 +871,7 @@ lbool Solver::search(int nof_conflicts)
                     // Model found:
                     return l_True;
 				
-				if ((decisions==1)&&(evaluation_type == "prep")) { // don't solve, just BCP
+				if ((isPredict)&&(decisions==1)&&(evaluation_type == "prep")) { // don't solve, just BCP
 					isNonPrepFastExit = true;
 					return l_Undef;
 				}
