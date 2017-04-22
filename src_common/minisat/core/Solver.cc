@@ -1203,36 +1203,30 @@ bool Solver::gen_valid_assumptions(std::vector<int> d_set, std::vector<int> diap
 	std::vector<std::vector<int>> & vector_of_assumptions) 
 {
 	assert(d_set.size() == diapason_start.size());
+
 	vector_of_assumptions.clear();
-	total_count = 0;
-	bool res = true;
-
-	uint64_t t_cnt = 0;
-	uint64_t valid_cnt = 0;
-
 	model.clear();
 	conflict.clear();
 
-	lbool status = l_Undef;
+	//start_watch_scans = watch_scans;
+	//double pt0 = cpuTime();
 
-	start_watch_scans = watch_scans;
-	double pt0 = cpuTime();
-
-	for (int i = 0; i < d_set.size(); i++) {
+	for (int i = 0; i < d_set.size(); i++)
 		assumptions.push(mkLit(d_set[i] - 1));
-	}
 	std::vector<int> cur_as = diapason_start;
+
+	uint64_t t_cnt = 0;
+	uint64_t valid_cnt = 0;
+	lbool status = l_Undef;
 
 	while (status == l_Undef) {
 		cancelUntil(0);
 		t_cnt++;
 		for (int i = 0; i < d_set.size(); i++) {
-			if (cur_as[i] == 0) {
+			if (cur_as[i] == 0)
 				assumptions[i] = ~mkLit(d_set[i] - 1);
-			}
-			else {
+			else 
 				assumptions[i] = mkLit(d_set[i] - 1);
-			}
 		}
 
 		lbool s_status = search_limited();
@@ -1247,19 +1241,17 @@ bool Solver::gen_valid_assumptions(std::vector<int> d_set, std::vector<int> diap
 				cur_as[j] = 1;
 				c = 0;
 			}
-			else {
+			else
 				cur_as[j] = 0;
-			}
 		}
-		if (c == 1) {
+		if (c == 1)
 			status = l_False;
-		}
 
-		if ((t_cnt >= diapason_size) || (valid_cnt >= number_of_assumptions)) {
+		if ((t_cnt >= diapason_size) || (valid_cnt >= number_of_assumptions))
 			status = l_False;
-		}
 	}
 
+	bool res = true;
 	if (vector_of_assumptions.size()<number_of_assumptions)
 		res = false;
 
@@ -1272,8 +1264,8 @@ bool Solver::gen_valid_assumptions(std::vector<int> d_set, std::vector<int> diap
 }
 
 bool Solver::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> diapason_start,
-	unsigned long long diapason_size, unsigned long long number_of_assumptions, unsigned long long& real_count, 
-	unsigned long long &total_count, std::vector<std::vector<int>> & vector_of_assumptions)
+	unsigned long long diapason_size, unsigned long long number_of_assumptions, unsigned long long &real_count, 
+	unsigned long long &total_count, std::vector<std::vector<int>> &vector_of_assumptions)
 {
 	assert(d_set.size() == diapason_start.size());
 
@@ -1284,65 +1276,53 @@ bool Solver::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> 
 	total_count = 0;
 	bool res = true;
 
-	uint64_t t_cnt = 0;
-	uint64_t valid_cnt = 0;
-
 	model.clear();
 	conflict.clear();
-
-	lbool   status = l_Undef;
 
 	int curr_restarts = 0;
 	start_watch_scans = watch_scans;
 	double pt0 = cpuTime();
 
-
-	for (int i = 0; i < d_set.size(); i++) {
+	for (int i = 0; i < d_set.size(); i++)
 		assumptions.push(mkLit(d_set[i] - 1));
-	}
-
 
 	std::vector<int> cur_as(diapason_start.size());
-	for (int i = 0; i < diapason_start.size(); i++) {
+	for (int i = 0; i < diapason_start.size(); i++)
 		cur_as[diapason_start.size() - 1 - i] = diapason_start[i];
-	}
 
 	std::vector<int> diapason_end = cur_as;
 
 	std::vector<int> add1(diapason_start.size());
-	for (int i = 0; i < add1.size(); i++) {
+	for (int i = 0; i < add1.size(); i++)
 		add1[i] = 1 & (diapason_size >> i);
-	}
 
 	diapason_end = add_binary(cur_as, add1);
 	std::vector<int> de_inv(diapason_end.size());
-	for (int i = 0; i < diapason_end.size(); i++) {
+	for (int i = 0; i < diapason_end.size(); i++)
 		de_inv[de_inv.size() - 1 - i] = diapason_end[i];
-	}
 	diapason_end = de_inv;
 
-	real_count = 0;
+	uint64_t t_cnt = 0, r_cnt = 0;
+	uint64_t valid_cnt = 0;
+	lbool status = l_Undef;
 
 	int cu = 0;
 	while (status == l_Undef) {
 		cancelUntil(cu);
 		t_cnt++;
-		real_count++;
+		r_cnt++;
 		std::vector<int> cur_as_inv(cur_as);
-		for (int i = 0; i < cur_as.size(); i++) {
+		for (int i = 0; i < cur_as.size(); i++)
 			cur_as_inv[cur_as.size() - 1 - i] = cur_as[i];
-		}
 
 		for (int i = 0; i < d_set.size(); i++) {
-			if (cur_as_inv[i] == 0) {
+			if (cur_as_inv[i] == 0)
 				assumptions[i] = ~mkLit(d_set[i] - 1);
-			}
-			else {
+			else
 				assumptions[i] = mkLit(d_set[i] - 1);
-			}
 		}
 
-		lbool s_status; // TODO = search_limited();
+		lbool s_status = search_limited();
 		if (s_status == l_Undef) {
 			valid_cnt++;
 			vector_of_assumptions.push_back(cur_as_inv);
@@ -1350,12 +1330,10 @@ bool Solver::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> 
 		std::vector<int> old_ca(cur_as);
 
 		int g = cur_as.size() - decisionLevel() - 1;
-		if (g <0) {
+		if (g <0)
 			g = 0;
-		}
-		for (int i = 0; i <g; i++) {
+		for (int i = 0; i <g; i++)
 			cur_as[i] = 0;
-		}
 		int c = 1;
 		for (int j = g; ((j <cur_as.size()) && (c == 1)); j++) {
 			if (cur_as[j] == 0) {
@@ -1363,26 +1341,23 @@ bool Solver::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> 
 				cu = j;
 				c = 0;
 			}
-			else {
+			else
 				cur_as[j] = 0;
-			}
 		}
-		if (c == 1) {
+		if (c == 1)
 			status = l_False;
-		}
 
-		if (cur_as_inv>diapason_end) {
+		if (cur_as_inv>diapason_end)
 			status = l_False;
-		}
-		if (valid_cnt >= number_of_assumptions) {
+
+		if (valid_cnt >= number_of_assumptions)
 			status = l_False;
-		}
+
 		std::vector<int> dif = subtract_binary(cur_as, old_ca);
 		uint64_t v = 0;
 		for (int u = 0; u < dif.size(); u++) {
-			if (dif[u] == 1) {
+			if (dif[u] == 1)
 				v += 1ULL << u;
-			}
 		}
 		t_cnt += v;
 	}
@@ -1390,10 +1365,11 @@ bool Solver::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> 
 	if (vector_of_assumptions.size()<number_of_assumptions)
 		res = false;
 
-	double pt1 = cpuTime();
 	cancelUntil(0);
-	total_count = t_cnt;
-
+		
+	total_count = (t_cnt > diapason_size) ? diapason_size : t_cnt;
+	real_count = (r_cnt > diapason_size) ? diapason_size : r_cnt;
+	
 	return res;
 }
 

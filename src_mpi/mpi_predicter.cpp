@@ -465,21 +465,19 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 		current_status = status;
 		
 		if (isIntervalPredict) {
-			unsigned long long interval_prepr_number = 0, interval_nonprepr_number = 0;
-			double sum_prepr_time = 0, sum_nonprepr_time = 0;
-			MPI_Recv(&interval_prepr_number, 1, MPI_UNSIGNED_LONG_LONG, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+			double med_sample_time = 0;
+			MPI_Recv(&med_sample_time, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+			/*MPI_Recv(&interval_prepr_number, 1, MPI_UNSIGNED_LONG_LONG, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 			MPI_Recv(&sum_prepr_time, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 			MPI_Recv(&interval_nonprepr_number, 1, MPI_UNSIGNED_LONG_LONG, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			MPI_Recv(&sum_nonprepr_time, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			/*if (task_index_from_node % 999 == 0) {
+			MPI_Recv(&sum_nonprepr_time, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);*/
+			if (verbosity > 0) {
 				std::cout << "received" << std::endl;
-				std::cout << "interval_prepr_number " << interval_prepr_number << std::endl;
-				std::cout << "sum_prepr_time " << sum_prepr_time << std::endl;
-				std::cout << "interval_nonprepr_number " << interval_nonprepr_number << std::endl;
-				std::cout << "sum_nonprepr_time " << sum_nonprepr_time << std::endl;
+				std::cout << "med_sample_time " << med_sample_time << std::endl;
 				std::cout << std::endl;
-			}*/
-			cnf_time_from_node = (sum_prepr_time + sum_nonprepr_time) / (interval_prepr_number + interval_nonprepr_number);
+			}
+			//cnf_time_from_node = (sum_prepr_time + sum_nonprepr_time) / (interval_prepr_number + interval_nonprepr_number);
+			cnf_time_from_node = med_sample_time;
 			isSolvedOnPreprocessing = 0;
 			process_sat_count = 0;
 		}
@@ -2629,10 +2627,16 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 	std::vector<std::vector<int>> vector_of_assumptions;
 	double sum_prepr_time = getCurrentTime();
 	S->gen_valid_assumptions_rc1(var_choose_order, interval_start_vec, INTERVAL_PREDICT_SIZE, 
-		INTERVAL_ASSUMPTIONS_REQUIRED, total_count, real_count, vector_of_assumptions);
-	sum_prepr_time = getCurrentTime() - sum_prepr_time;
+		INTERVAL_ASSUMPTIONS_REQUIRED, real_count, total_count, vector_of_assumptions);
+	sum_prepr_time = (getCurrentTime() - sum_prepr_time)*(double)total_count / (double)real_count;
 	delete S;
 	
+	if ((rank == 1) && (verbosity > 2)) {
+		std::cout << "sum_prepr_time " << sum_prepr_time << std::endl;
+		std::cout << "total_count " << total_count << std::endl;
+		std::cout << "real_count " << real_count << std::endl;
+	}
+ 	
 	S = new Solver();
 	S->addProblem(cnf);
 	S->pdsat_verbosity = verbosity;
@@ -2667,8 +2671,8 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 
 	unsigned long long interval_nonprepr_number = vector_of_assumptions.size();
 	//unsigned long long interval_prepr_number = total_count - interval_nonprepr_number;
-	unsigned long long interval_prepr_number = real_count;
-
+	unsigned long long interval_prepr_number = total_count - vector_of_assumptions.size();
+	
 	if (rank == 1) {
 		std::cout << "var_choose_order.size() " << var_choose_order.size() << std::endl;
 		std::cout << "interval_prepr_number " << interval_prepr_number << std::endl;
@@ -2678,12 +2682,15 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 		std::cout << std::endl;
 	}
 
+	double med_sample_time = (sum_prepr_time + sum_nonprepr_time) / (interval_prepr_number + interval_nonprepr_number);
+
 #ifdef _MPI
 	MPI_Send(&current_task_index, 1, MPI_INT, 0, ProcessListNumber, MPI_COMM_WORLD);
-	MPI_Send(&interval_prepr_number, 1, MPI_UNSIGNED_LONG_LONG, 0, ProcessListNumber, MPI_COMM_WORLD);
+	MPI_Send(&med_sample_time, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD);
+	/*MPI_Send(&interval_prepr_number, 1, MPI_UNSIGNED_LONG_LONG, 0, ProcessListNumber, MPI_COMM_WORLD);
 	MPI_Send(&sum_prepr_time, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD);
 	MPI_Send(&interval_nonprepr_number, 1, MPI_UNSIGNED_LONG_LONG, 0, ProcessListNumber, MPI_COMM_WORLD);
-	MPI_Send(&sum_nonprepr_time, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD);
+	MPI_Send(&sum_nonprepr_time, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD);*/
 #endif
 	
 	return true;
