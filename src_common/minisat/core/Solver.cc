@@ -1272,7 +1272,8 @@ bool Solver::gen_valid_assumptions(std::vector<int> d_set, std::vector<int> diap
 }
 
 bool Solver::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> diapason_start,
-	unsigned long long diapason_size, unsigned long long number_of_assumptions, unsigned long long &total_count, std::vector<std::vector<int>> & vector_of_assumptions)
+	unsigned long long diapason_size, unsigned long long number_of_assumptions, unsigned long long& real_count, 
+	unsigned long long &total_count, std::vector<std::vector<int>> & vector_of_assumptions)
 {
 	assert(d_set.size() == diapason_start.size());
 
@@ -1320,10 +1321,13 @@ bool Solver::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> 
 	}
 	diapason_end = de_inv;
 
+	real_count = 0;
+
 	int cu = 0;
 	while (status == l_Undef) {
 		cancelUntil(cu);
 		t_cnt++;
+		real_count++;
 		std::vector<int> cur_as_inv(cur_as);
 		for (int i = 0; i < cur_as.size(); i++) {
 			cur_as_inv[cur_as.size() - 1 - i] = cur_as[i];

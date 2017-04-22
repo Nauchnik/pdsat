@@ -1,4 +1,4 @@
-CPP = mpiicpc
+CPP = mpicxx
 INC1 = ../../
 INC2 = ../src_common/
 INC3 = ../src_common/minisat/

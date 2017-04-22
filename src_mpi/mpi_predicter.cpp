@@ -471,14 +471,14 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, std::strings
 			MPI_Recv(&sum_prepr_time, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 			MPI_Recv(&interval_nonprepr_number, 1, MPI_UNSIGNED_LONG_LONG, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 			MPI_Recv(&sum_nonprepr_time, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			if (task_index_from_node % 999 == 0) {
+			/*if (task_index_from_node % 999 == 0) {
 				std::cout << "received" << std::endl;
 				std::cout << "interval_prepr_number " << interval_prepr_number << std::endl;
 				std::cout << "sum_prepr_time " << sum_prepr_time << std::endl;
 				std::cout << "interval_nonprepr_number " << interval_nonprepr_number << std::endl;
 				std::cout << "sum_nonprepr_time " << sum_nonprepr_time << std::endl;
 				std::cout << std::endl;
-			}
+			}*/
 			cnf_time_from_node = (sum_prepr_time + sum_nonprepr_time) / (interval_prepr_number + interval_nonprepr_number);
 			isSolvedOnPreprocessing = 0;
 			process_sat_count = 0;
@@ -2625,11 +2625,11 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 	for (auto &x : interval_start_vec)
 		x = bool_rand(gen) ? 1 : 0;
 	
-	unsigned long long total_count = 0; 
+	unsigned long long total_count = 0, real_count = 0;
 	std::vector<std::vector<int>> vector_of_assumptions;
 	double sum_prepr_time = getCurrentTime();
-	S->gen_valid_assumptions_rc1(var_choose_order, interval_start_vec, 
-		INTERVAL_PREDICT_SIZE, INTERVAL_ASSUMPTIONS_REQUIRED, total_count, vector_of_assumptions);
+	S->gen_valid_assumptions_rc1(var_choose_order, interval_start_vec, INTERVAL_PREDICT_SIZE, 
+		INTERVAL_ASSUMPTIONS_REQUIRED, total_count, real_count, vector_of_assumptions);
 	sum_prepr_time = getCurrentTime() - sum_prepr_time;
 	delete S;
 	
@@ -2666,7 +2666,8 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 	delete S;
 
 	unsigned long long interval_nonprepr_number = vector_of_assumptions.size();
-	unsigned long long interval_prepr_number = total_count - interval_nonprepr_number;
+	//unsigned long long interval_prepr_number = total_count - interval_nonprepr_number;
+	unsigned long long interval_prepr_number = real_count;
 
 	if (rank == 1) {
 		std::cout << "var_choose_order.size() " << var_choose_order.size() << std::endl;
