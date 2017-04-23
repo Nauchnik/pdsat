@@ -1273,15 +1273,12 @@ bool Solver::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> 
 	cancelUntil(0);
 
 	vector_of_assumptions.clear();
-	total_count = 0;
-	bool res = true;
-
+	
 	model.clear();
 	conflict.clear();
 
 	int curr_restarts = 0;
 	start_watch_scans = watch_scans;
-	double pt0 = cpuTime();
 
 	for (int i = 0; i < d_set.size(); i++)
 		assumptions.push(mkLit(d_set[i] - 1));
@@ -1302,11 +1299,10 @@ bool Solver::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> 
 		de_inv[de_inv.size() - 1 - i] = diapason_end[i];
 	diapason_end = de_inv;
 
-	uint64_t t_cnt = 0, r_cnt = 0;
-	uint64_t valid_cnt = 0;
-	lbool status = l_Undef;
-
 	int cu = 0;
+	bool res = true;
+	unsigned long long t_cnt = 0, r_cnt = 0, valid_cnt = 0;
+	lbool status = l_Undef;
 	while (status == l_Undef) {
 		cancelUntil(cu);
 		t_cnt++;
@@ -1321,7 +1317,7 @@ bool Solver::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> 
 			else
 				assumptions[i] = mkLit(d_set[i] - 1);
 		}
-
+		
 		lbool s_status = search_limited();
 		if (s_status == l_Undef) {
 			valid_cnt++;
@@ -1338,21 +1334,25 @@ bool Solver::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> 
 		for (int j = g; ((j <cur_as.size()) && (c == 1)); j++) {
 			if (cur_as[j] == 0) {
 				cur_as[j] = 1;
+				cur_as_inv[cur_as.size() - 1 - j] = 1;
 				cu = j;
 				c = 0;
 			}
-			else
+			else {
 				cur_as[j] = 0;
+				cur_as_inv[cur_as.size() - 1 - j] = 0;
+			}
 		}
-		if (c == 1)
+		if (c == 1) {
 			status = l_False;
+		}
 
-		if (cur_as_inv>diapason_end)
-			status = l_False;
-
+		/*if (cur_as_inv>diapason_end) {
+		status = l_False;
+		}
+		*/
 		if (valid_cnt >= number_of_assumptions)
 			status = l_False;
-
 		std::vector<int> dif = subtract_binary(cur_as, old_ca);
 		uint64_t v = 0;
 		for (int u = 0; u < dif.size(); u++) {
@@ -1360,6 +1360,10 @@ bool Solver::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> 
 				v += 1ULL << u;
 		}
 		t_cnt += v;
+		if (t_cnt > diapason_size) {
+			status = l_False;
+			t_cnt = diapason_size;
+		}
 	}
 
 	if (vector_of_assumptions.size()<number_of_assumptions)
