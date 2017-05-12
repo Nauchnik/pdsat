@@ -936,12 +936,16 @@ void MPI_Base::MakeSatSample(std::vector< std::vector<bool> > &state_vec_vec,
 		// additionally plaintext is nedded 
 		if (isPlainText) {
 			unsigned ciphertext_len = 0;
-			if (input_cnf_name.find("32") != std::string::npos)
+			if (input_cnf_name.find("32bits") != std::string::npos)
 				ciphertext_len = 32;
-			else if (input_cnf_name.find("64") != std::string::npos)
+			else if (input_cnf_name.find("64bits") != std::string::npos)
 				ciphertext_len = 64;
-			else if (input_cnf_name.find("128") != std::string::npos)
+			else if (input_cnf_name.find("128bits") != std::string::npos)
 				ciphertext_len = 128;
+			else if (input_cnf_name.find("256bits") != std::string::npos)
+				ciphertext_len = 256;
+			else if (input_cnf_name.find("512bits") != std::string::npos)
+				ciphertext_len = 512;
 			else {
 				std::cerr << "ciphertext_len == 0" << std::endl;
 				exit(1);
