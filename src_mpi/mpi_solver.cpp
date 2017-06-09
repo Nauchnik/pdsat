@@ -215,7 +215,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 		}
 	
 	uint64_t prev_starts, prev_conflicts;
-	for ( int i=0; i < dummy_vec.size(); ++i ) {
+	for ( int i=0; i < dummy_vec.size(); i++ ) {
 		// save current state to check differences
 		prev_starts    = S->starts;
 		prev_conflicts = S->conflicts;
@@ -250,7 +250,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 					std::cerr << cur_interrupted_values.size() << " < " << dummy_vec[i].size() << std::endl;
 					return false;
 				}
-			for ( int j = 0; j < dummy_vec[i].size(); ++j )
+			for ( int j = 0; j < dummy_vec[i].size(); j++ )
 				cur_interrupted_values[j] = ( dummy_vec[i][j].x % 2 == 0 ) ? true : false; 
 			interrupted_problems_var_values_from_process.push_back( cur_interrupted_values );
 		}
@@ -263,8 +263,8 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 				std::cout << "SAT time " << solving_times[3] << std::endl;
 			}
 			b_SAT_set_array.resize( S->model.size() );
-			for ( int i=0; i < S->model.size(); i++ )
-				b_SAT_set_array[i] = ( S->model[i] == l_True) ? true : false;
+			for ( int j=0; j < S->model.size(); j++ )
+				b_SAT_set_array[j] = ( S->model[j] == l_True) ? true : false;
 			// check res file for SAT set existing
 			if ( !AnalyzeSATset( cnf_time_from_node ) ) {
 				// is't needed to deallocate memory - MPI_Abort will do it	
