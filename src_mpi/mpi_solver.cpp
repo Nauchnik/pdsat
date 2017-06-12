@@ -103,11 +103,11 @@ void MPI_Solver :: MPI_Solve( int argc, char **argv )
 						ones_count++;
 					tmp_str += x.str[y-1];
 				}
-				ofile << x.solving_time << " s " << "ones " << ones_count << " " << tmp_str << std::endl;
+				ofile << x.solving_time << " s ones " << ones_count << " " << tmp_str << std::endl;
 			}
 			ofile.close();
 		}
-			
+		
 		iteration_final_time = getCurrentTime() - iteration_start_time;
 		WriteTimeToFile( iteration_final_time );
 		
@@ -266,7 +266,10 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 			for ( int j=0; j < S->model.size(); j++ )
 				b_SAT_set_array[j] = ( S->model[j] == l_True) ? true : false;
 			// check res file for SAT set existing
-			if ( !AnalyzeSATset( cnf_time_from_node ) ) {
+			std::vector<bool> dummy_bool;
+			for (int j = 0; j < dummy_vec[i].size(); j++)
+				dummy_bool.push_back((dummy_vec[i][j].x % 2 == 0) ? true : false);
+			if ( !AnalyzeSATset( cnf_time_from_node, i, dummy_bool ) ) {
 				// is't needed to deallocate memory - MPI_Abort will do it	
 				std::cerr << "Error in Analyzer" << std::endl;
 				return false;
@@ -925,7 +928,8 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 			return false;
 		}
 		if ( process_sat_count ) {
-			if ( !AnalyzeSATset( cnf_time_from_node ) ) {
+			std::vector<bool> dummy_bool;
+			if ( !AnalyzeSATset( cnf_time_from_node, 0, dummy_bool ) ) {
 				// is't needed to deallocate memory - MPI_Abort will do it	
 				std::cerr << "Error in Analyzer" << std::endl;
 				return false;

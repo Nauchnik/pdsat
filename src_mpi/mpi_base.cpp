@@ -753,9 +753,9 @@ bool MPI_Base :: CheckSATset( std::vector<int> &lit_SAT_set_array )
 }
 
 //---------------------------------------------------------
-bool MPI_Base :: AnalyzeSATset( double cnf_time_from_node )
+bool MPI_Base::AnalyzeSATset(double cnf_time_from_node, int dummy_index, std::vector<bool> &dummy_bool)
 {
-// Reading of SAT set and check it for correction
+	// Reading of SAT set and check it for correction
 	int lits_num = 0,
 		int_answer = 0,
 		sign = 0,
@@ -764,61 +764,69 @@ bool MPI_Base :: AnalyzeSATset( double cnf_time_from_node )
 	unsigned answer_var_count;
 	bool bIsSATSetExist = false;
 	std::string answer_file_name,
-		   output_file_name = "output",
-		   str_answer,
-		   line_buffer;
+		output_file_name = "output",
+		str_answer,
+		line_buffer;
 	std::ofstream answer_file,
-			 output_file;
+		output_file;
 	std::vector<int> lit_SAT_set_array;
 	std::stringstream sstream;
-	
+
 	std::cout << "Start of AnalyzeSATset" << std::endl;
-	lit_SAT_set_array.resize( b_SAT_set_array.size() );
-	for ( unsigned i = 0; i < lit_SAT_set_array.size(); ++i )
-		lit_SAT_set_array[i] = ( ( i + 1 ) << 1 ) + (b_SAT_set_array[i] ? 0 : 1);
+	lit_SAT_set_array.resize(b_SAT_set_array.size());
+	for (unsigned i = 0; i < lit_SAT_set_array.size(); ++i)
+		lit_SAT_set_array[i] = ((i + 1) << 1) + (b_SAT_set_array[i] ? 0 : 1);
 	// if SAT set exist then check it
-	if ( verbosity > 0 )
+	if (verbosity > 0)
 		std::cout << "Before CheckSATset()" << std::endl;
-	if ( !CheckSATset( lit_SAT_set_array ) ) {
+	if (!CheckSATset(lit_SAT_set_array)) {
 		std::cerr << "Error in checking of SAT set" << std::endl;
 		return false;
 	}
-	if ( verbosity > 0 )
+	if (verbosity > 0)
 		std::cout << "CheckSATset() done" << std::endl;
-	
+
 	// open file for writing of answer in zchaff style
 	answer_file_name = "sat_sets_";
 	answer_file_name += input_cnf_name;
-	
+
 	unsigned k = 1;
-	for( unsigned i = 1; i < answer_file_name.length( ); ++i ) {
-		if ( ( answer_file_name[i] == '.' ) || ( answer_file_name[i] == '\\' ) || 
-			 ( answer_file_name[i] == '/' ) || ( answer_file_name[i] == ':' )  || 
-			 ( ( answer_file_name[i] == '_' ) && ( answer_file_name[i - 1] == '_' ) ) )
+	for (unsigned i = 1; i < answer_file_name.length(); ++i) {
+		if ((answer_file_name[i] == '.') || (answer_file_name[i] == '\\') ||
+			(answer_file_name[i] == '/') || (answer_file_name[i] == ':') ||
+			((answer_file_name[i] == '_') && (answer_file_name[i - 1] == '_')))
 			continue;
 		else {
 			answer_file_name[k] = answer_file_name[i];
 			k++;
 		}
 	}
-	answer_file_name.resize( k );
+	answer_file_name.resize(k);
 	sstream << "_" << rank;
 	answer_file_name += sstream.str();
 	sstream.clear(); sstream.str("");
 
-	std::cout << "answer_file_name " << answer_file_name << std::endl; 
-	answer_file.open( answer_file_name.c_str( ), std::ios::app );
-	if ( !( answer_file.is_open( ) ) ) {
-		std :: cerr << "Error in opening of file with answer in zchaff style " 
-			        << answer_file_name << std::endl;
+	std::cout << "answer_file_name " << answer_file_name << std::endl;
+	answer_file.open(answer_file_name.c_str(), std::ios::app);
+	if (!(answer_file.is_open())) {
+		std::cerr << "Error in opening of file with answer in zchaff style "
+			<< answer_file_name << std::endl;
 		return false;
 	}
-	
+
 	answer_var_count = core_len;
-	
+
 #ifdef _MPI
 	sstream << "total_time_from_start " << MPI_Wtime() - total_start_time << " s" << std::endl;
+	sstream << "dummy_index " << dummy_index << std::endl;
+	if (dummy_bool.size() > 0) {
+		sstream << "dummy " << dummy_index << std::endl;
+		for (unsigned j=0; j < dummy_bool.size(); j++)
+			sstream << (dummy_bool[j] ? 1 : 0);
+		sstream << std::endl;
+	}
 	sstream << cnf_time_from_node << " s SAT " << std::endl;
+	sstream << std::endl;
 #endif
 	for ( unsigned i = 0; i < b_SAT_set_array.size(); ++i )
 		sstream << b_SAT_set_array[i];
