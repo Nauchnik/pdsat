@@ -455,15 +455,23 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 
 void TestSolve()
 {
+	vec<Lit> known_dummy;
+	vec< vec<Lit> > dummy_vec;
+	unsigned int full_mask[FULL_MASK_LEN];
+	unsigned int part_mask[FULL_MASK_LEN];
+	unsigned int value[FULL_MASK_LEN];
+	MPI_Solver mpi_s;
+	for (unsigned i = 0; i < FULL_MASK_LEN; i++)
+		full_mask[i] = part_mask[i] = value[i] = 0;
+	full_mask[0] = 929921086;
+	part_mask[0] = 7174206;
+	mpi_s.MakeAssignsFromMasks(full_mask, part_mask, value, known_dummy, dummy_vec, 0);
+
 	Solver S;
 
 	char *input_cnf_name = "../src_common/tresh72_0.cnf";	
 	std::string rslos_table_name = "../src_common/bits_4_1/1010.txt";
 	int process_sat_count = 0;
-	unsigned int full_mask[FULL_MASK_LEN];
-	unsigned int part_mask[FULL_MASK_LEN];
-	unsigned int value[FULL_MASK_LEN];
-	MPI_Solver mpi_s;
 
 	std::vector<std::vector<int>> cartesian_elements;
 	cartesian_elements.resize(1);

@@ -195,7 +195,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 	unsigned long long before_binary_length = 0;
 	
 	vec<Lit> known_dummy;
-	MakeAssignsFromMasks( full_mask, part_mask, mask_value, known_dummy, dummy_vec );
+	MakeAssignsFromMasks( full_mask, part_mask, mask_value, known_dummy, dummy_vec, rank );
 	for (int i = 0; i < known_dummy.size(); i++) // add oneliteral clauses
 		S->addClause(known_dummy[i]);
 	

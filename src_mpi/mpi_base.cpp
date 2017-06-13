@@ -106,7 +106,8 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask,
 									   unsigned *part_mask, 
 									   unsigned *mask_value,
 									   vec<Lit> &known_dummy,
-									   vec< vec<Lit> > &dummy_vec )
+									   vec< vec<Lit> > &dummy_vec,
+									   int rank )
 {
     // convert masks to a vector of Literals
 	unsigned variate_vars_count = 0, known_vars_count = 0;
@@ -163,6 +164,30 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask,
 				}
 			}
 		}
+	}
+
+	for (int i=0; i<dummy_vec.size(); i++) {
+		for (int j=0; j<dummy_vec.size(); j++)
+			if ((dummy_vec[i] == dummy_vec[j]) && (i!=j)) {
+				if (rank == 1) {
+					std::cerr << "dummy_vec[i] == dummy_vec[j]" << std::endl;
+					for (unsigned t = 0; t < FULL_MASK_LEN; t++)
+						if ((full_mask[t]) || (t == 0))
+							std::cerr << full_mask[t] << " ";
+					std::cerr << std::endl;
+					for (unsigned t = 0; t < FULL_MASK_LEN; t++)
+						if ((part_mask[t]) || (t == 0))
+							std::cerr << part_mask[t] << " ";
+					std::cerr << std::endl;
+					for (unsigned t = 0; t < FULL_MASK_LEN; t++)
+						if ((mask_value[t]) || (t == 0))
+							std::cerr << mask_value[t] << " ";
+					std::cerr << std::endl;
+#ifdef _MPI
+					MPI_Abort(MPI_COMM_WORLD, 0);
+#endif
+				}
+			}
 	}
 
 	if (verbosity > 2)
