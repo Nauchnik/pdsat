@@ -143,15 +143,15 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask,
 		std::cout << "known_dummy.size() " << known_dummy.size() << std::endl;
 
 	// determine the number of assumptions and their lengths
-	int problems_count = 1 << variate_vars_count;
+	unsigned problems_count = 1 << variate_vars_count;
 	dummy_vec.resize(problems_count);
-	for (int i = 0; i < dummy_vec.size(); ++i)
+	for (unsigned i = 0; i < dummy_vec.size(); i++)
 		dummy_vec[i].resize(variate_vars_count);
 
 	// get array of literals which must be checked
-	for ( int lint = 0; lint < problems_count; lint++ ) {
-		unsigned range_mask = 1;
-		unsigned range_mask_ind = 1;
+	for ( unsigned lint = 0; lint < problems_count; lint++ ) {
+		unsigned range_mask;
+		unsigned range_mask_ind = 0;
 		unsigned index = 0;
 		for ( unsigned i = 0; i < FULL_MASK_LEN; i++ ) {
 			for ( unsigned j = 0; j < UINT_LEN; j++ ) {
@@ -164,30 +164,6 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask,
 				}
 			}
 		}
-	}
-
-	for (int i=0; i<dummy_vec.size(); i++) {
-		for (int j=0; j<dummy_vec.size(); j++)
-			if ((dummy_vec[i] == dummy_vec[j]) && (i!=j)) {
-				if (rank == 1) {
-					std::cerr << "dummy_vec[i] == dummy_vec[j]" << std::endl;
-					for (unsigned t = 0; t < FULL_MASK_LEN; t++)
-						if ((full_mask[t]) || (t == 0))
-							std::cerr << full_mask[t] << " ";
-					std::cerr << std::endl;
-					for (unsigned t = 0; t < FULL_MASK_LEN; t++)
-						if ((part_mask[t]) || (t == 0))
-							std::cerr << part_mask[t] << " ";
-					std::cerr << std::endl;
-					for (unsigned t = 0; t < FULL_MASK_LEN; t++)
-						if ((mask_value[t]) || (t == 0))
-							std::cerr << mask_value[t] << " ";
-					std::cerr << std::endl;
-#ifdef _MPI
-					MPI_Abort(MPI_COMM_WORLD, 0);
-#endif
-				}
-			}
 	}
 
 	if (verbosity > 2)
@@ -778,7 +754,12 @@ bool MPI_Base :: CheckSATset( std::vector<int> &lit_SAT_set_array )
 }
 
 //---------------------------------------------------------
-bool MPI_Base::AnalyzeSATset(double cnf_time_from_node, int dummy_index, std::vector<bool> &dummy_bool)
+bool MPI_Base::AnalyzeSATset(double cnf_time_from_node, 
+							 int dummy_index, 
+							 std::vector<bool> &dummy_bool,
+							 unsigned *full_mask,
+							 unsigned *part_mask,
+							 unsigned *value)
 {
 	// Reading of SAT set and check it for correction
 	int lits_num = 0,
@@ -848,6 +829,18 @@ bool MPI_Base::AnalyzeSATset(double cnf_time_from_node, int dummy_index, std::ve
 		sstream << "dummy " << dummy_index << std::endl;
 		for (unsigned j=0; j < dummy_bool.size(); j++)
 			sstream << (dummy_bool[j] ? 1 : 0);
+		sstream << std::endl;
+		for (unsigned t = 0; t < FULL_MASK_LEN; t++)
+			if ((full_mask[t]) || (t == 0))
+				sstream << full_mask[t] << " ";
+		sstream << std::endl;
+		for (unsigned t = 0; t < FULL_MASK_LEN; t++)
+			if ((part_mask[t]) || (t == 0))
+				sstream << part_mask[t] << " ";
+		sstream << std::endl;
+		for (unsigned t = 0; t < FULL_MASK_LEN; t++)
+			if ((mask_value[t]) || (t == 0))
+				sstream << mask_value[t] << " ";
 		sstream << std::endl;
 	}
 	sstream << cnf_time_from_node << " s SAT " << std::endl;

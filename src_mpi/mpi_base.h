@@ -137,7 +137,12 @@ public:
 			const int seed_num,
 			Solver *S,
 			std::vector<lbool> predefined_vars = std::vector<lbool>());
-	bool AnalyzeSATset( double cnf_time_from_node, int dummy_index, std::vector<bool> &dummy_bool );
+	bool AnalyzeSATset( double cnf_time_from_node, 
+		                int dummy_index, 
+		                std::vector<bool> &dummy_bool,
+						unsigned *full_mask,
+						unsigned *part_mask,
+						unsigned *value );
 	bool CheckSATset( std::vector<int> &lit_SAT_set_array );
 	bool MakeAssignsFromMasks( unsigned *full_mask, 
 							   unsigned *part_mask, 

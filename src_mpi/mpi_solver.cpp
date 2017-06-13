@@ -269,7 +269,7 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 			std::vector<bool> dummy_bool;
 			for (int j = 0; j < dummy_vec[i].size(); j++)
 				dummy_bool.push_back((dummy_vec[i][j].x % 2 == 0) ? true : false);
-			if ( !AnalyzeSATset( cnf_time_from_node, i, dummy_bool ) ) {
+			if ( !AnalyzeSATset( cnf_time_from_node, i, dummy_bool, full_mask, part_mask, mask_value ) ) {
 				// is't needed to deallocate memory - MPI_Abort will do it	
 				std::cerr << "Error in Analyzer" << std::endl;
 				return false;
@@ -927,14 +927,14 @@ bool MPI_Solver :: MPI_ConseqSolve( int argc, char **argv )
 			std::cout << std::endl << "Error in SolverRun"; 
 			return false;
 		}
-		if ( process_sat_count ) {
+		/*if ( process_sat_count ) {
 			std::vector<bool> dummy_bool;
 			if ( !AnalyzeSATset( cnf_time_from_node, 0, dummy_bool ) ) {
 				// is't needed to deallocate memory - MPI_Abort will do it	
 				std::cerr << "Error in Analyzer" << std::endl;
 				return false;
 			}
-		}
+		}*/
 		
 		final_sec = getCurrentTime() - start_sec;
 
