@@ -97,7 +97,8 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 	if ( (input_cnf_name.find("des") != std::string::npos) || 
 		 (input_cnf_name.find("keeloq") != std::string::npos) ||
 		 (input_cnf_name.find("Kasumi") != std::string::npos) ||
-		 (input_cnf_name.find("Misty") != std::string::npos)
+		 (input_cnf_name.find("Misty") != std::string::npos) ||
+		 (input_cnf_name.find("Gost") != std::string::npos)
 		)
 		isPlainText = true;
 	
