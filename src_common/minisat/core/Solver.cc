@@ -796,7 +796,7 @@ lbool Solver::search(int nof_conflicts)
             	cancelUntil(backtrack_level);
                 uncheckedEnqueue(learnt_clause[0]);
             }else{
-				/*if ( print_learnts ) { // added pdsat
+				/*if ( ( print_learnts ) && (learnt_clause.size() <= 5) ) { // added pdsat
 				for ( unsigned i = 0; i < learnt_clause.size(); i++ ) {
 				if ( sign(learnt_clause[i]) )
 				printf( "-" );
