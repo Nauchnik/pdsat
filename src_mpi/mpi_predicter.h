@@ -52,7 +52,7 @@ struct checked_area
 
 struct decomp_set
 {
-	std::vector<int> var_choose_order; // indexes of variables in decomp set 
+	vector<int> var_choose_order; // indexes of variables in decomp set 
 	//int set_var_count; // count of known vars - may be different for every set
 	int cur_var_changing; // how many vars were changed in current decomp_set relatively to last best point
 	bool IsAddedToL2;
@@ -78,7 +78,7 @@ public:
 	int max_var_deep_predict;
 	int deep_predict;
 	// how many new best points were finded with such count of new vars
-	std::vector<int> global_count_var_changing; // how many points were found with particular Hamming distance
+	vector<int> global_count_var_changing; // how many points were found with particular Hamming distance
 	bool isRestartNeeded;
 	bool isDecDecomp;
 	bool isSimulatedGranted;
@@ -97,10 +97,10 @@ public:
 	int global_stopped_points_count;
 	int global_skipped_points_count;
 	int decomp_sets_in_block;
-	std::string deep_predict_file_name;
+	string deep_predict_file_name;
 	
-	std::list<checked_area> L1; // areas where all points were checked
-	std::list<unchecked_area> L2; // areas where not all points were checked
+	list<checked_area> L1; // areas where all points were checked
+	list<unchecked_area> L2; // areas where not all points were checked
 	unchecked_area current_unchecked_area; // for creating list of points for checking
 	// TODO ? vector of unchecked areas where vector of checked must be changed cause of last point 
 	unsigned ts_strategy;
@@ -124,59 +124,59 @@ public:
 	unsigned blob_var_count; // max count of var in decompositions set for writing blob
 	unsigned cur_point_number;
 	int isSolvedOnPreprocessing;
-	std::string tmp_cnf_process_name;
-	std::string current_cnf_out_name;
+	string tmp_cnf_process_name;
+	string current_cnf_out_name;
 	long long template_cnf_size;
-	std::stringstream template_sstream;
+	stringstream template_sstream;
 	bool IsFirstStage;
 	unsigned max_L2_hamming_distance;
 	
-	std::vector< std::vector<bool> > stream_vec_vec;
-	std::vector< std::vector<bool> > state_vec_vec;
-	std::vector< std::vector<bool> > plain_text_vec_vec;
-	std::vector< std::string > oneliteral_string_vec;
+	vector< vector<bool> > stream_vec_vec;
+	vector< vector<bool> > state_vec_vec;
+	vector< vector<bool> > plain_text_vec_vec;
+	vector< string > oneliteral_string_vec;
 	
 	bool MPI_Predict( int argc, char **argv );
-	bool ControlProcessPredict( int ProcessListNumber, std::stringstream &sstream_control );
+	bool ControlProcessPredict( int ProcessListNumber, stringstream &sstream_control );
 	bool ComputeProcessPredict();
 	bool GetPredict();
 	bool solverProgramCalling( Minisat::vec<Minisat::Lit> &dummy );
 	bool solverSystemCalling( Minisat::vec<Minisat::Lit> &dummy );
-	double getCurPredictTime(unsigned cur_var_num, int cur_cnf_in_set_count, unsigned i, std::vector<int> var_choose_order);
+	double getCurPredictTime(unsigned cur_var_num, int cur_cnf_in_set_count, unsigned i, vector<int> var_choose_order);
 	
 	bool DeepPredictMain();
-	bool DeepPredictFindNewUncheckedArea( std::stringstream &sstream );
+	bool DeepPredictFindNewUncheckedArea( stringstream &sstream );
 	bool GetDeepPredictTasks();
 	void GetInitPoint();
 	void NewRecordPoint( int set_index );
 	bool IsPointInCheckedArea( boost::dynamic_bitset<> &point );
 	bool IsPointInUnCheckedArea( boost::dynamic_bitset<> &point );
-	void AddNewUncheckedArea( boost::dynamic_bitset<> &point, std::stringstream &sstream );
+	void AddNewUncheckedArea( boost::dynamic_bitset<> &point, stringstream &sstream );
 	void AllocatePredictArrays();
 	
 	bool PrepareForPredict();
-	bool GetRandomValuesArray( unsigned shortcnf_count,std:: vector< std::vector<unsigned> > &values_arr );
+	bool GetRandomValuesArray( unsigned shortcnf_count, vector< vector<unsigned> > &values_arr );
 	bool checkSimulatedGranted( double predict_time );
 	bool WritePredictToFile( int all_skip_count, double whole_time_sec );
 	void SendPredictTask( int ProcessListNumber, unsigned process_number_to_send, int &cur_task_index, 
 		                  unsigned &cur_decomp_set_index );
-	std::vector<int> BitsetToIntVecPredict( boost::dynamic_bitset<> &bs );
-	boost::dynamic_bitset<> IntVecToBitsetPredict( std::vector<int> &variables_vec );
+	vector<int> BitsetToIntVecPredict( boost::dynamic_bitset<> &bs );
+	boost::dynamic_bitset<> IntVecToBitsetPredict( vector<int> &variables_vec );
 	bool calculateIntervalEstimation(const int &ProcessListNumber);
 	bool solvePredictSatInstance(const int &ProcessListNumber);
 private:
-	std::vector<decomp_set> decomp_set_arr;
-	std::vector<double> cnf_real_time_arr;
-	std::vector<int> cnf_not_solved_check_count;
-	std::vector<bool> cnf_issat_arr;
-	std::vector<int> cnf_prepr_arr;
-	std::vector<int> cnf_status_arr;
+	vector<decomp_set> decomp_set_arr;
+	vector<double> cnf_real_time_arr;
+	vector<int> cnf_not_solved_check_count;
+	vector<bool> cnf_issat_arr;
+	vector<int> cnf_prepr_arr;
+	vector<int> cnf_status_arr;
 	// array of block sum lengths for mass predict. in fact it is count of vars for paralleling
-	std::vector<int> sum_block_lens_arr;
-	std::vector<int> sorted_index_array;
-	std::vector<bool> vec_IsDecompSetSendedToProcess;
-	std::vector<double> predict_time_limites;
-	std::vector<point_candidate_to_bkv> points_candidate_to_bkv;
+	vector<int> sum_block_lens_arr;
+	vector<int> sorted_index_array;
+	vector<bool> vec_IsDecompSetSendedToProcess;
+	vector<double> predict_time_limites;
+	vector<point_candidate_to_bkv> points_candidate_to_bkv;
 	
 	int best_var_num;
 	long double best_predict_time;
@@ -187,7 +187,7 @@ private:
 	long double best_time_limit;
 		
 	unsigned solved_tasks_count;
-	std::string predict_file_name;
+	string predict_file_name;
 	unsigned record_count;
 	bool IsRecordUpdated;
 
@@ -197,24 +197,24 @@ private:
 	int real_best_var_num;
 	long double real_best_predict_time;
 	long double best_predict_time_last_area; // best time from previous area of points
-	std::vector<int> real_var_choose_order;
+	vector<int> real_var_choose_order;
 	
-	std::vector<unsigned> set_len_arr; // array of indexes of sets
-	std::vector<unsigned> cnf_to_stop_arr;  
-	std::vector<unsigned > set_index_arr;
-	std::vector<int> set_status_arr;
-	std::vector<unsigned> node_list;
-	std::vector<int> stopped_cnf_count_arr;				
-	std::vector<int> skipped_cnf_count_arr; 
-	std::vector<int> solved_cnf_count_arr;	
-	std::vector<double> cnf_start_time_arr;		    
-	std::vector<double> cnf_final_time_arr; 
-	std::vector<double> sum_time_arr;
-	std::vector<unsigned> solved_in_time_arr;
-	std::vector<double> time_limit_arr; // time limit with best predict value for a point in RoEsTe mode
-	std::vector<long double> med_time_arr;
-	std::vector<long double> predict_time_arr;
-	std::vector<long double> predict_part_time_arr;
+	vector<unsigned> set_len_arr; // array of indexes of sets
+	vector<unsigned> cnf_to_stop_arr;  
+	vector<unsigned > set_index_arr;
+	vector<int> set_status_arr;
+	vector<unsigned> node_list;
+	vector<int> stopped_cnf_count_arr;				
+	vector<int> skipped_cnf_count_arr; 
+	vector<int> solved_cnf_count_arr;	
+	vector<double> cnf_start_time_arr;		    
+	vector<double> cnf_final_time_arr; 
+	vector<double> sum_time_arr;
+	vector<unsigned> solved_in_time_arr;
+	vector<double> time_limit_arr; // time limit with best predict value for a point in RoEsTe mode
+	vector<long double> med_time_arr;
+	vector<long double> predict_time_arr;
+	vector<long double> predict_part_time_arr;
 };
 
 #endif

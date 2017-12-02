@@ -26,6 +26,8 @@
 
 #include "minisat22_wrapper.h"
 #include "addit_func.h"
+
+using namespace std;
 using namespace Addit_func;
 
 const int      MAX_CORE_LEN = 20000;
