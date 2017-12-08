@@ -2629,15 +2629,14 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 	unsigned long long total_count = 0, real_count = 0;
 	vector<vector<int>> vector_of_assumptions;
 	double sum_prepr_time = getCurrentTime();
-	S->gen_valid_assumptions_rc1(var_choose_order, interval_start_vec, INTERVAL_PREDICT_SIZE, 
-		INTERVAL_ASSUMPTIONS_REQUIRED, real_count, total_count, vector_of_assumptions);
-	sum_prepr_time = (getCurrentTime() - sum_prepr_time)*(double)total_count / (double)real_count;
+	S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, INTERVAL_PREDICT_SIZE, 
+		INTERVAL_ASSUMPTIONS_REQUIRED, total_count, vector_of_assumptions);
+	sum_prepr_time = getCurrentTime() - sum_prepr_time;
 	delete S;
 	
 	if ((rank == 1) && (verbosity > 2)) {
 		cout << "sum_prepr_time " << sum_prepr_time << endl;
 		cout << "total_count " << total_count << endl;
-		cout << "real_count " << real_count << endl;
 	}
  	
 	S = new Solver();

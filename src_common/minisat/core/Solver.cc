@@ -1377,6 +1377,185 @@ bool Solver::gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> 
 	return res;
 }
 
+std::vector<int> subtract_bin_rc2(std::vector<int> a, std::vector<int> b) {
+	assert(a.size() == b.size());
+	std::vector<int> c(a.size());
+	int carry = 0;
+	//a-b
+	for (int i = c.size() - 1; i >= 0; i--) {
+		//borrow first 
+		if (a[i] < b[i]) {
+			//borrow
+			for (int j = i - 1; j >= 0; j--) {
+				if (a[j] == 0) {
+					a[j] = 1;
+				}
+				else {
+					a[j] = 0;
+					break;
+				}
+			}
+			c[i] = 1;
+		}
+		else {
+			c[i] = a[i] - b[i];
+		}
+	}
+	return c;
+}
+
+bool Solver::gen_valid_assumptions_rc2(std::vector<int> d_set, std::vector<int> diapason_start,
+	unsigned long long diapason_size, unsigned long long number_of_assumptions,
+	unsigned long long &total_count, std::vector<std::vector<int>> & vector_of_assumptions)
+{
+	assert(d_set.size() == diapason_start.size());
+	int d_size = d_set.size();
+
+	assumptions.clear();
+	cancelUntil(0);
+
+	for (int i = 0; i < d_set.size(); i++) {
+		if (diapason_start[i] == 0)
+			assumptions.push(~mkLit(d_set[i] - 1));
+		else
+			assumptions.push(mkLit(d_set[i] - 1));
+	}
+
+	vector_of_assumptions.clear();
+
+	total_count = 0;
+	uint64_t valid_count = 0;
+	bool res = true;
+	//Search limited _start
+	uint64_t traversed = 0;
+	uint64_t r_cnt = 0;
+	assert(ok);
+	int		backtrack_level;
+	bool	ascend = false;
+
+	while (traversed < diapason_size) {
+		while (ascend == false) {
+			CRef confl = propagate();
+			//At the current stage there is no need for smart analysis of conflicts during essentially random sampling.
+			if (confl != CRef_Undef) {
+				// CONFLICT			
+				//on conflict we switch ascend to true and move to the next assumption
+				ascend = true;
+			}
+			else {
+				// NO CONFLICT		
+				//otherwise we descend until decision level == decomposition_set.size()
+				Lit next = lit_Undef;
+				while (decisionLevel() < d_size) {
+					// Perform user provided assumption:
+					Lit p = assumptions[decisionLevel()];
+					if (value(p) == l_True) {
+						// Dummy decision level:
+						newDecisionLevel();
+					}
+					else if (value(p) == l_False) {
+						ascend = true;
+						break;
+					}
+					else {
+						next = p;
+						break;
+					}
+				}
+				if (ascend == true)
+					break;
+
+				if (next == lit_Undef) {
+					assert(decisionLevel() == d_size);
+					if (valid_count < number_of_assumptions) {
+						std::vector<int> r(d_size);
+						for (int i = 0; i < assumptions.size(); i++) {
+							if (assumptions[i].x % 2 == 0) {
+								r[i] = d_set[i];
+							}
+							else {
+								r[i] = -d_set[i];
+							}
+						}
+						vector_of_assumptions.push_back(r);
+					}
+					valid_count++;
+					ascend = true;
+				}
+				else {
+					// Increase decision level and enqueue 'next'											
+					newDecisionLevel();
+					uncheckedEnqueue(next);
+				}
+			}
+		}
+
+		if (ascend == true) {
+			//here comes the magic part!
+			int k = decisionLevel() - 1;
+
+			if (k < d_size - 1)
+				k++;
+
+			while ((k >= 0) && (assumptions[k].x % 2 == 0)) {
+				k--;
+				if (k < 0) break;
+			}
+
+			if (k < 0)
+				traversed = diapason_size + 1;
+			else
+			{
+				cancelUntil(k);
+
+				std::vector<int> pre_assumptions(assumptions.size());
+
+				for (int j = 0; j < d_size; j++) {
+					if (assumptions[j].x % 2 == 0)
+						pre_assumptions[j] = 1;
+				}
+
+				assumptions[k] = ~assumptions[k];
+				uint64_t p = 0;
+
+				for (int j = k + 1; j < d_size; j++) {
+					if (assumptions[j].x % 2 == 0)
+						assumptions[j].x += 1;
+				}
+
+				std::vector<int> post_assumptions(assumptions.size());
+
+				for (int j = 0; j < d_size; j++) {
+					if (assumptions[j].x % 2 == 0)
+						post_assumptions[j] = 1;
+				}
+
+				std::vector<int> sub_rc2 = subtract_bin_rc2(post_assumptions, pre_assumptions);
+
+				for (int i = 0; i < d_size; i++) {
+					if (sub_rc2[i] > 0) {
+						if ((d_size - i - 1) > 63) {
+							traversed = diapason_size + 1;
+							break;
+						}
+						traversed += 1 << (d_size - i - 1);
+					}
+				}
+
+				ascend = false;
+			}
+		}
+
+	}
+
+	total_count = valid_count;
+	//std::cout << "Valid: " << valid_count << "\n";
+	//std::cout << "Really found : " << vector_of_assumptions.size() << "\n";
+
+	return true;
+
+}
+
 lbool Solver::search_limited() 
 {
 	//search limited by Stepan Kochemazov
