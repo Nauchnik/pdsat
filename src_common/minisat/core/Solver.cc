@@ -1406,7 +1406,7 @@ std::vector<int> subtract_bin_rc2(std::vector<int> a, std::vector<int> b) {
 
 bool Solver::gen_valid_assumptions_rc2(std::vector<int> d_set, std::vector<int> diapason_start,
 	unsigned long long diapason_size, unsigned long long number_of_assumptions,
-	unsigned long long &total_count, std::vector<std::vector<int>> & vector_of_assumptions)
+	unsigned long long &interval_nonprepr_number, std::vector<std::vector<int>> & vector_of_assumptions)
 {
 	assert(d_set.size() == diapason_start.size());
 	int d_size = d_set.size();
@@ -1423,7 +1423,7 @@ bool Solver::gen_valid_assumptions_rc2(std::vector<int> d_set, std::vector<int> 
 
 	vector_of_assumptions.clear();
 
-	total_count = 0;
+	interval_nonprepr_number = 0;
 	uint64_t valid_count = 0;
 	bool res = true;
 	//Search limited _start
@@ -1469,14 +1469,8 @@ bool Solver::gen_valid_assumptions_rc2(std::vector<int> d_set, std::vector<int> 
 					assert(decisionLevel() == d_size);
 					if (valid_count < number_of_assumptions) {
 						std::vector<int> r(d_size);
-						for (int i = 0; i < assumptions.size(); i++) {
-							if (assumptions[i].x % 2 == 0) {
-								r[i] = d_set[i];
-							}
-							else {
-								r[i] = -d_set[i];
-							}
-						}
+						for (int i = 0; i < assumptions.size(); i++)
+							r[i] = (assumptions[i].x % 2 == 0) ? 1 : 0;
 						vector_of_assumptions.push_back(r);
 					}
 					valid_count++;
@@ -1545,15 +1539,13 @@ bool Solver::gen_valid_assumptions_rc2(std::vector<int> d_set, std::vector<int> 
 				ascend = false;
 			}
 		}
-
 	}
 
-	total_count = valid_count;
+	interval_nonprepr_number = valid_count;
 	//std::cout << "Valid: " << valid_count << "\n";
 	//std::cout << "Really found : " << vector_of_assumptions.size() << "\n";
 
 	return true;
-
 }
 
 lbool Solver::search_limited() 

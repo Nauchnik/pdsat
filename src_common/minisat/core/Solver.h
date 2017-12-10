@@ -141,8 +141,8 @@ public:
 		unsigned long long &real_count, unsigned long long &total_count, 
 		std::vector<std::vector<int>> &vector_of_assumptions);
 	bool gen_valid_assumptions_rc2(std::vector<int> d_set, std::vector<int> diapason_start,
-		unsigned long long diapason_size, unsigned long long number_of_assumptions, unsigned long long &total_count,
-		std::vector<std::vector<int>> & vector_of_assumptions);
+		unsigned long long diapason_size, unsigned long long number_of_assumptions, 
+		unsigned long long &interval_nonprepr_number, std::vector<std::vector<int>> & vector_of_assumptions);
 	lbool search_limited();
 	
     // Memory managment:
@@ -336,7 +336,7 @@ protected:
 		std::vector<int> c(a.size());
 		int carry = 0;
 
-		for (int i = 0; i <a.size(); i++) {
+		for (unsigned i = 0; i <a.size(); i++) {
 			c[i] = carry^a[i] ^ b[i];
 			carry = maj(carry, a[i], b[i]);
 		}
@@ -349,11 +349,11 @@ protected:
 		std::vector<int> c(a.size());
 		int carry = 0;
 		//a-b
-		for (int i = 0; i <c.size(); i++) {
+		for (unsigned i = 0; i <c.size(); i++) {
 			//borrow first 
 			if (a[i] < b[i]) {
 				//borrow
-				for (int j = i + 1; j <c.size(); j++) {
+				for (unsigned j = i + 1; j <c.size(); j++) {
 					if (a[j] == 0) {
 						a[j] = 1;
 					}

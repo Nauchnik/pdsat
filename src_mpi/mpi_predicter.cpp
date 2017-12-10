@@ -2626,13 +2626,20 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 	for (auto &x : interval_start_vec)
 		x = bool_rand(gen) ? 1 : 0;
 	
-	unsigned long long total_count = 0, real_count = 0;
+	unsigned long long total_count = 0;
+	unsigned long long interval_nonprepr_number = 0;
 	vector<vector<int>> vector_of_assumptions;
 	double sum_prepr_time = getCurrentTime();
 	S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, INTERVAL_PREDICT_SIZE, 
-		INTERVAL_ASSUMPTIONS_REQUIRED, total_count, vector_of_assumptions);
+		INTERVAL_ASSUMPTIONS_REQUIRED, interval_nonprepr_number, vector_of_assumptions);
 	sum_prepr_time = getCurrentTime() - sum_prepr_time;
 	delete S;
+	
+	if (!interval_nonprepr_number)
+		interval_nonprepr_number = vector_of_assumptions.size();
+	if (!total_count)
+		total_count = INTERVAL_PREDICT_SIZE;
+	unsigned long long interval_prepr_number = total_count - interval_nonprepr_number;
 	
 	if ((rank == 1) && (verbosity > 2)) {
 		cout << "sum_prepr_time " << sum_prepr_time << endl;
@@ -2671,20 +2678,18 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 	}
 	delete S;
 
-	unsigned long long interval_nonprepr_number = vector_of_assumptions.size();
-	//unsigned long long interval_prepr_number = total_count - interval_nonprepr_number;
-	unsigned long long interval_prepr_number = total_count - vector_of_assumptions.size();
+	double med_sample_time = (sum_prepr_time + sum_nonprepr_time) / (interval_prepr_number + vector_of_assumptions.size());
 	
-	if (rank == 1) {
+	if ((rank == 1) && (verbosity > 1)) {
 		cout << "var_choose_order.size() " << var_choose_order.size() << endl;
+		cout << "vector_of_assumptions.size() " << vector_of_assumptions.size() << endl;
 		cout << "interval_prepr_number " << interval_prepr_number << endl;
 		cout << "sum_prepr_time " << sum_prepr_time << endl;
 		cout << "interval_nonprepr_number " << interval_nonprepr_number << endl;
 		cout << "sum_nonprepr_time " << sum_nonprepr_time << endl;
+		cout << "med_sample_time " << med_sample_time << endl;
 		cout << endl;
 	}
-
-	double med_sample_time = (sum_prepr_time + sum_nonprepr_time) / (interval_prepr_number + interval_nonprepr_number);
 
 #ifdef _MPI
 	MPI_Send(&current_task_index, 1, MPI_INT, 0, ProcessListNumber, MPI_COMM_WORLD);
