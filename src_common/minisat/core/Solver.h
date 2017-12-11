@@ -136,10 +136,6 @@ public:
 	bool gen_valid_assumptions(std::vector<int> d_set, std::vector<int> diapason_start, unsigned long long diapason_size,
 		unsigned long long number_of_assumptions, unsigned long long &total_count, 
 		std::vector<std::vector<int>> &vector_of_assumptions);
-	bool gen_valid_assumptions_rc1(std::vector<int> d_set, std::vector<int> diapason_start, 
-		unsigned long long diapason_size, unsigned long long number_of_assumptions, 
-		unsigned long long &real_count, unsigned long long &total_count, 
-		std::vector<std::vector<int>> &vector_of_assumptions);
 	bool gen_valid_assumptions_rc2(std::vector<int> d_set, std::vector<int> diapason_start,
 		unsigned long long diapason_size, unsigned long long number_of_assumptions, 
 		unsigned long long &interval_nonprepr_number, std::vector<std::vector<int>> & vector_of_assumptions);

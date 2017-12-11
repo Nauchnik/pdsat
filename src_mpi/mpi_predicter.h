@@ -28,7 +28,7 @@ const double   MIN_PERCENT_NO_MULTISAMPLE  = 0.9;
 const unsigned CHECK_ACCURACY_SAMPLE_SIZE_KOEF = 2;
 const unsigned PREDICT_TIMES_LIMITS = 1000;
 const unsigned L_POINTS_RADIUS = 1;
-const unsigned long long INTERVAL_PREDICT_SIZE = 1000000;
+const unsigned long long INTERVAL_PREDICT_START_SIZE = 1000000;
 const unsigned long long INTERVAL_ASSUMPTIONS_REQUIRED = 1000;
 
 struct unchecked_area
@@ -185,7 +185,8 @@ private:
 	int best_cnf_in_set_count;
 	unsigned best_solved_in_time;
 	long double best_time_limit;
-		
+	unsigned interval_predict_size;
+	
 	unsigned solved_tasks_count;
 	string predict_file_name;
 	unsigned record_count;

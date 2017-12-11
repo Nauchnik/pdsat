@@ -52,7 +52,8 @@ MPI_Predicter :: MPI_Predicter( ) :
 	array_message_size ( 0 ),
 	core_len_combinations_size ( 0 ),
 	points_to_check ( 0 ),
-	isIntervalPredict (false)
+	isIntervalPredict (false),
+	interval_predict_size (INTERVAL_PREDICT_START_SIZE)
 {
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
 		best_predict_time_arr[i] = 0.0;
@@ -774,41 +775,41 @@ bool MPI_Predicter :: solverProgramCalling( vec<Lit> &dummy )
 	return true;
 }
 
-bool MPI_Predicter :: ComputeProcessPredict()
-{	
+bool MPI_Predicter::ComputeProcessPredict()
+{
 #ifdef _MPI
 	MPI_Status status;
 	int message_size;
 	stringstream sstream;
 	// get core_len before getting tasks
-	MPI_Recv( &var_count,			  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &core_len,			  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &output_len,            1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &known_bits,            1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &base_known_vars_count, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-	MPI_Recv( &start_activity,		  1, MPI_DOUBLE,   0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv(&var_count, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	MPI_Recv(&core_len, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	MPI_Recv(&output_len, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	MPI_Recv(&known_bits, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	MPI_Recv(&base_known_vars_count, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	MPI_Recv(&start_activity, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 	nonoutput_len = var_count - output_len;
-	if ( rank == 1 ) {
+	if (rank == 1) {
 		cout << "rank 1, received" << endl;
-		cout << "var_count "        << var_count        << endl;
-		cout << "core_len "         << core_len         << endl;
-		cout << "ouptut_len "       << output_len       << endl;
-		cout << "nonoutput_len "    << nonoutput_len    << endl;
-		cout << "known_bits "       << known_bits       << endl;
-		cout << "start_activity "   << start_activity   << endl;
+		cout << "var_count " << var_count << endl;
+		cout << "core_len " << core_len << endl;
+		cout << "ouptut_len " << output_len << endl;
+		cout << "nonoutput_len " << nonoutput_len << endl;
+		cout << "known_bits " << known_bits << endl;
+		cout << "start_activity " << start_activity << endl;
 	}
-	if ( !core_len ) {
+	if (!core_len) {
 		cerr << "core_len == 0" << endl;
 		return false;
 	}
-	
+
 	int *full_local_decomp_set = new int[nonoutput_len];
-	MPI_Recv( full_local_decomp_set, nonoutput_len, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+	MPI_Recv(full_local_decomp_set, nonoutput_len, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 	full_var_choose_order.resize(nonoutput_len);
-	for ( unsigned i=0; i < nonoutput_len; ++i )
+	for (unsigned i = 0; i < nonoutput_len; ++i)
 		full_var_choose_order[i] = full_local_decomp_set[i];
 	delete[] full_local_decomp_set;
-	
+
 	if (rank == 1) {
 		cout << "received full_var_choose_order" << endl;
 		for (auto &x : full_var_choose_order)
@@ -818,28 +819,28 @@ bool MPI_Predicter :: ComputeProcessPredict()
 	/*all_vars_set.resize( var_count ); // all vars including additional CNF keystream
 	for ( unsigned i=0; i < all_vars_set.size(); i++ )
 		all_vars_set[i] = i+1;*/
-	
-	if ( isSolverSystemCalling ) {
+
+	if (isSolverSystemCalling) {
 		// get data and size of template cnf file
-		if ( rank == 1 ) 
+		if (rank == 1)
 			cout << "Before solver system calling" << endl;
 		fstream file;
 		string str;
-		file.open( input_cnf_name, ios_base::in );
-		if ( !file.is_open() ) {
+		file.open(input_cnf_name, ios_base::in);
+		if (!file.is_open()) {
 			cerr << "!file.is_open()" << endl;
 			return false;
 		}
 		bool isFirstTemplateStringRead = false;
 		clause_count = 0;
-		while ( getline( file, str ) ) {
-			str.erase( remove(str.begin(), str.end(), '\r'), str.end() ); // remove CR symbol
-			if ( isFirstTemplateStringRead )
+		while (getline(file, str)) {
+			str.erase(remove(str.begin(), str.end(), '\r'), str.end()); // remove CR symbol
+			if (isFirstTemplateStringRead)
 				template_sstream << endl;
-			if ( str[0] != 'c' ) {
+			if (str[0] != 'c') {
 				template_sstream << str;
 				isFirstTemplateStringRead = true;
-				if ( str[0] != 'p' )
+				if (str[0] != 'p')
 					clause_count++;
 			}
 		}
@@ -849,7 +850,7 @@ bool MPI_Predicter :: ComputeProcessPredict()
 		template_sstream.seekg(0, template_sstream.end);
 		template_cnf_size = template_sstream.tellg();
 		template_sstream.clear();
-		
+
 		sstream << rank;
 		tmp_cnf_process_name = "./tmp_cnf/tmp_cnf_process_" + sstream.str();
 		current_cnf_out_name = "./tmp_cnf/out_solver_" + sstream.str();
@@ -857,15 +858,15 @@ bool MPI_Predicter :: ComputeProcessPredict()
 
 		// add template file to tmp cnf file of every computing process
 		ofstream tmp_cnf_process;
-		tmp_cnf_process.open( tmp_cnf_process_name, ios_base::out );
+		tmp_cnf_process.open(tmp_cnf_process_name, ios_base::out);
 		tmp_cnf_process << template_sstream.str();
 		tmp_cnf_process.close();
 	}
-	else if ( !isSolverSystemCalling ) { // read file with CNF once
-		if ( rank == 1 ) 
+	else if (!isSolverSystemCalling) { // read file with CNF once
+		if (rank == 1)
 			cout << "Before solver program calling" << endl;
 		minisat22_wrapper m22_wrapper;
-		ifstream in( input_cnf_name );
+		ifstream in(input_cnf_name);
 		m22_wrapper.parse_DIMACS_to_problem(in, cnf);
 		in.close();
 		/*S = new Solver();
@@ -880,49 +881,49 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			S->cur_hack_type = hack_minigolf;*/
 	}
 
-	if ( te > 0 ) { // backdoor mode
-		if ( rank == 1 )
+	if (te > 0) { // backdoor mode
+		if (rank == 1)
 			cout << "backdoor" << endl;
-		MPI_Recv( &first_stream_var_index,  1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		if ( rank == 1 )
+		MPI_Recv(&first_stream_var_index, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+		if (rank == 1)
 			cout << "received first_stream_var_index " << first_stream_var_index << endl;
 		int stream_char_len, state_char_len, plain_text_char_len;
 		unsigned stream_vec_len, state_vec_len, plain_text_vec_len;
-		
-		MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+
+		MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 		MPI_Get_count(&status, MPI_CHAR, &stream_char_len);
-		if ( rank == 1 )
+		if (rank == 1)
 			cout << "stream_char_len " << stream_char_len << endl;
 		char *stream_arr = new char[stream_char_len];
-		MPI_Recv( stream_arr, stream_char_len, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		MPI_Recv(stream_arr, stream_char_len, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 		stream_vec_len = stream_char_len / cnf_in_set_count;
-		stream_vec_vec.resize( cnf_in_set_count );
-		for( unsigned i=0; i < cnf_in_set_count; i++ )
-			for( unsigned j=0; j < stream_vec_len; j++ )
-				stream_vec_vec[i].push_back( stream_arr[i*stream_vec_len + j] ? true : false );
+		stream_vec_vec.resize(cnf_in_set_count);
+		for (unsigned i = 0; i < cnf_in_set_count; i++)
+			for (unsigned j = 0; j < stream_vec_len; j++)
+				stream_vec_vec[i].push_back(stream_arr[i*stream_vec_len + j] ? true : false);
 		delete[] stream_arr;
-		if ( rank == 1 ) {
-			cout << "stream_vec_len " << stream_vec_len << endl; 
+		if (rank == 1) {
+			cout << "stream_vec_len " << stream_vec_len << endl;
 			cout << "stream_vec_vec.size() " << stream_vec_vec.size() << endl;
 		}
 
-		MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-		MPI_Get_count( &status, MPI_CHAR, &state_char_len );
-		if ( rank == 1 )
+		MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+		MPI_Get_count(&status, MPI_CHAR, &state_char_len);
+		if (rank == 1)
 			cout << "state_char_len " << state_char_len << endl;
 		char *state_arr = new char[state_char_len];
-		MPI_Recv( state_arr, state_char_len, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+		MPI_Recv(state_arr, state_char_len, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 		state_vec_len = state_char_len / cnf_in_set_count;
-		state_vec_vec.resize( cnf_in_set_count );
-		for( unsigned i=0; i < cnf_in_set_count; i++ )
-			for( unsigned j=0; j < state_vec_len; j++ )
-				state_vec_vec[i].push_back( state_arr[i*state_vec_len + j] ? true : false );
+		state_vec_vec.resize(cnf_in_set_count);
+		for (unsigned i = 0; i < cnf_in_set_count; i++)
+			for (unsigned j = 0; j < state_vec_len; j++)
+				state_vec_vec[i].push_back(state_arr[i*state_vec_len + j] ? true : false);
 		delete[] state_arr;
-		if ( rank == 1 ) {
+		if (rank == 1) {
 			cout << "state_vec_len " << state_vec_len << endl;
 			cout << "state_vec_vec.size() " << state_vec_vec.size() << endl;
 		}
-		
+
 		if (isPlainText) {
 			MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 			MPI_Get_count(&status, MPI_CHAR, &plain_text_char_len);
@@ -942,9 +943,9 @@ bool MPI_Predicter :: ComputeProcessPredict()
 			}
 		}
 	}
-	
+
 	//var_choose_order = full_var_choose_order;
-	
+
 	current_task_index = 0;
 	cnf_time_from_node = 0.0;
 	int ProcessListNumber;
@@ -957,62 +958,62 @@ bool MPI_Predicter :: ComputeProcessPredict()
 
 	for (;;) {
 		do {// get index of current task missing stop-messages
-			MPI_Probe( 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
-			MPI_Get_count( &status, MPI_INT, &message_size );
-			if ( message_size == 0 ) {
+			MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+			MPI_Get_count(&status, MPI_INT, &message_size);
+			if (message_size == 0) {
 				cerr << "After MPI_Get_count( &status, MPI_INT, &message_size ) message_size " << message_size << endl;
 				return false;
 			}
-			if ( ( verbosity > 0 ) && ( rank == 1 ) )
+			if ((verbosity > 0) && (rank == 1))
 				cout << "recv message_size " << message_size << endl;
-			if ( message_size == 1 )
+			if (message_size == 1)
 				MPI_Recv(&current_task_index, message_size, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			else if ( message_size > 1 )
+			else if (message_size > 1)
 				break; // stop and recv array message
-			else if ( ( message_size > 1 ) && ( current_task_index == BREAK_MESSAGE ) ) {
+			else if ((message_size > 1) && (current_task_index == BREAK_MESSAGE)) {
 				cerr << "( message_size > 1 ) && ( current_task_index == BREAK_MESSAGE )" << endl;
 				cerr << "message_size " << message_size << endl;
 				return false;
 			}
-			if ( ( current_task_index == BREAK_MESSAGE ) && ( verbosity > 1 ) && ( rank == 1 ) )
+			if ((current_task_index == BREAK_MESSAGE) && (verbosity > 1) && (rank == 1))
 				cout << "on the process " << rank << " break-message was skipped" << endl;
-		} while ( current_task_index == BREAK_MESSAGE); // skip stop-messages
+		} while (current_task_index == BREAK_MESSAGE); // skip stop-messages
 
 		if (current_task_index == FINALIZE_MESSAGE) {
 			cout << "computing process " << rank << " stopped because of finalize message";
 			return true;
 		}
-		
+
 		ProcessListNumber = status.MPI_TAG;
-		
-		if ( (!known_bits) && ( message_size-1 > (int)full_var_choose_order.size() ) ) {
+
+		if ((!known_bits) && (message_size - 1 > (int)full_var_choose_order.size())) {
 			cerr << "message_size > full_var_choose_order.size()" << endl;
 			cerr << message_size << " > " << full_var_choose_order.size() << endl;
 			return false;
 		}
-		
-		if ( ( verbosity > 0 ) && ( rank == 1 ) ) {
+
+		if ((verbosity > 0) && (rank == 1)) {
 			cout << "small_message_count " << small_message_count << endl;
 			cout << "large_message_count " << large_message_count << endl;
 		}
-		
-		if ( message_size == 1 )
+
+		if (message_size == 1)
 			small_message_count++;
-		else if ( message_size > 1 ) {
+		else if (message_size > 1) {
 			large_message_count++;
 			array_message = new int[message_size];
-			MPI_Recv( array_message, message_size, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status );
+			MPI_Recv(array_message, message_size, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 			cur_point_number++;
-			if ( ( verbosity > 2 ) && ( rank == 1 ) ) {
+			if ((verbosity > 2) && (rank == 1)) {
 				cout << "Received array_message" << endl;
-				for ( int i = 0; i < message_size; ++i )
+				for (int i = 0; i < message_size; ++i)
 					cout << array_message[i] << " ";
 				cout << endl;
 			}
 			current_task_index = array_message[0];
-			var_choose_order.resize( message_size - 1 );
+			var_choose_order.resize(message_size - 1);
 			for (int i = 1; i < message_size; ++i)
-				var_choose_order[i-1] = array_message[i];
+				var_choose_order[i - 1] = array_message[i];
 			delete[] array_message;
 			for (auto &x : var_choose_order) {
 				if ((x <= 0) || ((unsigned)x > var_count)) {
@@ -1025,18 +1026,30 @@ bool MPI_Predicter :: ComputeProcessPredict()
 					return false;
 				}
 			}
-			if ( ( verbosity > 2 ) && ( rank == 1 )) {
+			if ((verbosity > 2) && (rank == 1)) {
 				cout << "Received var_choose_order" << endl;
-				for ( unsigned i = 0; i < var_choose_order.size(); ++i )
+				for (unsigned i = 0; i < var_choose_order.size(); ++i)
 					cout << var_choose_order[i] << " ";
 				cout << endl;
 			}
 		}
-		
+
 		if ((verbosity > 0) && (rank == 1))
 			cout << "current_task_index " << current_task_index << endl;
+
+		double total_interval_subproblems = (double)cnf_in_set_count * (double)interval_predict_size;
+		double subproblems_number = pow(2, (double)var_choose_order.size());
+
+		while (total_interval_subproblems >= (subproblems_number / 10)) {
+			interval_predict_size /= 2;
+			if (verbosity > 1) {
+				cout << "interval_predict_size changed to " << interval_predict_size << endl;
+				cout << "total_interval_subproblems " << total_interval_subproblems << endl;
+				cout << "subproblems_number " << subproblems_number << endl;
+			}
+		}
 		
-		if (isIntervalPredict)
+		if ((isIntervalPredict) && (interval_predict_size > INTERVAL_ASSUMPTIONS_REQUIRED))
 			calculateIntervalEstimation(ProcessListNumber);
 		else
 			solvePredictSatInstance(ProcessListNumber);
@@ -2630,18 +2643,28 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 	unsigned long long interval_nonprepr_number = 0;
 	vector<vector<int>> vector_of_assumptions;
 	double sum_prepr_time = getCurrentTime();
-	S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, INTERVAL_PREDICT_SIZE, 
-		INTERVAL_ASSUMPTIONS_REQUIRED, interval_nonprepr_number, vector_of_assumptions);
+	if ( interval_predict_size == INTERVAL_PREDICT_START_SIZE )
+		S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, interval_predict_size,
+			INTERVAL_ASSUMPTIONS_REQUIRED, interval_nonprepr_number, vector_of_assumptions);
+	else 
+		S->gen_valid_assumptions(var_choose_order, interval_start_vec, interval_predict_size,
+			INTERVAL_ASSUMPTIONS_REQUIRED, total_count, vector_of_assumptions);
 	sum_prepr_time = getCurrentTime() - sum_prepr_time;
 	delete S;
 	
+	// in rc2 interval_nonprepr_number can be greater than vector_of_assumptions.size()
 	if (!interval_nonprepr_number)
 		interval_nonprepr_number = vector_of_assumptions.size();
 	if (!total_count)
-		total_count = INTERVAL_PREDICT_SIZE;
+		total_count = interval_predict_size;
 	unsigned long long interval_prepr_number = total_count - interval_nonprepr_number;
 	
 	if ((rank == 1) && (verbosity > 2)) {
+		cout << "var_choose_order.size() " << var_choose_order.size() << endl;
+		cout << "interval_predict_size " << endl;
+		cout << "interval_nonprepr_number " << interval_nonprepr_number << endl;
+		cout << "interval_prepr_number " << interval_prepr_number << endl;
+		cout << "vector_of_assumptions.size() " << vector_of_assumptions.size() << endl;
 		cout << "sum_prepr_time " << sum_prepr_time << endl;
 		cout << "total_count " << total_count << endl;
 	}
