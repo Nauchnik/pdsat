@@ -117,7 +117,8 @@ public:
 	double predict_time_limit_step;
 	unsigned points_to_check;
 	bool isIntervalPredict;
-
+	int interval_type;
+		
 	Problem cnf;
 	//unsigned prev_best_decomp_set_power;
 	//unsigned prev_best_sum;

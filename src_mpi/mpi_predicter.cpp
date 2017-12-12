@@ -53,7 +53,8 @@ MPI_Predicter :: MPI_Predicter( ) :
 	core_len_combinations_size ( 0 ),
 	points_to_check ( 0 ),
 	isIntervalPredict (false),
-	interval_predict_size (INTERVAL_PREDICT_START_SIZE)
+	interval_predict_size (INTERVAL_PREDICT_START_SIZE),
+	interval_type (2)
 {
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
 		best_predict_time_arr[i] = 0.0;
@@ -1040,16 +1041,26 @@ bool MPI_Predicter::ComputeProcessPredict()
 		double total_interval_subproblems = (double)cnf_in_set_count * (double)interval_predict_size;
 		double subproblems_number = pow(2, (double)var_choose_order.size());
 
-		while (total_interval_subproblems >= (subproblems_number / 10)) {
-			interval_predict_size /= 2;
-			if (verbosity > 1) {
+		if (total_interval_subproblems >= subproblems_number) {
+			interval_predict_size /= 10;
+			if (rank == 1) {
 				cout << "interval_predict_size changed to " << interval_predict_size << endl;
-				cout << "total_interval_subproblems " << total_interval_subproblems << endl;
-				cout << "subproblems_number " << subproblems_number << endl;
+				cout << "var_choose_order.size() " << var_choose_order.size() << endl;
 			}
 		}
 		
-		if ((isIntervalPredict) && (interval_predict_size > INTERVAL_ASSUMPTIONS_REQUIRED))
+		if (interval_predict_size < 10000) {
+			isIntervalPredict = false;
+			if (rank == 1) {
+				cout << "isIntervalPredict cnahged to " << isIntervalPredict << endl;
+				cout << "interval_predict_size " << interval_predict_size << endl;
+				cout << "total_interval_subproblems " << total_interval_subproblems << endl;
+				cout << "subproblems_number " << subproblems_number << endl;
+				cout << "var_choose_order.size() " << var_choose_order.size() << endl;
+			}
+		}
+		
+		if (isIntervalPredict)
 			calculateIntervalEstimation(ProcessListNumber);
 		else
 			solvePredictSatInstance(ProcessListNumber);
@@ -2643,14 +2654,22 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 	unsigned long long interval_nonprepr_number = 0;
 	vector<vector<int>> vector_of_assumptions;
 	double sum_prepr_time = getCurrentTime();
-	if ( interval_predict_size == INTERVAL_PREDICT_START_SIZE )
-		S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, interval_predict_size,
-			INTERVAL_ASSUMPTIONS_REQUIRED, interval_nonprepr_number, vector_of_assumptions);
-	else 
+	if (interval_type == 0)
 		S->gen_valid_assumptions(var_choose_order, interval_start_vec, interval_predict_size,
 			INTERVAL_ASSUMPTIONS_REQUIRED, total_count, vector_of_assumptions);
+	else if (interval_type == 2)
+		S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, interval_predict_size,
+			INTERVAL_ASSUMPTIONS_REQUIRED, interval_nonprepr_number, vector_of_assumptions);
 	sum_prepr_time = getCurrentTime() - sum_prepr_time;
 	delete S;
+
+	if (vector_of_assumptions.size() == INTERVAL_ASSUMPTIONS_REQUIRED) {
+		interval_type = 0;
+		if (rank == 1) {
+			cout << "interval_type changed to " << interval_type << endl;
+			cout << "var_choose_order.size() " << var_choose_order.size() << endl;
+		}
+	}
 	
 	// in rc2 interval_nonprepr_number can be greater than vector_of_assumptions.size()
 	if (!interval_nonprepr_number)
