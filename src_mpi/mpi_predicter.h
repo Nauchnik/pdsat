@@ -29,7 +29,7 @@ const unsigned CHECK_ACCURACY_SAMPLE_SIZE_KOEF = 2;
 const unsigned PREDICT_TIMES_LIMITS = 1000;
 const unsigned L_POINTS_RADIUS = 1;
 const unsigned long long INTERVAL_PREDICT_START_SIZE = 1000000;
-const unsigned long long INTERVAL_ASSUMPTIONS_REQUIRED = 1000;
+const unsigned long long INTERVAL_ASSUMPTIONS_START_REQUIRED = 1000;
 
 struct unchecked_area
 {
@@ -117,7 +117,6 @@ public:
 	double predict_time_limit_step;
 	unsigned points_to_check;
 	bool isIntervalPredict;
-	int interval_type;
 		
 	Problem cnf;
 	//unsigned prev_best_decomp_set_power;
@@ -187,6 +186,7 @@ private:
 	unsigned best_solved_in_time;
 	long double best_time_limit;
 	unsigned interval_predict_size;
+	unsigned interval_assumptions_required;
 	
 	unsigned solved_tasks_count;
 	string predict_file_name;
