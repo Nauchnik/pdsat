@@ -468,29 +468,11 @@ bool MPI_Predicter :: ControlProcessPredict( int ProcessListNumber, stringstream
 		// if 1st message from core # i then get 2nd message from that core
 		current_status = status;
 		
-		if (isIntervalPredict) {
-			double med_sample_time = 0;
-			MPI_Recv(&med_sample_time, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			/*MPI_Recv(&interval_prepr_number, 1, MPI_UNSIGNED_LONG_LONG, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			MPI_Recv(&sum_prepr_time, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			MPI_Recv(&interval_nonprepr_number, 1, MPI_UNSIGNED_LONG_LONG, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			MPI_Recv(&sum_nonprepr_time, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);*/
-			if (verbosity > 0) {
-				cout << "received" << endl;
-				cout << "med_sample_time " << med_sample_time << endl;
-				cout << endl;
-			}
-			//cnf_time_from_node = (sum_prepr_time + sum_nonprepr_time) / (interval_prepr_number + interval_nonprepr_number);
-			cnf_time_from_node = med_sample_time;
-			isSolvedOnPreprocessing = 0;
-			process_sat_count = 0;
-		}
-		else {
-			MPI_Recv(&process_sat_count, 1, MPI_INT, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			MPI_Recv(&cnf_time_from_node, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			if (!isSolverSystemCalling)
-				MPI_Recv(&isSolvedOnPreprocessing, 1, MPI_INT, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-		}
+		MPI_Recv(&process_sat_count, 1, MPI_INT, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+		MPI_Recv(&cnf_time_from_node, 1, MPI_DOUBLE, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+		if (!isSolverSystemCalling)
+			MPI_Recv(&isSolvedOnPreprocessing, 1, MPI_INT, current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+		
 		if ( verbosity > 1 )
 			cout << "Received result with current_task_index " << task_index_from_node << endl;
 		
@@ -1038,26 +1020,28 @@ bool MPI_Predicter::ComputeProcessPredict()
 		if ((verbosity > 0) && (rank == 1))
 			cout << "current_task_index " << current_task_index << endl;
 
-		double total_interval_subproblems = (double)cnf_in_set_count * (double)interval_predict_size;
-		double subproblems_number = pow(2, (double)var_choose_order.size());
-		
-		if (total_interval_subproblems >= subproblems_number*10) {
-			interval_predict_size /= 10;
-			interval_assumptions_required /= 10;
-			if (rank == 1) {
-				cout << "interval_predict_size changed to " << interval_predict_size << endl;
-				cout << "var_choose_order.size() " << var_choose_order.size() << endl;
+		if (isIntervalPredict) {
+			double total_interval_subproblems = (double)cnf_in_set_count * (double)interval_predict_size;
+			double subproblems_number = pow(2, (double)var_choose_order.size());
+
+			if (total_interval_subproblems >= subproblems_number * 10) {
+				interval_predict_size /= 10;
+				interval_assumptions_required /= 10;
+				if (rank == 1) {
+					cout << "interval_predict_size changed to " << interval_predict_size << endl;
+					cout << "var_choose_order.size() " << var_choose_order.size() << endl;
+				}
 			}
-		}
-		
-		if ( (interval_predict_size < 10000) || (interval_assumptions_required < 10) ) {
-			isIntervalPredict = false;
-			if (rank == 1) {
-				cout << "isIntervalPredict cnahged to " << isIntervalPredict << endl;
-				cout << "interval_predict_size " << interval_predict_size << endl;
-				cout << "total_interval_subproblems " << total_interval_subproblems << endl;
-				cout << "subproblems_number " << subproblems_number << endl;
-				cout << "var_choose_order.size() " << var_choose_order.size() << endl;
+			
+			if ((interval_predict_size < 1000) || (interval_assumptions_required < 10)) {
+				isIntervalPredict = false;
+				if (rank == 1) {
+					cout << "isIntervalPredict changed to " << isIntervalPredict << endl;
+					cout << "interval_predict_size " << interval_predict_size << endl;
+					cout << "total_interval_subproblems " << total_interval_subproblems << endl;
+					cout << "subproblems_number " << subproblems_number << endl;
+					cout << "var_choose_order.size() " << var_choose_order.size() << endl;
+				}
 			}
 		}
 		
@@ -2656,12 +2640,12 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 	vector<vector<int>> vector_of_assumptions;
 	double sum_prepr_time = getCurrentTime();
 	
-	if (var_choose_order.size() < 30)
-		S->gen_valid_assumptions(var_choose_order, interval_start_vec, interval_predict_size,
-			interval_assumptions_required, total_count, vector_of_assumptions);
-	else
+	if (var_choose_order.size() >= 30)
 		S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, interval_predict_size,
 			interval_assumptions_required, interval_nonprepr_number, vector_of_assumptions);
+	else
+		S->gen_valid_assumptions(var_choose_order, interval_start_vec, interval_predict_size,
+			interval_assumptions_required, total_count, vector_of_assumptions);
 	sum_prepr_time = getCurrentTime() - sum_prepr_time;
 	delete S;
 	
@@ -2729,11 +2713,12 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 
 #ifdef _MPI
 	MPI_Send(&current_task_index, 1, MPI_INT, 0, ProcessListNumber, MPI_COMM_WORLD);
+	int process_sat_count = 0;
+	MPI_Send(&process_sat_count, 1, MPI_INT, 0, ProcessListNumber, MPI_COMM_WORLD);
 	MPI_Send(&med_sample_time, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD);
-	/*MPI_Send(&interval_prepr_number, 1, MPI_UNSIGNED_LONG_LONG, 0, ProcessListNumber, MPI_COMM_WORLD);
-	MPI_Send(&sum_prepr_time, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD);
-	MPI_Send(&interval_nonprepr_number, 1, MPI_UNSIGNED_LONG_LONG, 0, ProcessListNumber, MPI_COMM_WORLD);
-	MPI_Send(&sum_nonprepr_time, 1, MPI_DOUBLE, 0, ProcessListNumber, MPI_COMM_WORLD);*/
+	int isSolvedOnPreprocessing = 0;
+	if (!isSolverSystemCalling)
+		MPI_Send(&isSolvedOnPreprocessing, 1, MPI_INT, 0, ProcessListNumber, MPI_COMM_WORLD);
 #endif
 	
 	return true;
