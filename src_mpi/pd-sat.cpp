@@ -49,10 +49,10 @@ struct Flags
 bool GetInputFlags( int &argc, char **&argv, Flags &myflags );
 const char* hasPrefix( const char* str, const char* prefix );
 std::string hasPrefix_String( std::string str, std::string prefix );
-void WriteUsage( );
-void TestPredict( );
-void TestDeepPredict( );
-void TestSolve( );
+void WriteUsage();
+void TestDeepPredict();
+void testIntervalEstimation();
+void TestSolve();
 
 //---------------------------------------------------------
 int main( int argc, char** argv )
@@ -62,8 +62,8 @@ int main( int argc, char** argv )
 	char *input_cnf_name;
 	
 #ifdef _DEBUG
-	TestSolve();
-	TestDeepPredict();
+	//TestSolve();
+	testIntervalEstimation();
 	//TestSolveQAP();
 	//TestPBSolve();
 	//TestSATSolve();
@@ -512,8 +512,50 @@ void TestSolve()
 	int sort_type = 0;
 }
 
+void testIntervalEstimation()
+{
+	string input_cnf_name = "../iiti_2017/ASG_72_keystream76_0.cnf";
+
+	ifstream ifile;
+	ifile.open(input_cnf_name); // read every new batch because CNF can be changed
+	if (!ifile.is_open()) {
+		cerr << "ifile " << input_cnf_name << " wasn't opened" << endl;
+		exit(1);
+	}
+	Problem cnf;
+	minisat22_wrapper m22_wrapper;
+	m22_wrapper.parse_DIMACS_to_problem(ifile, cnf);
+	ifile.close();
+
+	Solver *S;
+	S = new Solver();
+	S->addProblem(cnf);
+	vector<int> var_choose_order = { 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 41, 42, 43, 44, 45, 46, 64, 65, 66, 67, 68, 69, 70, 72 };
+	vector<int> interval_start_vec;
+	interval_start_vec.resize(var_choose_order.size());
+	for (auto &x : interval_start_vec)
+		x = 0;
+	//double sum_prepr_time = getCurrentTime();
+	
+	unsigned long long interval_predict_size = 1000000;
+	unsigned long long interval_assumptions_required = 1000;
+	unsigned long long interval_nonprepr_number = 0;
+	unsigned long long total_count = 0;
+	vector<vector<int>> vector_of_assumptions;
+	//S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, interval_predict_size,
+	//	interval_assumptions_required, interval_nonprepr_number, vector_of_assumptions);
+	
+	S->gen_valid_assumptions(var_choose_order, interval_start_vec, interval_predict_size,
+		interval_assumptions_required, total_count, vector_of_assumptions);
+
+	//sum_prepr_time = getCurrentTime() - sum_prepr_time;
+	// interval_nonprepr_number 23552, 14.8 sec
+	// total count 40180 34.1 sec
+	delete S;
+}
+
 //---------------------------------------------------------
-void TestDeepPredict( )
+void TestDeepPredict()
 {
 	std::cout << "*** DEBUG MODE" << std::endl;
 	MPI_Predicter mpi_p;
