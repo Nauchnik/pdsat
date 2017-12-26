@@ -51,7 +51,7 @@ const char* hasPrefix( const char* str, const char* prefix );
 std::string hasPrefix_String( std::string str, std::string prefix );
 void WriteUsage();
 void TestDeepPredict();
-void testIntervalEstimation();
+void testIntervalEstimation(int interval_type, vector<vector<int>> &vector_of_assumptions);
 void TestSolve();
 
 //---------------------------------------------------------
@@ -63,7 +63,14 @@ int main( int argc, char** argv )
 	
 #ifdef _DEBUG
 	//TestSolve();
-	testIntervalEstimation();
+	int interval_type;
+	vector<vector<int>> vector_of_assumptions1, vector_of_assumptions2;
+	testIntervalEstimation(0, vector_of_assumptions1);
+	testIntervalEstimation(2, vector_of_assumptions2);
+	if (vector_of_assumptions1 == vector_of_assumptions2)
+		cout << "1";
+	else
+		cout << "0";
 	//TestSolveQAP();
 	//TestPBSolve();
 	//TestSATSolve();
@@ -512,7 +519,7 @@ void TestSolve()
 	int sort_type = 0;
 }
 
-void testIntervalEstimation()
+void testIntervalEstimation(int interval_type, vector<vector<int>> &vector_of_assumptions)
 {
 	string input_cnf_name = "../iiti_2017/ASG_72_keystream76_0.cnf";
 
@@ -536,17 +543,20 @@ void testIntervalEstimation()
 	for (auto &x : interval_start_vec)
 		x = 0;
 	//double sum_prepr_time = getCurrentTime();
-	
+
 	unsigned long long interval_predict_size = 1000000;
 	unsigned long long interval_assumptions_required = 1000;
 	unsigned long long interval_nonprepr_number = 0;
 	unsigned long long total_count = 0;
-	vector<vector<int>> vector_of_assumptions;
-	//S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, interval_predict_size,
-	//	interval_assumptions_required, interval_nonprepr_number, vector_of_assumptions);
-	
-	S->gen_valid_assumptions(var_choose_order, interval_start_vec, interval_predict_size,
-		interval_assumptions_required, total_count, vector_of_assumptions);
+
+	if (interval_type == 0) {
+		S->gen_valid_assumptions(var_choose_order, interval_start_vec, interval_predict_size,
+			interval_assumptions_required, total_count, vector_of_assumptions);
+	}
+	else if (interval_type == 2) {
+		S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, interval_predict_size,
+			interval_assumptions_required, interval_nonprepr_number, vector_of_assumptions);
+	}
 
 	//sum_prepr_time = getCurrentTime() - sum_prepr_time;
 	// interval_nonprepr_number 23552, 14.8 sec
