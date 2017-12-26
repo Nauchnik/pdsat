@@ -2635,26 +2635,32 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 	for (auto &x : interval_start_vec)
 		x = bool_rand(gen) ? 1 : 0;
 	
-	unsigned long long total_count = 0;
+	unsigned long long interval_prepr_number = 0;
 	unsigned long long interval_nonprepr_number = 0;
 	vector<vector<int>> vector_of_assumptions;
+
 	double sum_prepr_time = getCurrentTime();
 	
-	if (var_choose_order.size() >= 30)
+	if (var_choose_order.size() >= 30) {
 		S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, interval_predict_size,
 			interval_assumptions_required, interval_nonprepr_number, vector_of_assumptions);
-	else
+		interval_prepr_number = interval_predict_size - interval_nonprepr_number;
+		if (vector_of_assumptions.size() > 0) {
+			unsigned long long ratio = interval_nonprepr_number / vector_of_assumptions.size();
+			interval_nonprepr_number = vector_of_assumptions.size();
+			interval_prepr_number = interval_prepr_number / ratio;
+		}
+	}
+	else {
+		unsigned long long total_count = 0;
 		S->gen_valid_assumptions(var_choose_order, interval_start_vec, interval_predict_size,
 			interval_assumptions_required, total_count, vector_of_assumptions);
-	sum_prepr_time = getCurrentTime() - sum_prepr_time;
-	delete S;
-	
-	// in rc2 interval_nonprepr_number can be greater than vector_of_assumptions.size()
-	if (!interval_nonprepr_number)
 		interval_nonprepr_number = vector_of_assumptions.size();
-	if (!total_count)
-		total_count = interval_predict_size;
-	unsigned long long interval_prepr_number = total_count - interval_nonprepr_number;
+		interval_prepr_number = total_count - interval_nonprepr_number;
+	}
+	sum_prepr_time = getCurrentTime() - sum_prepr_time;
+
+	delete S;
 	
 	if ((rank == 1) && (verbosity > 2)) {
 		cout << "var_choose_order.size() " << var_choose_order.size() << endl;
@@ -2663,7 +2669,6 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 		cout << "interval_prepr_number " << interval_prepr_number << endl;
 		cout << "vector_of_assumptions.size() " << vector_of_assumptions.size() << endl;
 		cout << "sum_prepr_time " << sum_prepr_time << endl;
-		cout << "total_count " << total_count << endl;
 	}
  	
 	S = new Solver();
