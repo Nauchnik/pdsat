@@ -2641,6 +2641,7 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 
 	double sum_prepr_time = getCurrentTime();
 	
+	bool isAdditRc0ReqAfterRc2 = false;
 	if (var_choose_order.size() >= 30) {
 		S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, interval_predict_size,
 			interval_assumptions_required, interval_nonprepr_number, vector_of_assumptions);
@@ -2650,7 +2651,10 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 			interval_nonprepr_number = vector_of_assumptions.size();
 			interval_prepr_number = interval_prepr_number / ratio;
 		}
+		if (interval_nonprepr_number == 0)
+			isAdditRc0ReqAfterRc2 = true;
 	}
+	
 	else {
 		unsigned long long total_count = 0;
 		S->gen_valid_assumptions(var_choose_order, interval_start_vec, interval_predict_size,

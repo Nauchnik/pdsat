@@ -559,8 +559,6 @@ void testIntervalEstimation(int interval_type, vector<vector<int>> &vector_of_as
 	}
 
 	//sum_prepr_time = getCurrentTime() - sum_prepr_time;
-	// rc0 total count 40180 34.1 sec
-	// rc2 interval_nonprepr_number 23552, 14.8 sec
 	delete S;
 }
 
