@@ -2655,15 +2655,21 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 			isAdditRc0ReqAfterRc2 = true;
 	}
 	
-	else {
+	if ( (isAdditRc0ReqAfterRc2) || (var_choose_order.size() < 30) ) {
+		unsigned cur_interval_predict_size = interval_predict_size;
+		unsigned cur_interval_assumptions_required = interval_assumptions_required;
+		if (isAdditRc0ReqAfterRc2) {
+			cur_interval_predict_size = 100;
+			cur_interval_assumptions_required = 100;
+		}
 		unsigned long long total_count = 0;
-		S->gen_valid_assumptions(var_choose_order, interval_start_vec, interval_predict_size,
-			interval_assumptions_required, total_count, vector_of_assumptions);
+		S->gen_valid_assumptions(var_choose_order, interval_start_vec, cur_interval_predict_size,
+			cur_interval_assumptions_required, total_count, vector_of_assumptions);
 		interval_nonprepr_number = vector_of_assumptions.size();
 		interval_prepr_number = total_count - interval_nonprepr_number;
 	}
 	sum_prepr_time = getCurrentTime() - sum_prepr_time;
-
+	
 	delete S;
 	
 	if ((rank == 1) && (verbosity > 2)) {
