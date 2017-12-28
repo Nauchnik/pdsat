@@ -1026,14 +1026,13 @@ bool MPI_Predicter::ComputeProcessPredict()
 
 			if (total_interval_subproblems >= subproblems_number * 10) {
 				interval_predict_size /= 10;
-				interval_assumptions_required /= 10;
 				if (rank == 1) {
 					cout << "interval_predict_size changed to " << interval_predict_size << endl;
 					cout << "var_choose_order.size() " << var_choose_order.size() << endl;
 				}
 			}
 			
-			if ((interval_predict_size < 1000) || (interval_assumptions_required < 10)) {
+			if (interval_predict_size < 10000) {
 				isIntervalPredict = false;
 				if (rank == 1) {
 					cout << "isIntervalPredict changed to " << isIntervalPredict << endl;
@@ -2646,13 +2645,12 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 		S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, interval_predict_size,
 			interval_assumptions_required, interval_nonprepr_number, vector_of_assumptions);
 		interval_prepr_number = interval_predict_size - interval_nonprepr_number;
-		if (vector_of_assumptions.size() > 0) {
+		/*if (vector_of_assumptions.size() > 0) {
 			unsigned long long ratio = interval_nonprepr_number / vector_of_assumptions.size();
 			interval_nonprepr_number = vector_of_assumptions.size();
 			interval_prepr_number = interval_prepr_number / ratio;
-		}
-		if (interval_nonprepr_number == 0)
-			isAdditRc0ReqAfterRc2 = true;
+		}*/
+		isAdditRc0ReqAfterRc2 = true;
 	}
 	
 	if ( (isAdditRc0ReqAfterRc2) || (var_choose_order.size() < 30) ) {
