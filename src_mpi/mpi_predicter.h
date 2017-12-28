@@ -28,7 +28,7 @@ const double   MIN_PERCENT_NO_MULTISAMPLE  = 0.9;
 const unsigned CHECK_ACCURACY_SAMPLE_SIZE_KOEF = 2;
 const unsigned PREDICT_TIMES_LIMITS = 1000;
 const unsigned L_POINTS_RADIUS = 1;
-const unsigned long long INTERVAL_PREDICT_START_SIZE = 1000000;
+const unsigned long long INTERVAL_PREDICT_START_SIZE = 100000;
 const unsigned long long INTERVAL_ASSUMPTIONS_START_REQUIRED = 100;
 
 struct unchecked_area

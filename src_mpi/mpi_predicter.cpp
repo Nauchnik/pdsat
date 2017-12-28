@@ -1026,6 +1026,9 @@ bool MPI_Predicter::ComputeProcessPredict()
 
 			if (total_interval_subproblems >= subproblems_number * 10) {
 				interval_predict_size /= 10;
+				interval_assumptions_required /= 10;
+				if (interval_assumptions_required < 1)
+					interval_assumptions_required = 1;
 				if (rank == 1) {
 					cout << "interval_predict_size changed to " << interval_predict_size << endl;
 					cout << "var_choose_order.size() " << var_choose_order.size() << endl;
@@ -2636,12 +2639,11 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 	
 	unsigned long long interval_prepr_number = 0;
 	unsigned long long interval_nonprepr_number = 0;
-	vector<vector<int>> vector_of_assumptions;
-
-	double sum_prepr_time = getCurrentTime();
+	vector<vector<int>> vector_of_assumptions, cur_vector_of_assumptions;
 	
+	// if there are many variables, then get hard subproblems by rc2
 	bool isAdditRc0ReqAfterRc2 = false;
-	if (var_choose_order.size() >= 30) {
+	if (var_choose_order.size() > 30) {
 		S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, interval_predict_size,
 			interval_assumptions_required, interval_nonprepr_number, vector_of_assumptions);
 		interval_prepr_number = interval_predict_size - interval_nonprepr_number;
@@ -2653,20 +2655,28 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 		isAdditRc0ReqAfterRc2 = true;
 	}
 	
-	if ( (isAdditRc0ReqAfterRc2) || (var_choose_order.size() < 30) ) {
-		unsigned cur_interval_predict_size = interval_predict_size;
-		unsigned cur_interval_assumptions_required = interval_assumptions_required;
-		if (isAdditRc0ReqAfterRc2) {
-			cur_interval_predict_size = 100;
-			cur_interval_assumptions_required = 100;
-		}
-		unsigned long long total_count = 0;
-		S->gen_valid_assumptions(var_choose_order, interval_start_vec, cur_interval_predict_size,
-			cur_interval_assumptions_required, total_count, vector_of_assumptions);
-		interval_nonprepr_number = vector_of_assumptions.size();
-		interval_prepr_number = total_count - interval_nonprepr_number;
+	// rc0 is used either for the calculation of prepr subproblems mean time (after rc2) or as main procedure
+	unsigned reduced_interval_predict_size = 0;
+	unsigned reduced_interval_assumptions_required = 0;
+	unsigned long long total_count = 0;
+	double sum_prepr_time = getCurrentTime();
+	if (isAdditRc0ReqAfterRc2) {
+		reduced_interval_predict_size = 100;
+		reduced_interval_assumptions_required = 100;
+		S->gen_valid_assumptions(var_choose_order, interval_start_vec, reduced_interval_predict_size,
+			reduced_interval_assumptions_required, total_count, cur_vector_of_assumptions);
+		if (vector_of_assumptions.size() < cur_vector_of_assumptions.size())
+			vector_of_assumptions = cur_vector_of_assumptions;
+		interval_prepr_number = total_count - cur_vector_of_assumptions.size();
+	}
+	else {
+		S->gen_valid_assumptions(var_choose_order, interval_start_vec, interval_predict_size,
+			interval_assumptions_required, total_count, vector_of_assumptions);
+		interval_prepr_number = total_count - vector_of_assumptions.size();
 	}
 	sum_prepr_time = getCurrentTime() - sum_prepr_time;
+
+	interval_nonprepr_number = vector_of_assumptions.size();
 	
 	delete S;
 	
