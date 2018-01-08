@@ -145,7 +145,8 @@ int main( int argc, char** argv )
 		mpi_p.IsFirstStage = myflags.IsFirstStage;
 		if ( myflags.te > 0 )
 			mpi_p.te = myflags.te;
-		mpi_p.isIntervalPredict = myflags.isIntervalPredict;
+		if (myflags.isIntervalPredict)
+			mpi_p.estim_type = rc2;
 
 		// Predict compute cost
 		if ( !mpi_p.MPI_Predict( argc, argv ) ) {

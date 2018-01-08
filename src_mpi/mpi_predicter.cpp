@@ -52,9 +52,9 @@ MPI_Predicter :: MPI_Predicter( ) :
 	array_message_size ( 0 ),
 	core_len_combinations_size ( 0 ),
 	points_to_check ( 0 ),
-	isIntervalPredict (false),
 	interval_predict_size (INTERVAL_PREDICT_START_SIZE),
-	interval_assumptions_required (INTERVAL_ASSUMPTIONS_START_REQUIRED)
+	interval_assumptions_required (INTERVAL_ASSUMPTIONS_START_REQUIRED),
+	estim_type (plain)
 {
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
 		best_predict_time_arr[i] = 0.0;
@@ -1019,8 +1019,13 @@ bool MPI_Predicter::ComputeProcessPredict()
 
 		if ((verbosity > 0) && (rank == 1))
 			cout << "current_task_index " << current_task_index << endl;
-
-		if (isIntervalPredict) {
+		
+		if (var_choose_order.size() < 20)
+			estim_type = plain;
+		else if (estim_type == plain)
+			estim_type = rc2;
+		
+		/*else if (estim_type != plain) {
 			double total_interval_subproblems = (double)cnf_in_set_count * (double)interval_predict_size;
 			double subproblems_number = pow(2, (double)var_choose_order.size());
 
@@ -1036,7 +1041,7 @@ bool MPI_Predicter::ComputeProcessPredict()
 			}
 			
 			if (interval_predict_size < 10000) {
-				isIntervalPredict = false;
+				estim_type = plain;
 				if (rank == 1) {
 					cout << "isIntervalPredict changed to " << isIntervalPredict << endl;
 					cout << "interval_predict_size " << interval_predict_size << endl;
@@ -1045,12 +1050,13 @@ bool MPI_Predicter::ComputeProcessPredict()
 					cout << "var_choose_order.size() " << var_choose_order.size() << endl;
 				}
 			}
-		}
+		}*/
 		
-		if (isIntervalPredict)
-			calculateIntervalEstimation(ProcessListNumber);
-		else
+		if (estim_type == plain)
 			solvePredictSatInstance(ProcessListNumber);
+		else // rc0 or rc2
+			calculateIntervalEstimation(ProcessListNumber);
+			
 	} // for (;;)
 #endif
 	
@@ -2628,10 +2634,6 @@ bool MPI_Predicter::GetDeepPredictTasks()
 
 bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 {
-	Solver *S;
-	S = new Solver();
-	S->addProblem(cnf);
-	
 	vector<int> interval_start_vec;
 	interval_start_vec.resize(var_choose_order.size());
 	for (auto &x : interval_start_vec)
@@ -2640,19 +2642,15 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 	unsigned long long interval_prepr_number = 0;
 	unsigned long long interval_nonprepr_number = 0;
 	vector<vector<int>> vector_of_assumptions, cur_vector_of_assumptions;
+
+	Solver *S;
+	S = new Solver();
+	S->addProblem(cnf);
 	
-	// if there are many variables, then get hard subproblems by rc2
-	bool isAdditRc0ReqAfterRc2 = false;
-	if (var_choose_order.size() > 30) {
+	if (estim_type == rc2) {
 		S->gen_valid_assumptions_rc2(var_choose_order, interval_start_vec, interval_predict_size,
 			interval_assumptions_required, interval_nonprepr_number, vector_of_assumptions);
 		interval_prepr_number = interval_predict_size - interval_nonprepr_number;
-		/*if (vector_of_assumptions.size() > 0) {
-			unsigned long long ratio = interval_nonprepr_number / vector_of_assumptions.size();
-			interval_nonprepr_number = vector_of_assumptions.size();
-			interval_prepr_number = interval_prepr_number / ratio;
-		}*/
-		isAdditRc0ReqAfterRc2 = true;
 	}
 	
 	// rc0 is used either for the calculation of prepr subproblems mean time (after rc2) or as main procedure
@@ -2660,7 +2658,8 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 	unsigned reduced_interval_assumptions_required = 0;
 	unsigned long long total_count = 0;
 	double sum_prepr_time = getCurrentTime();
-	if (isAdditRc0ReqAfterRc2) {
+	if (estim_type == rc2) {
+		// rc2 mode
 		reduced_interval_predict_size = 100;
 		reduced_interval_assumptions_required = 100;
 		S->gen_valid_assumptions(var_choose_order, interval_start_vec, reduced_interval_predict_size,
@@ -2669,16 +2668,16 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 			vector_of_assumptions = cur_vector_of_assumptions;
 		interval_prepr_number = total_count - cur_vector_of_assumptions.size();
 	}
-	else {
+	else if (estim_type == rc0) {
+		// rc0 mode
 		S->gen_valid_assumptions(var_choose_order, interval_start_vec, interval_predict_size,
 			interval_assumptions_required, total_count, vector_of_assumptions);
 		interval_prepr_number = total_count - vector_of_assumptions.size();
+		if (vector_of_assumptions.size() < interval_assumptions_required) // simple problems, turn to rc2
+			estim_type = rc2;
 	}
 	sum_prepr_time = getCurrentTime() - sum_prepr_time;
-
 	interval_nonprepr_number = vector_of_assumptions.size();
-	
-	delete S;
 	
 	if ((rank == 1) && (verbosity > 2)) {
 		cout << "var_choose_order.size() " << var_choose_order.size() << endl;
@@ -2688,6 +2687,8 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 		cout << "vector_of_assumptions.size() " << vector_of_assumptions.size() << endl;
 		cout << "sum_prepr_time " << sum_prepr_time << endl;
 	}
+
+	delete S;
  	
 	S = new Solver();
 	S->addProblem(cnf);
@@ -2721,6 +2722,12 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 	}
 	delete S;
 
+	if ((vector_of_assumptions.size() > 0) && (interval_prepr_number > 0))
+		if (((sum_nonprepr_time / interval_prepr_number) * 1000) < (sum_nonprepr_time / vector_of_assumptions.size()))
+			estim_type = rc0;
+		else
+			estim_type = rc2;
+	
 	double med_sample_time = (sum_prepr_time + sum_nonprepr_time) / (interval_prepr_number + vector_of_assumptions.size());
 	
 	if ((rank == 1) && (verbosity > 1)) {

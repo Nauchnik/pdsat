@@ -11,6 +11,8 @@
 #include <sys/types.h>
 #endif
 
+enum estimation_type{ plain, rc0, rc2 };
+
 const unsigned MAX_STEP_CNF_IN_SET		   = 30;
 const int      MAX_WORD_LENGTH			   = 64;
 const int      MAX_LINE_LENGTH             = 524288;
@@ -116,7 +118,7 @@ public:
 	double prev_area_best_predict_time;
 	double predict_time_limit_step;
 	unsigned points_to_check;
-	bool isIntervalPredict;
+	estimation_type estim_type;
 		
 	Problem cnf;
 	//unsigned prev_best_decomp_set_power;
