@@ -587,7 +587,7 @@ bool MPI_Solver :: ControlProcessSolve( std::vector<int> extern_var_choose_order
 			delete[] char_arr;
 		}
 		
-		// get satisfying assignments if such exist
+		// get satisfying assignments if such exists
 		MPI_Probe( current_status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status );;
 		MPI_Get_count( &status, MPI_CHAR, &char_arr_len );
 		if ( ( char_arr_len > 1 ) && ( char_arr_len % var_count != 0 ) ) {

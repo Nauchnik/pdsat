@@ -1056,7 +1056,6 @@ bool MPI_Predicter::ComputeProcessPredict()
 			solvePredictSatInstance(ProcessListNumber);
 		else // rc0 or rc2
 			calculateIntervalEstimation(ProcessListNumber);
-			
 	} // for (;;)
 #endif
 	
@@ -2721,12 +2720,15 @@ bool MPI_Predicter::calculateIntervalEstimation(const int &ProcessListNumber)
 			break;
 	}
 	delete S;
-
+	
 	if ((vector_of_assumptions.size() > 0) && (interval_prepr_number > 0))
-		if (((sum_nonprepr_time / interval_prepr_number) * 1000) < (sum_nonprepr_time / vector_of_assumptions.size()))
+		if (((sum_nonprepr_time / interval_prepr_number) * 10000) < (sum_nonprepr_time / vector_of_assumptions.size()))
 			estim_type = rc0;
 		else
 			estim_type = rc2;
+
+	if (vector_of_assumptions.size() == 0)
+		estim_type = rc2;
 	
 	double med_sample_time = (sum_prepr_time + sum_nonprepr_time) / (interval_prepr_number + vector_of_assumptions.size());
 	
