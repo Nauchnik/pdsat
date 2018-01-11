@@ -1025,19 +1025,16 @@ bool MPI_Predicter::ComputeProcessPredict()
 		else if (estim_type == plain)
 			estim_type = rc2;
 		
-		/*else if (estim_type != plain) {
-			double total_interval_subproblems = (double)cnf_in_set_count * (double)interval_predict_size;
-			double subproblems_number = pow(2, (double)var_choose_order.size());
-
-			if (total_interval_subproblems >= subproblems_number * 10) {
-				interval_predict_size /= 10;
-				interval_assumptions_required /= 10;
-				if (interval_assumptions_required < 1)
-					interval_assumptions_required = 1;
-				if (rank == 1) {
-					cout << "interval_predict_size changed to " << interval_predict_size << endl;
-					cout << "var_choose_order.size() " << var_choose_order.size() << endl;
-				}
+		/*double total_interval_subproblems = (double)cnf_in_set_count * (double)interval_predict_size;
+		double subproblems_number = pow(2, (double)var_choose_order.size());
+		
+		if (total_interval_subproblems >= subproblems_number) {
+			interval_predict_size /= 10;
+			interval_assumptions_required /= 10;
+			
+			if (rank == 1) {
+				cout << "interval_predict_size changed to " << interval_predict_size << endl;
+				cout << "var_choose_order.size() " << var_choose_order.size() << endl;
 			}
 			
 			if (interval_predict_size < 10000) {

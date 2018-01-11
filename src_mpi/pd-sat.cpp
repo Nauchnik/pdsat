@@ -63,7 +63,6 @@ int main( int argc, char** argv )
 	
 #ifdef _DEBUG
 	//TestSolve();
-	int interval_type;
 	vector<vector<int>> vector_of_assumptions1, vector_of_assumptions2;
 	testIntervalEstimation(0, vector_of_assumptions1);
 	testIntervalEstimation(2, vector_of_assumptions2);

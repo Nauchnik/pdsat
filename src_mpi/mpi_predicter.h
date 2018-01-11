@@ -33,6 +33,8 @@ const unsigned L_POINTS_RADIUS = 1;
 const unsigned long long INTERVAL_PREDICT_START_SIZE = 100000;
 const unsigned long long INTERVAL_ASSUMPTIONS_START_REQUIRED = 100;
 
+const unsigned interval_predict_tresholds[] = {10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000};
+
 struct unchecked_area
 {
 	boost::dynamic_bitset<> center; // point - center of area. i here means variable # i
