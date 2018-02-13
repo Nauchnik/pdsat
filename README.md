@@ -1,3 +1,2 @@
 # pdsat
-Parallel and Distributed SAT solver
-MPI SAT solver based on the partitioning approach, Monte Carlo method and local search heuristics.
+Parallel and Distributed SAT solver (PDSAT) - an MPI-based divide-and-conquer SAT solver based on the Monte Carlo method and local search heuristics.
