@@ -955,12 +955,14 @@ void MPI_Base::MakeSatSample(vector< vector<bool> > &state_vec_vec,
 		cout << "known_vars_seed " << known_vars_seed << endl;
 		gen_known_vars.seed(known_vars_seed);
 		
-		state_vec.resize(core_len);
-		for (unsigned i = 0; i < cnf_in_set_count; i++) {
-			for (unsigned j = 0; j < core_len; j++)
-				state_vec[j] = bool_rand(gen_known_vars);
+		if (state_vec_vec.size() == 0) {
+			state_vec.resize(core_len);
+			for (unsigned i = 0; i < cnf_in_set_count; i++) {
+				for (unsigned j = 0; j < core_len; j++)
+					state_vec[j] = bool_rand(gen_known_vars);
 				state_vec_vec.push_back(state_vec);
 			}
+		}
 				
 		// additionally plaintext is nedded 
 		if (isPlainText) {
