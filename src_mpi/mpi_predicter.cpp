@@ -1020,11 +1020,6 @@ bool MPI_Predicter::ComputeProcessPredict()
 		if ((verbosity > 0) && (rank == 1))
 			cout << "current_task_index " << current_task_index << endl;
 		
-		if (var_choose_order.size() < 20)
-			estim_type = plain;
-		else if (estim_type == plain)
-			estim_type = rc2;
-		
 		/*double total_interval_subproblems = (double)cnf_in_set_count * (double)interval_predict_size;
 		double subproblems_number = pow(2, (double)var_choose_order.size());
 		
