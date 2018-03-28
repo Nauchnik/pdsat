@@ -601,7 +601,7 @@ bool MPI_Base :: ReadIntCNF()
 				sstream.clear(); sstream.str();
 				sort( full_var_choose_order.begin(), full_var_choose_order.end() );
 				cout << "After reading var_set" << endl;
-				cout << "var_choose_order.size() " << full_var_choose_order.size() << endl;
+				cout << "full_var_choose_order.size() " << full_var_choose_order.size() << endl;
 				for ( unsigned i=0; i < full_var_choose_order.size(); ++i )
 					cout << full_var_choose_order[i] << " ";
 				cout << endl;
@@ -707,6 +707,9 @@ bool MPI_Base :: ReadIntCNF()
 			for (unsigned i = 0; i < nonoutput_len; i++)
 				full_var_choose_order.push_back(i + 1);
 		}
+	}
+	else {
+		core_len = nonoutput_len = full_var_choose_order.size();
 	}
 	
 	if ( ( isPredict ) && ( !core_len ) ) {

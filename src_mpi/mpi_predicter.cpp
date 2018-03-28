@@ -148,7 +148,9 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 			MPI_Send( &known_bits,       1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &known_vars_count, 1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &start_activity,   1, MPI_DOUBLE,    i + 1, 0, MPI_COMM_WORLD );
-			MPI_Send( &full_var_choose_order[0], full_var_choose_order.size(), MPI_INT, i + 1, 0, MPI_COMM_WORLD);
+			unsigned len = full_var_choose_order.size();
+			MPI_Send( &len,                      1,                            MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD);
+			MPI_Send( &full_var_choose_order[0], full_var_choose_order.size(), MPI_INT,      i + 1, 0, MPI_COMM_WORLD);
 		}
 		
 		if ( te > 0 ) {
@@ -771,7 +773,6 @@ bool MPI_Predicter::ComputeProcessPredict()
 	MPI_Recv(&known_bits, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 	MPI_Recv(&base_known_vars_count, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 	MPI_Recv(&start_activity, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-	nonoutput_len = var_count - output_len;
 	if (rank == 1) {
 		cout << "rank 1, received" << endl;
 		cout << "var_count " << var_count << endl;
@@ -786,10 +787,12 @@ bool MPI_Predicter::ComputeProcessPredict()
 		return false;
 	}
 
-	int *full_local_decomp_set = new int[nonoutput_len];
-	MPI_Recv(full_local_decomp_set, nonoutput_len, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-	full_var_choose_order.resize(nonoutput_len);
-	for (unsigned i = 0; i < nonoutput_len; ++i)
+	unsigned len = 0;
+	MPI_Recv(&len, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	int *full_local_decomp_set = new int[len];
+	MPI_Recv(full_local_decomp_set, len, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	full_var_choose_order.resize(len);
+	for (unsigned i = 0; i < len; ++i)
 		full_var_choose_order[i] = full_local_decomp_set[i];
 	delete[] full_local_decomp_set;
 
