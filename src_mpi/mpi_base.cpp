@@ -147,7 +147,7 @@ bool MPI_Base :: MakeAssignsFromMasks( unsigned *full_mask,
 	// determine the number of assumptions and their lengths
 	unsigned problems_count = 1 << variate_vars_count;
 	dummy_vec.resize(problems_count);
-	for (unsigned i = 0; i < dummy_vec.size(); i++)
+	for (int i = 0; i < dummy_vec.size(); i++)
 		dummy_vec[i].resize(variate_vars_count);
 
 	// get array of literals which must be checked
@@ -272,7 +272,7 @@ bool MPI_Base::makeIntegerMasks(vector<vector<int>> cartesian_elements)
 }
 
 //---------------------------------------------------------
-bool MPI_Base :: MakeVarChoose( )
+bool MPI_Base :: MakeVarChoose()
 {
 // Make array var_choose_order with vars sorted by given rule
 	string str;
@@ -280,14 +280,11 @@ bool MPI_Base :: MakeVarChoose( )
 	int val;
 
 	cout << "start MakeVarChoose()" << endl;
-	cout << "var_choose_order" << endl;
-	for ( unsigned i = 0; i < var_choose_order.size(); i++ )
-		cout << var_choose_order[i] << " ";
-	cout << endl;
 	
 	// if file with decomposition set exists
 	ifstream known_point_file( known_point_file_name.c_str() );
 	if ( known_point_file.is_open() ) {
+		cout << "reading known_point_file " << known_point_file_name << endl;
 		getline( known_point_file, str );
 		sstream << str;
 		var_choose_order.resize( 0 );
@@ -298,56 +295,48 @@ bool MPI_Base :: MakeVarChoose( )
 		known_point_file.close();
 		schema_type = "known_point";
 	}
-	
-	cout << "var_choose_order.size() " << var_choose_order.size() << endl;
-	cout << "full_mask_var_count " << full_mask_var_count << endl;
-
-	if ( ( var_choose_order.size() == 0 ) && ( schema_type == "" ) )
-		schema_type = "0";
-	// if got from known point file or from "c var_set..." then set was made already
-	var_choose_order.resize( full_mask_var_count );
-	
-	if ( schema_type != "" ) {
+	else {
+		var_choose_order.resize(full_var_choose_order.size());
 		int k = 0;
-		if ( schema_type == "0" ) { // == bivium_Beginning1
-			for ( unsigned i = 0; i < full_mask_var_count; i++ )
-				var_choose_order[i] = i + 1;
+		if ( (schema_type == "0") || (schema_type == "") ) { // == bivium_Beginning1
+			for (unsigned i = 0; i < full_var_choose_order.size(); i++)
+				var_choose_order[i] = full_var_choose_order[i];
 		}
-		else if ( schema_type == "bivium_Beginning2" ) {
-			for ( unsigned i = 0; i < full_mask_var_count; i++ )
+		else if (schema_type == "bivium_Beginning2") {
+			for (unsigned i = 0; i < full_mask_var_count; i++)
 				var_choose_order[i] = i + 84 + 1;
 		}
-		else if ( schema_type == "bivium_Beginning_halved" ) {
-			for ( unsigned i = 0; i < full_mask_var_count / 2; i++ )
+		else if (schema_type == "bivium_Beginning_halved") {
+			for (unsigned i = 0; i < full_mask_var_count / 2; i++)
 				var_choose_order[k++] = i + 1;
-			for ( unsigned i = 0; i < full_mask_var_count / 2; i++ )	
+			for (unsigned i = 0; i < full_mask_var_count / 2; i++)
 				var_choose_order[k++] = i + 84 + 1;
 		}
-		else if ( schema_type == "bivium_Ending1" ) {
-			for ( unsigned i = 0; i < full_mask_var_count; i++ )
+		else if (schema_type == "bivium_Ending1") {
+			for (unsigned i = 0; i < full_mask_var_count; i++)
 				var_choose_order[i] = 84 - i;
 		}
-		else if ( schema_type == "bivium_Ending2" ) {
-			for ( unsigned i = 0; i < full_mask_var_count; i++ )
+		else if (schema_type == "bivium_Ending2") {
+			for (unsigned i = 0; i < full_mask_var_count; i++)
 				var_choose_order[i] = 177 - i;
 		}
-		else if ( schema_type == "bivium_Ending_halved" ) {
-				for ( unsigned i = 0; i < full_mask_var_count / 2; i++ )
-					var_choose_order[k++] = 84 - i;
-				for ( unsigned i = 0; i < full_mask_var_count / 2; i++ )	
-					var_choose_order[k++] = 177 - i;
-		}		
-		else if ( schema_type == "a5" ) {
-			for ( unsigned i = 0; i < 9; i++ )
+		else if (schema_type == "bivium_Ending_halved") {
+			for (unsigned i = 0; i < full_mask_var_count / 2; i++)
+				var_choose_order[k++] = 84 - i;
+			for (unsigned i = 0; i < full_mask_var_count / 2; i++)
+				var_choose_order[k++] = 177 - i;
+		}
+		else if (schema_type == "a5") {
+			for (unsigned i = 0; i < 9; i++)
 				var_choose_order[k++] = i + 1;
-			for ( unsigned i = 0; i < 11; i++ )
+			for (unsigned i = 0; i < 11; i++)
 				var_choose_order[k++] = i + 19 + 1;
-			for ( unsigned i = 0; i < 11; i++ )
+			for (unsigned i = 0; i < 11; i++)
 				var_choose_order[k++] = i + 41 + 1;
 		}
 	}
 
-	cout << "final var_choose_order.size() " << var_choose_order.size() << endl;
+	cout << "var_choose_order.size() " << var_choose_order.size() << endl;
 	sort( var_choose_order.begin(), var_choose_order.end() );
 	cout << "var_choose_order" << endl;
 	for ( unsigned i = 0; i < var_choose_order.size(); i++ )
@@ -709,7 +698,7 @@ bool MPI_Base :: ReadIntCNF()
 		}
 	}
 	else {
-		core_len = nonoutput_len = full_var_choose_order.size();
+		nonoutput_len = core_len = full_var_choose_order.size();
 	}
 	
 	if ( ( isPredict ) && ( !core_len ) ) {

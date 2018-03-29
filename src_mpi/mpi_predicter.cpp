@@ -144,6 +144,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		for( int i=0; i < corecount-1; ++i ) {
 			MPI_Send( &var_count,        1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &core_len,         1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
+			MPI_Send( &nonoutput_len,    1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD);
 			MPI_Send( &output_len,       1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD);
 			MPI_Send( &known_bits,       1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
 			MPI_Send( &known_vars_count, 1, MPI_UNSIGNED,  i + 1, 0, MPI_COMM_WORLD );
@@ -769,6 +770,7 @@ bool MPI_Predicter::ComputeProcessPredict()
 	// get core_len before getting tasks
 	MPI_Recv(&var_count, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 	MPI_Recv(&core_len, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	MPI_Recv(&nonoutput_len, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 	MPI_Recv(&output_len, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 	MPI_Recv(&known_bits, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 	MPI_Recv(&base_known_vars_count, 1, MPI_UNSIGNED, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
@@ -973,8 +975,8 @@ bool MPI_Predicter::ComputeProcessPredict()
 		ProcessListNumber = status.MPI_TAG;
 
 		if ((!known_bits) && (message_size - 1 > (int)full_var_choose_order.size())) {
-			cerr << "message_size > full_var_choose_order.size()" << endl;
-			cerr << message_size << " > " << full_var_choose_order.size() << endl;
+			cerr << "message_size - 1 > full_var_choose_order.size()" << endl;
+			cerr << message_size -1 << " > " << full_var_choose_order.size() << endl;
 			return false;
 		}
 
@@ -1063,6 +1065,7 @@ void MPI_Predicter :: GetInitPoint()
 	cout << "GetInitPoint() started" << endl;
 	cout << "predict_to " << predict_to << endl;
 	cout << "core_len " << core_len << endl;
+	var_choose_order.clear();
 	cout << "var_choose_order.size() " << var_choose_order.size() << endl;
 	
 	fstream deep_predict_file;
@@ -1070,36 +1073,24 @@ void MPI_Predicter :: GetInitPoint()
 	stringstream temp_sstream, sstream;
 	known_point_file.open( known_point_file_name.c_str(), ios_base::in );
 	
-	if ( known_point_file.is_open() ) { // get known point
-		cout << "known_point_file opened " << known_point_file_name << endl;
-		int ival;
-		var_choose_order.resize(0);
-		while ( known_point_file >> ival )
-			var_choose_order.push_back( ival );
-		best_var_num = var_choose_order.size(); 
-		known_point_file.close();
-	}
-	else {
-		sstream << "schema_type " << schema_type << endl;
-		if ( ( schema_type != "rand" ) && ( var_choose_order.size() == 0 ) ) { // if schema_type was set by user
-			full_mask_var_count = predict_to;
-			MakeVarChoose();
+	sstream << "schema_type " << schema_type << endl;
+	if ( ( schema_type != "rand" ) && ( var_choose_order.size() == 0 ) ) // if schema_type was set by user
+		MakeVarChoose();
+	else if ( schema_type == "rand" ) { // if no file with known point then get random init point
+		vector<unsigned> rand_arr;
+		if ( core_len < ( unsigned )predict_to ) {
+			core_len = predict_to;
+			cout << "core_len changed to predict_to : " << endl;
+			cout << core_len << "changed to " << predict_to << endl;
 		}
-		else if ( schema_type == "rand" ) { // if no file with known point then get random init point
-			vector<unsigned> rand_arr;
-			if ( core_len < ( unsigned )predict_to ) {
-				core_len = predict_to;
-				cout << "core_len changed to predict_to : " << endl;
-				cout << core_len << "changed to " << predict_to << endl;
-			}
-			MakeUniqueRandArr( rand_arr, predict_to, core_len );
-			cout << "random init point" << endl;
-			var_choose_order.resize( predict_to );
-			for ( unsigned i = 0; i < var_choose_order.size(); i++ )
-				var_choose_order[i] = ( int )rand_arr[i] + 1;
-			rand_arr.clear();
-		}
+		MakeUniqueRandArr( rand_arr, predict_to, core_len );
+		cout << "random init point" << endl;
+		var_choose_order.resize( predict_to );
+		for ( unsigned i = 0; i < var_choose_order.size(); i++ )
+			var_choose_order[i] = ( int )rand_arr[i] + 1;
+		rand_arr.clear();
 	}
+	best_var_num = var_choose_order.size();
 	cout << "var_choose_order.size() " << var_choose_order.size() << endl;
 	sort( var_choose_order.begin(), var_choose_order.end() );
 	sstream << "var_choose_order" << endl;
@@ -2530,7 +2521,30 @@ bool MPI_Predicter::GetDeepPredictTasks()
 			new_point[cur_point_index] = (current_unchecked_area.center[cur_point_index] == 1) ? 0 : 1;
 			new_var_choose_order = BitsetToIntVecPredict( new_point );
 		}
-		
+
+		bool isSkip = false;
+		for (auto &x : new_var_choose_order) {
+			if (find(full_var_choose_order.begin(), full_var_choose_order.end(), x) == full_var_choose_order.end()) {
+				isSkip = true;
+				break;
+			}
+		}
+
+		if (isSkip) {
+			if (verbosity > 1) {
+				cout << "skip new_var_choose_order of size " << new_var_choose_order.size() << endl;
+				cout << "full_var_choose_order :" << endl;
+				for (auto &x : full_var_choose_order)
+					cout << x << " ";
+				cout << endl;
+				cout << "new_var_choose_order :" << endl;
+				for (auto &x : new_var_choose_order)
+					cout << x << " ";
+				cout << endl;
+			}
+			continue;
+		}
+
 		d_s.var_choose_order = new_var_choose_order;
 		d_s.cur_var_changing = cur_vars_changing;
 		d_s.IsAddedToL2      = false;
