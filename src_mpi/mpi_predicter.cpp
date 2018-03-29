@@ -63,6 +63,11 @@ MPI_Predicter :: MPI_Predicter( ) :
 MPI_Predicter :: ~MPI_Predicter( )
 { }
 
+bool compareByDsetSize(const decomp_set &a, const decomp_set &b)
+{
+	return a.var_choose_order.size() < b.var_choose_order.size();
+}
+
 //---------------------------------------------------------
 bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 {
@@ -2560,8 +2565,8 @@ bool MPI_Predicter::GetDeepPredictTasks()
 		}
 	}
 	
-	//if ((ts_strategy == 0) || (ts_strategy == 3))
 	random_shuffle( decomp_set_arr.begin(), decomp_set_arr.end() );
+	sort(decomp_set_arr.begin(), decomp_set_arr.end(), compareByDsetSize);
 	
 	if ( ts_strategy == 2 ) {
 		if ( decomp_set_arr.size() > TS2_POINTS_COUNT ) {
