@@ -229,8 +229,11 @@ bool MPI_Solver :: SolverRun( Solver *&S, unsigned long long &process_sat_count,
 			cnf_time_from_node = MIN_SOLVE_TIME;
 
 		S->watch_scans = 0;
-		if ( no_increm )
+		if (no_increm) {
 			S->clearDB(); // clear database if incremental solving disabled
+			S->clearParams();
+			S->clearPolarity();
+		}
 
 		total_time += cnf_time_from_node;
 		
