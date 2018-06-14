@@ -468,51 +468,51 @@ bool MPI_Base :: ReadVarCount( )
 
 
 //---------------------------------------------------------
-bool MPI_Base :: ReadIntCNF()
+bool MPI_Base::ReadIntCNF()
 {
-// Reading CNF from file.
-// Vars = {1, -1, 2, -2, ...} Literels = {2, 3, 4, 5, ...}
-// clause_array        - array of clauses of literals
-// lits_clause_array   - array of literals' clause indexes
-// clause_num          - number of clauses
-// var_count           - number of vars
-// lits_num            - number of literals
-// clause_lengths      - array of count of literals in clauses
-// lits_clause_lengths - array of lengths of lits_clauses
-    unsigned int current_clause_count = 0,
-				 current_lit_count    = 0,
-				 line_str_len         = 0,
-				 current_var_count    = 0,
-				 k                    = 0, 
-				 val				  = 0,
-				 sign				  = 0;
+	// Reading CNF from file.
+	// Vars = {1, -1, 2, -2, ...} Literels = {2, 3, 4, 5, ...}
+	// clause_array        - array of clauses of literals
+	// lits_clause_array   - array of literals' clause indexes
+	// clause_num          - number of clauses
+	// var_count           - number of vars
+	// lits_num            - number of literals
+	// clause_lengths      - array of count of literals in clauses
+	// lits_clause_lengths - array of lengths of lits_clauses
+	unsigned int current_clause_count = 0,
+		current_lit_count = 0,
+		line_str_len = 0,
+		current_var_count = 0,
+		k = 0,
+		val = 0,
+		sign = 0;
 	unsigned first_obj_var;
 	int lit_val;
-	string line_str, 
-		   word_str;
+	string line_str,
+		word_str;
 	bool IncorrectLine;
-	vector<int> :: iterator vec_it;
-    
+	vector<int> ::iterator vec_it;
+
 	cout << "Start of ReadIntCNF()" << endl;
-	if ( !ReadVarCount( ) ) {
+	if (!ReadVarCount()) {
 		cerr << "Error in ReadVarCount" << endl; return false;
 	}
-	
+
 	cout << "ReadVarCount() done" << endl;
 
-	clause_array.resize( clause_count );
+	clause_array.resize(clause_count);
 
-	for ( unsigned i = 0; i < clause_array.size(); ++i )
-		clause_array[i].resize( clause_lengths[i] );
+	for (unsigned i = 0; i < clause_array.size(); ++i)
+		clause_array[i].resize(clause_lengths[i]);
 
 	// check file with main CNF
-	ifstream main_cnf( input_cnf_name.c_str(), ios::in );
-    if ( !main_cnf.is_open() ) {
-		cerr << "Error in opening of file with input CNF with name" 
-			 << input_cnf_name << endl;
+	ifstream main_cnf(input_cnf_name.c_str(), ios::in);
+	if (!main_cnf.is_open()) {
+		cerr << "Error in opening of file with input CNF with name"
+			<< input_cnf_name << endl;
 		exit(1);
 	}
-	
+
 	first_obj_var = 0;
 	current_clause_count = 0;
 
@@ -520,15 +520,15 @@ bool MPI_Base :: ReadIntCNF()
 	string str1, str2, str3, str4, str5;
 	unsigned ui;
 	bool Is_InpVar = false, Is_ConstrLen = false, Is_ObjLen = false, Is_ObjVars = false;
-	while ( getline( main_cnf, line_str ) ) {
-		if ( line_str[0] == 'p' )
+	while (getline(main_cnf, line_str)) {
+		if (line_str[0] == 'p')
 			continue;
-		if ( line_str[0] == 'c' ) { // in comment string can exist count of input variables
+		if (line_str[0] == 'c') { // in comment string can exist count of input variables
 			//parse string for ex. "c 1452 input variables" or "c input variables 1452"
 			sstream.str(""); sstream.clear();
 			sstream << line_str;
 			sstream >> str1 >> str2;
-			
+
 			/*if ( str2 == "rslos" ) {
 				while ( sstream >> intval )
 					rslos_lengths.push_back( intval );
@@ -537,19 +537,19 @@ bool MPI_Base :: ReadIntCNF()
 				for ( unsigned i = 0; i < rslos_lengths.size(); i++ )
 					cout << rslos_lengths[i] << " ";
 				cout << endl;
-				
+
 				continue;
 			}*/
 
 			sstream >> str3 >> str4; // get and parse words in string
-			
-			if ( str2 == "known_bits" ) {
-				istringstream( str3 ) >> known_bits;
+
+			if (str2 == "known_bits") {
+				istringstream(str3) >> known_bits;
 				cout << "known_bits " << known_bits << endl;
 				continue;
 			}
-			if ( ( str2 == "output" ) && ( str3 == "variables" ) ) {
-				istringstream( str4 ) >> output_len;
+			if ((str2 == "output") && (str3 == "variables")) {
+				istringstream(str4) >> output_len;
 				continue;
 			}
 			if ((str2 == "output") && (str3 == "vars")) {
@@ -557,7 +557,7 @@ bool MPI_Base :: ReadIntCNF()
 				istringstream(str5) >> output_len;
 				continue;
 			}
-			if ( !Is_InpVar ) {
+			if (!Is_InpVar) {
 				if ((str2 == "input") && (str3 == "variables"))
 					istringstream(str4) >> ui;
 				else if ((str2 == "input") && (str3 == "vars")) {
@@ -577,21 +577,21 @@ bool MPI_Base :: ReadIntCNF()
 			}
 			sstream.str(""); sstream.clear();
 
-			if ( str2 == "var_set" ) {
+			if (str2 == "var_set") {
 				sstream << line_str;
 				cout << "line_str " << line_str << endl;
 				sstream >> str1; // remove "c"
 				sstream >> str2; // remove "var_set"
-				while ( sstream >> val ) {
+				while (sstream >> val) {
 					cout << val << " ";
-					full_var_choose_order.push_back( val );
+					full_var_choose_order.push_back(val);
 				}
 				cout << endl;
 				sstream.clear(); sstream.str();
-				sort( full_var_choose_order.begin(), full_var_choose_order.end() );
+				sort(full_var_choose_order.begin(), full_var_choose_order.end());
 				cout << "After reading var_set" << endl;
 				cout << "full_var_choose_order.size() " << full_var_choose_order.size() << endl;
-				for ( unsigned i=0; i < full_var_choose_order.size(); ++i )
+				for (unsigned i = 0; i < full_var_choose_order.size(); ++i)
 					cout << full_var_choose_order[i] << " ";
 				cout << endl;
 				core_len = full_var_choose_order.size();
@@ -603,59 +603,59 @@ bool MPI_Base :: ReadIntCNF()
 			// try to read line with clause
 			current_lit_count = 0; // current count of lits in current clause
 			line_str = " " + line_str;
-			for ( unsigned i = 0; i < line_str.length( ) - 1; i++ ) {
+			for (unsigned i = 0; i < line_str.length() - 1; i++) {
 				IncorrectLine = false;
-				if ( ( line_str[i] == ' ' ) && ( line_str[i + 1] != ' ' ) && 
-					 ( line_str[i + 1] != '0' ) )
+				if ((line_str[i] == ' ') && (line_str[i + 1] != ' ') &&
+					(line_str[i + 1] != '0'))
 				{
 					word_str = "";
 					k = i + 1;
 					do {
 						word_str += line_str[k];
 						k++;
-						if ( k == line_str.length( ) ) { // skip empty or uncorrect line
-							/*std :: cout << "\n***In ReadVarCount skipped line " << 
-								           line_str << endl;*/
+						if (k == line_str.length()) { // skip empty or uncorrect line
+							/*std :: cout << "\n***In ReadVarCount skipped line " <<
+										   line_str << endl;*/
 							IncorrectLine = true;
 							break;
 						}
-					} while ( line_str[k] != ' ' );
+					} while (line_str[k] != ' ');
 
-					if ( IncorrectLine )
+					if (IncorrectLine)
 						break;
 
-					lit_val = atoi( word_str.c_str( ) ); // word -> lit value
-					if ( !lit_val ) { // if non-number or '0' (lit > 0) then rerurn error;
+					lit_val = atoi(word_str.c_str()); // word -> lit value
+					if (!lit_val) { // if non-number or '0' (lit > 0) then rerurn error;
 						cout << "\n Error in ReadIntCNF. literal " << word_str << " is non-number";
 						return false;
 					}
-					else if ( lit_val < 0 ) {
-						lit_val = -lit_val; 
+					else if (lit_val < 0) {
+						lit_val = -lit_val;
 						sign = 1;
 					}
-					else if ( lit_val > 0 )
+					else if (lit_val > 0)
 						sign = 0;
 
 					// fill attay of clauses
-					val = ( lit_val << 1 ) + sign; // literal value, 1 -> 2, -1 -> 3, 2 -> 4, -2 -> 5
+					val = (lit_val << 1) + sign; // literal value, 1 -> 2, -1 -> 3, 2 -> 4, -2 -> 5
 					clause_array[current_clause_count][current_lit_count] = val;
 					current_lit_count++;
 				} // if ( ( line_str[i] == ' ' ) ...
 			} // for ( i = 0; i < line_str.length( ) - 1; i++ )
-			
-			if ( ( te > 0 ) && ( current_lit_count == 1 ) )
+
+			if ((te > 0) && (current_lit_count == 1))
 				cout << "Warning. ( te > 0 ) && ( current_lit_count == 1 ). change CNF file to template one" << endl;
 
-			if ( current_lit_count == 1 )
+			if (current_lit_count == 1)
 				known_vars_count++;
-			
-			if ( current_lit_count )
+
+			if (current_lit_count)
 				current_clause_count++;
-		} 
+		}
 	} // while ( getline( main_cnf, line_str ) )
-	
+
 	// if PB data is correct then turn on PB mode
-	/*if ( ( constr_clauses_count > 0 ) && ( obj_vars_count > 0 ) ) 
+	/*if ( ( constr_clauses_count > 0 ) && ( obj_vars_count > 0 ) )
 	{
 		IsPB = true;
 		solver_type = 3;
@@ -668,8 +668,8 @@ bool MPI_Base :: ReadIntCNF()
 		else PB_mode = 1;
 	}*/
 
-	main_cnf.close( );
-	
+	main_cnf.close();
+
 	// fill indexes of core variables
 	/*k=0;
 	for ( vec_it = full_var_choose_order.begin(); vec_it != full_var_choose_order.end(); ++vec_it )
@@ -680,9 +680,11 @@ bool MPI_Base :: ReadIntCNF()
 			cout << map_it->first << " " << map_it->second << endl;
 	}*/
 
-	nonoutput_len = var_count - output_len;
-	if (nonoutput_len == var_count)
-		core_len = var_count;
+	if (core_len)
+		nonoutput_len = core_len;
+	else {
+		nonoutput_len = var_count - output_len;
+	}
 	
 	// if wasn't defined by var_set
 	if (full_var_choose_order.empty()) {
