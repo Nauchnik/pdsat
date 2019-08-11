@@ -942,18 +942,19 @@ void MPI_Base::MakeSatSample(vector< vector<bool> > &state_vec_vec,
 	if ( ( isMakeSatSampleAnyWay ) || (!known_sat_sample_file.is_open()) ) { // empty file
 	//if ( file.peek() == fstream::traits_type::eof() ) { // if file is empty
 		// make [sample_size] different pairs <register_state, keystream> via generating secret keys
-		cout << "file known_sat_sample is empty. making SAT sample" << endl;
-		
-		boost::random::mt19937 gen_known_vars;
+		cout << "file known_sat_sample is empty. making SAT sample" << endl;
 		const unsigned known_vars_seed = static_cast <unsigned> (time(NULL)) + (unsigned)rank * 1000000;
 		cout << "known_vars_seed " << known_vars_seed << endl;
-		gen_known_vars.seed(known_vars_seed);
-		
+		boost::random::mt19937 gen(known_vars_seed);
+		boost::random::bernoulli_distribution<> bern_dist(0.5);
 		if (state_vec_vec.size() == 0) {
 			state_vec.resize(core_len);
 			for (unsigned i = 0; i < cnf_in_set_count; i++) {
-				for (unsigned j = 0; j < core_len; j++)
-					state_vec[j] = bool_rand(gen_known_vars);
+				for (unsigned j = 0; j < core_len; j++) {
+					state_vec[j] = bern_dist(gen);
+					cout << state_vec[j];
+				}
+				cout << endl;
 				state_vec_vec.push_back(state_vec);
 			}
 		}
