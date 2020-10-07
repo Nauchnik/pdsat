@@ -54,7 +54,12 @@ MPI_Predicter :: MPI_Predicter( ) :
 	points_to_check ( 0 ),
 	interval_predict_size (INTERVAL_PREDICT_START_SIZE),
 	interval_assumptions_required (INTERVAL_ASSUMPTIONS_START_REQUIRED),
-	estim_type (plain)
+	estim_type (plain),
+	algorithm_type (1),
+	stagnation_count (0),
+	beta_value (1),
+	max_stagnation_count (100)
+
 {
 	for( unsigned i=0; i < PREDICT_TIMES_COUNT; i++ )
 		best_predict_time_arr[i] = 0.0;
@@ -1126,51 +1131,70 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 		sstream << "solved tasks " << solved_tasks_count << " / " << all_tasks_count << endl;
 		sstream << "solved tasks " << (double)((solved_tasks_count * 100) / all_tasks_count) << " %" << endl;
 		sstream << "cur_vars_changing " << cur_vars_changing << endl;
+
 		if (isRestartNeeded) {
 			isRestartNeeded = false;
 			sstream << "Warning. IsRestartNeeded == true after end of iteration. Changed to false" << endl;
 		}
 
-		// set new unchecked area
-		boost::dynamic_bitset<> bs = IntVecToBitsetPredict(var_choose_order);
-		bool IsCorrectAddingArea = false;
-		// remove points from L2 that too far from record
-		// and find L2 for current record
-		L2_it = L2.begin();
-		while (L2_it != L2.end()) {
-			if (((*L2_it).center.count() > bs.count()) &&
-				((*L2_it).center.count() - bs.count() > MAX_DISTANCE_TO_RECORD)
-				)
-			{
-				L2_it = L2.erase(L2_it);
-				L2_erased_count++;
+		if (algorithm_type == 1) {
+			sstream << "algorithm_type: FEA" << endl;
+			if (beta_value > 1) {
+				beta_value = 3;
 			}
-			else {
-				if ((*L2_it).center == bs) {
-					current_unchecked_area = *L2_it;
-					IsCorrectAddingArea = true;
+			stagnation_count = 0;
+			max_stagnation_count = 100;
+			sstream << "stagnation_count is 0" << endl;
+			sstream << "max_stagnation_count is " << max_stagnation_count << endl;
+			// set new unchecked area
+			boost::dynamic_bitset<> bs = IntVecToBitsetPredict(var_choose_order);
+			L2_it = L2.end();
+			L2_it--;
+			current_unchecked_area = *L2_it;
+		}
+		else {
+			// set new unchecked area
+			boost::dynamic_bitset<> bs = IntVecToBitsetPredict(var_choose_order);
+			bool IsCorrectAddingArea = false;
+			// remove points from L2 that too far from record
+			// and find L2 for current record
+			L2_it = L2.begin();
+			while (L2_it != L2.end()) {
+				if (((*L2_it).center.count() > bs.count()) &&
+					((*L2_it).center.count() - bs.count() > MAX_DISTANCE_TO_RECORD)
+					)
+				{
+					L2_it = L2.erase(L2_it);
+					L2_erased_count++;
 				}
-				++L2_it;
+				else {
+					if ((*L2_it).center == bs) {
+						current_unchecked_area = *L2_it;
+						IsCorrectAddingArea = true;
+					}
+					++L2_it;
+				}
 			}
+
+			list<checked_area> ::iterator L1_it = L1.begin();
+			while (L1_it != L1.end()) {
+				if (((*L1_it).center.count() > bs.count()) &&
+					((*L1_it).center.count() - bs.count() > MAX_DISTANCE_TO_RECORD)
+					)
+				{
+					L1_it = L1.erase(L1_it);
+					L1_erased_count++;
+				}
+				else ++L1_it;
+			}
+
+			cout << "L2_erased_count " << L2_erased_count << endl;
+			cout << "L1_erased_count " << L1_erased_count << endl;
+
+			if (!IsCorrectAddingArea)
+				sstream << "***Error. !IsCorrectAddingArea" << endl;
 		}
 
-		list<checked_area> ::iterator L1_it = L1.begin();
-		while (L1_it != L1.end()) {
-			if (((*L1_it).center.count() > bs.count()) &&
-				((*L1_it).center.count() - bs.count() > MAX_DISTANCE_TO_RECORD)
-				)
-			{
-				L1_it = L1.erase(L1_it);
-				L1_erased_count++;
-			}
-			else ++L1_it;
-		}
-
-		cout << "L2_erased_count " << L2_erased_count << endl;
-		cout << "L1_erased_count " << L1_erased_count << endl;
-
-		if (!IsCorrectAddingArea)
-			sstream << "***Error. !IsCorrectAddingArea" << endl;
 		to_string(current_unchecked_area.center, str);
 		str = string(str.rbegin(), str.rend());
 		sstream << "current_unchecked_area center " << endl << str << endl;
@@ -1180,6 +1204,39 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 		// make initial values
 		cur_vars_changing = 1; // start again from Hamming distance == 1
 		unupdated_count = 0;
+	}
+	else if (algorithm_type == 1) {
+		sstream << endl << "---Record not updated---" << endl;
+		sstream << "algorithm_type: FEA" << endl;
+
+		if (stagnation_count > 500) {
+			sstream << "Warning: too much stagnations" << endl;
+		}
+		if (stagnation_count < max_stagnation_count) 
+			sstream << "stagnation_count " << ++stagnation_count << endl;
+		else {
+			if (beta_value == 1) {
+				int ind = new_record_point_vec.size() - 1; // create new list
+				if (ind > 0) {
+					var_choose_order = new_record_point_vec[ind-1];
+					sstream << "var_choose_order <- new_record_point_vec[" << ind-1 << "]" << endl;
+					for ( vector<int>::iterator vec_it = var_choose_order.begin(); 
+						vec_it != var_choose_order.end(); vec_it++ )
+							sstream << *vec_it << " ";
+					sstream << endl;
+					max_stagnation_count += 50;
+				}
+				else {
+					sstream << "Error: new_record_point_vec is empty" << endl;
+				}
+			}
+			else {
+				beta_value = 2;
+				max_stagnation_count += 50;
+			}
+			sstream << "stagnation_count " << ++stagnation_count << endl;
+		}
+		return true;		
 	}
 	else if (ts_strategy == 4) {
 		sstream << endl << "---Record not updated---" << endl;
@@ -1642,7 +1699,12 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 	
 	sstream << "NewRecordPoint()" << endl;
 	sstream << "best_predict_time " << best_predict_time << " s" << endl;
-
+	
+	if (algorithm_type == 1) {
+		new_record_point_vec.push_back(real_var_choose_order);
+		sstream << "new_record_point_vec.size() " << new_record_point_vec.size() << endl;
+	}
+	
 	if ( deep_predict == 5 ) { // Simulated annealing
 		if ( isSimulatedGranted ) {
 			sstream << "*** Simulated granted" << endl;
@@ -2020,7 +2082,15 @@ bool MPI_Predicter :: GetPredict()
 				else 
 					global_checked_points_count++;
 				boost::dynamic_bitset<> bs = IntVecToBitsetPredict( decomp_set_arr[i].var_choose_order );
-				AddNewUncheckedArea( bs, sstream );
+				if (algorithm_type == 1) {
+					unchecked_area new_ua; 
+					new_ua.center = bs;
+					new_ua.checked_points.resize( bs.size() );
+					new_ua.is_partly_checked = false;
+					L2.push_back( new_ua );
+				}
+				else
+					AddNewUncheckedArea( bs, sstream );
 			}
 		}
 		fstream deep_predict_file( deep_predict_file_name.c_str(), ios_base::out | ios_base::app );
@@ -2431,13 +2501,114 @@ void MPI_Predicter :: AddNewUncheckedArea( boost::dynamic_bitset<> &point, strin
 	whole_add_new_unchecked_area_time += getCurrentTime() - current_time;
 }
 
+
+size_t CalculateDoerAlpha(const size_t core_size, int beta) {
+	if (core_size < 4)
+	{
+		return 1;
+	}
+
+	double aperi_const = 0;
+	const size_t array_size = core_size / 2;
+
+	if (beta == 1) {
+		std::random_device rd;
+    	std::mt19937 gen(rd());
+		double p1 = static_cast<double>(1) / core_size;
+		double p0 = 1 - p1;
+		std::discrete_distribution<> d({p0, p1}); // 0 with probability p0;
+		int p = d(gen);
+		std::cout << "random p: " << p << std::endl; 
+		std::cout << "probabilities for p: " << p1 << ":"<< p0 <<  std::endl; 
+		if (p == 0) 
+			return 1;
+		else 
+			return array_size;		
+	}
+	else {
+		aperi_const = 0;
+		for (int i = 0; i < array_size; i++) {
+			int val = (i+1);
+			aperi_const += 1/(std::pow(val, beta));
+		}
+	}
+	std::cout << "aperi_const = " << aperi_const << std::endl;
+
+	std::vector<size_t> alpha_values;
+	std::vector<double> alpha_values_probabilities;
+
+	alpha_values.reserve(array_size);
+	alpha_values_probabilities.reserve(array_size);
+
+	for (size_t i = 1; i <= array_size; ++i)
+	{
+		alpha_values.push_back(i);
+		const auto probability = 1 / (pow(i,beta)*aperi_const);
+		alpha_values_probabilities.push_back(probability);
+	}
+
+	// generate random number from [0, 1] according to alpha_values_probabilities
+	const auto p = static_cast<double>(rand()) / RAND_MAX;
+
+	double left_bound = 0.;
+	double right_bound = 0.;
+	for (size_t index = 0; index < array_size; ++index)
+	{
+		left_bound = right_bound;
+		right_bound += alpha_values_probabilities[index];
+
+		if (left_bound <= p && p < right_bound)
+		{
+			return alpha_values[index];
+		}
+	}
+
+	return alpha_values.back();
+}
+
+boost::dynamic_bitset<> createNewPoint(boost::dynamic_bitset<> center_point, float p) {
+	
+	std::random_device rd;
+	std::mt19937 gen(rd());	
+	std::discrete_distribution<> dist({1-p, p});
+
+	boost::dynamic_bitset<> new_point = center_point;
+	int bit_changed_count = 0;
+
+	for (unsigned i = 0; i < new_point.size(); i++) {
+		if (dist(gen) > 0) {
+			int val = new_point[i];
+			new_point[i] = (val == 1) ? 0 : 1; 		
+			bit_changed_count++;
+		}			
+	}
+	if (bit_changed_count == 0) {
+		boost::random::uniform_int_distribution<uint32_t> full_dist(0,new_point.size()-1);	
+		int ind = full_dist(gen);
+		int val = new_point[ind];
+		new_point[ind] = (val == 1) ? 0 : 1;
+	}		
+
+	return new_point;
+}
+
 bool MPI_Predicter::GetDeepPredictTasks()
 {
 // Make tasks for checking neighbours of current point
 	// var_choose_order - current best decomosition (point)
 	stringstream sstream;
 	sstream << endl << "*** GetDeepPredictTasks" << endl;
-	sstream << "ts_strategy " << ts_strategy << endl;
+	if (algorithm_type > 1) {
+		switch (algorithm_type) {
+			case 1: 
+				sstream << "algorithm_type: FEA" << endl;
+				break;
+		}
+	}
+	else {
+		sstream << "ts_strategy " << ts_strategy << endl;
+	}
+	
 	unsigned vars_to_add_count;
 	
 	if ((ts_strategy == 4) && (!isFirstPoint) && (IsRecordUpdated == false)) {
@@ -2448,8 +2619,12 @@ bool MPI_Predicter::GetDeepPredictTasks()
 		cur_vars_changing = 2;
 	}
 	else {
-		points_to_check = isFirstPoint ? 1 : core_len_combinations_size;
-		cur_vars_changing = 1;
+		if (algorithm_type == 1) {	    
+    		points_to_check = 1;
+    	} else {
+			points_to_check = isFirstPoint ? 1 : core_len_combinations_size;
+			cur_vars_changing = 1;
+		}
 	}
 	sstream << "points_to_check " << points_to_check << endl;
 	
@@ -2515,6 +2690,46 @@ bool MPI_Predicter::GetDeepPredictTasks()
 				exit(1);
 			}
 			new_var_choose_order = BitsetToIntVecPredict(new_point);
+		}
+		else if (algorithm_type == 1) {
+			const auto alpha = CalculateDoerAlpha(full_var_choose_order.size(), beta_value); // = 1		
+			float p = static_cast<float>(alpha) / full_var_choose_order.size();
+			float probabilities[] = {1-p, p};
+			// sstream << "new generated point with parameters Beta = 1, (alpha = " << alpha << ", probability: " << probabilities[0]<< ")" << endl;
+
+			bool isMatch = true;
+			while (isMatch) {
+				new_point = createNewPoint(current_unchecked_area.center, p);
+
+				sstream << "new generated point with parameters Beta = " << beta_value <<", (alpha = " << alpha << ", probability: " << probabilities[0]<< ")" << endl;
+				for (unsigned i = 0; i < new_point.size(); i++) {
+					sstream << new_point[i];
+				}
+				sstream << endl;
+				
+				list<unchecked_area> :: iterator L2_it;
+				// sstream << "L2:" << endl;
+				bool isMatchFound = false;
+				for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
+					string str;
+					to_string( L2_it->center, str );
+					str = string( str.rbegin(), str.rend() );
+					// sstream << str << endl;
+					if ( L2_it->center == new_point ) {
+						sstream << "match in L2_it" << endl;
+						isMatchFound = true;
+						current_skipped++;
+					}
+				}
+				isMatch = isMatchFound;
+				// sstream << endl;
+			}
+			
+			new_var_choose_order = BitsetToIntVecPredict( new_point );
+			// sstream << "new_var_choose_order :" << endl;
+			// for (auto &x : new_var_choose_order)
+			// 	sstream << x << " ";
+			// sstream << endl;
 		}
 		else {
 			if (current_unchecked_area.checked_points[cur_point_index] == 1) {

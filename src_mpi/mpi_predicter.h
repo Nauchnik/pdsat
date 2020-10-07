@@ -5,6 +5,7 @@
 #include "mpi_base.h"
 #include "Bivium.h"
 #include <thread>
+#include <random>
 
 #ifndef WIN32
 #include <unistd.h>.
@@ -102,6 +103,13 @@ public:
 	int global_skipped_points_count;
 	int decomp_sets_in_block;
 	string deep_predict_file_name;
+
+	int algorithm_type;
+	unsigned stagnation_count;
+	int beta_value;
+	int max_stagnation_count;
+	vector<vector<int> > new_record_point_vec;
+		// boost::random::mt19937 gen;
 	
 	list<checked_area> L1; // areas where all points were checked
 	list<unchecked_area> L2; // areas where not all points were checked

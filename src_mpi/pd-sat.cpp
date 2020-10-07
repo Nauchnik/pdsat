@@ -42,6 +42,8 @@ struct Flags
 	int variables_each_integer;
 	bool isCollectInterruptedInstances;
 	bool isIntervalPredict;
+	int algorithm_type;
+	int beta_value;
 };
 
 // prototypes
@@ -133,6 +135,10 @@ int main( int argc, char** argv )
 			mpi_p.point_admission_koef = myflags.point_admission_koef;
 		if ( myflags.ts_strategy != -1 )
 			mpi_p.ts_strategy = myflags.ts_strategy;
+		if ( myflags.algorithm_type != -1 )
+			mpi_p.algorithm_type = myflags.algorithm_type;
+		if ( myflags.beta_value != -1 )
+			mpi_p.beta_value = myflags.beta_value;
 		if ( myflags.max_L2_hamming_distance > 0 )
 			mpi_p.max_L2_hamming_distance = myflags.max_L2_hamming_distance;
 		if ( myflags.max_solving_time > 0 )
@@ -240,17 +246,21 @@ void WriteUsage( )
 	"\n   -deep_predict - (integer) mode of deep predict. 1 - fixed neighborhood of sets for every current best point. "
 	"\n			2 - new neighborhood for every new best point"
 	"\n   -max_var_deep - (float) koefficient (0,1). koef*predict_to = max amount of variables for changing"
-    "\n   -ts_strategy - way of choosing new unchecked area";
-	"\n   -max_sat_problems - max count of sat problems in iteration of prediction";
-	"\n   -max_L2_hamming_distance - max distance of point from L2 from current point";
-	"\n   -no_first_stage - disable first stage mode (checking all areas until power of dec. set increase)";
-	"\n   -max_solving_time - max time in seconds for splving particular SAT subproblem";
-	"\n   -max_nof_restarts - maximum number of restarts";
-	"\n   -skip_tasks - count of already solved tasks";
-	"\n   -eval - type of prediction evaluation {time, propagation}";
-	"\n   -no_increm - disable incremental mode while solving";
-	"\n   -te - time limit for backdoor strategy in predict";
-	"\n   -interval_predict - estimation of intervals";
+    "\n   -ts_strategy - way of choosing new unchecked area"
+	"\n   -max_sat_problems - max count of sat problems in iteration of prediction"
+	"\n   -max_L2_hamming_distance - max distance of point from L2 from current point"
+	"\n   -no_first_stage - disable first stage mode (checking all areas until power of dec. set increase)"
+	"\n   -max_solving_time - max time in seconds for splving particular SAT subproblem"
+	"\n   -max_nof_restarts - maximum number of restarts"
+	"\n   -skip_tasks - count of already solved tasks"
+	"\n   -eval - type of prediction evaluation {time, propagation}"
+	"\n   -no_increm - disable incremental mode while solving"
+	"\n   -te - time limit for backdoor strategy in predict"
+	"\n   -interval_predict - estimation of intervals"
+	"\n additional options for PD-SAT predict mode:"
+	"\n   -algorithm_type - (integer) type of evolution algorithm used to create new unchecked point"
+	"\n       1 - fast evolution algorithm with parameter beta (Doerr's algorithm)"
+	"\n   -beta_value - (integer) value for parameter beta (by default = 1)";
 }
 
 //---------------------------------------------------------
@@ -303,6 +313,8 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 	myflags.variables_each_integer = 0;
 	myflags.isCollectInterruptedInstances = false;
 	myflags.isIntervalPredict = false;
+	myflags.algorithm_type = 0;
+	myflags.beta_value = 1;
 	k = 0;
 	
 	// check every input parameters for flag existing
@@ -421,6 +433,10 @@ bool GetInputFlags( int &argc, char **&argv, Flags &myflags )
 			myflags.evaluation_type = value;
 		else if ( hasPrefix_String( argv_string, "-ts_strategy=",          value ) )
 			myflags.ts_strategy = atoi( value.c_str( ) );
+		else if ( hasPrefix_String( argv_string, "-algorithm_type=",          value ) )
+			myflags.algorithm_type = atoi( value.c_str( ) );
+		else if ( hasPrefix_String( argv_string, "-beta_value=",          value ) )
+			myflags.beta_value = atoi( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-start_activity=",       value ) )
 			myflags.start_activity = atof( value.c_str( ) );
 		else if ( hasPrefix_String( argv_string, "-verb=",				   value ) )
