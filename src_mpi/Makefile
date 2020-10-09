@@ -3,7 +3,7 @@ INC1 = ../../
 INC2 = ../src_common/
 INC3 = ../src_common/minisat/
 INCDIRS = -I${INC1} -I${INC2} -I${INC3}
-CPPFLAGS = -O3 -std=c++0x ${INCDIRS} -D __STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS -D _MPI
+CPPFLAGS = -cxx=g++ -O3 -std=c++0x ${INCDIRS} -D __STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS -D _MPI
 
 pd-sat: pd-sat.o Bivium.o mpi_base.o mpi_solver.o mpi_predicter.o addit_func.o minisat22_wrapper.o Solver.o System.o Options.o
 	${CPP} ${CPPFLAGS} pd-sat.o Bivium.o mpi_base.o mpi_solver.o mpi_predicter.o addit_func.o minisat22_wrapper.o Solver.o System.o Options.o -o pd-sat
