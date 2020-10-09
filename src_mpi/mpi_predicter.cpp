@@ -55,9 +55,9 @@ MPI_Predicter :: MPI_Predicter( ) :
 	interval_predict_size (INTERVAL_PREDICT_START_SIZE),
 	interval_assumptions_required (INTERVAL_ASSUMPTIONS_START_REQUIRED),
 	estim_type (plain),
-	algorithm_type (1),
+	algorithm_type (0),
 	stagnation_count (0),
-	beta_value (1),
+	beta_value (2),
 	max_stagnation_count (100)
 
 {
@@ -250,6 +250,7 @@ bool MPI_Predicter :: MPI_Predict( int argc, char** argv )
 		cout << "start_temperature_koef " << start_temperature_koef << endl;
 		cout << "point_admission_koef " << point_admission_koef << endl;
 		cout << "ts_strategy " << ts_strategy << endl;
+		cout << "algorithm_type " << algorithm_type << endl;
 		cout << "IsFirstStage " << IsFirstStage << endl;
 		cout << "max_L2_hamming_distance " << max_L2_hamming_distance << endl;
 		cout << "evaluation_type " << evaluation_type << endl;
@@ -1137,8 +1138,8 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 			sstream << "Warning. IsRestartNeeded == true after end of iteration. Changed to false" << endl;
 		}
 
-		if (algorithm_type == 1) {
-			sstream << "algorithm_type: FEA" << endl;
+		if (algorithm_type >= 1) {
+			//sstream << "using evolution algorithm" << endl;
 			if (beta_value > 1) {
 				beta_value = 3;
 			}
@@ -1205,16 +1206,18 @@ bool MPI_Predicter :: DeepPredictFindNewUncheckedArea( stringstream &sstream )
 		cur_vars_changing = 1; // start again from Hamming distance == 1
 		unupdated_count = 0;
 	}
-	else if (algorithm_type == 1) {
+	else if (algorithm_type >= 1) {
 		sstream << endl << "---Record not updated---" << endl;
-		sstream << "algorithm_type: FEA" << endl;
 
 		if (stagnation_count > 500) {
 			sstream << "Warning: too much stagnations" << endl;
 		}
-		if (stagnation_count < max_stagnation_count) 
+
+		if (stagnation_count < max_stagnation_count) {
 			sstream << "stagnation_count " << ++stagnation_count << endl;
-		else {
+		}
+		else if (algorithm_type == 1) {
+			sstream << "algorithm_type: FEA" << endl;
 			if (beta_value == 1) {
 				int ind = new_record_point_vec.size() - 1; // create new list
 				if (ind > 0) {
@@ -1704,8 +1707,13 @@ void MPI_Predicter :: NewRecordPoint( int set_index )
 		new_record_point_vec.push_back(real_var_choose_order);
 		sstream << "new_record_point_vec.size() " << new_record_point_vec.size() << endl;
 	}
+	else if (algorithm_type == 2){
+		boost::dynamic_bitset<> bs = IntVecToBitsetPredict(real_var_choose_order);
+		new_record_vec.push_back({bs, best_predict_time});
+		sstream << "new_record_vec.size() " << new_record_vec.size() << endl;
+	}
 	
-	if ( deep_predict == 5 ) { // Simulated annealing
+ 	if ( deep_predict == 5 ) { // Simulated annealing
 		if ( isSimulatedGranted ) {
 			sstream << "*** Simulated granted" << endl;
 			//sstream << "rand_num " << rand_num << endl;
@@ -2082,7 +2090,7 @@ bool MPI_Predicter :: GetPredict()
 				else 
 					global_checked_points_count++;
 				boost::dynamic_bitset<> bs = IntVecToBitsetPredict( decomp_set_arr[i].var_choose_order );
-				if (algorithm_type == 1) {
+				if (algorithm_type >= 1) {
 					unchecked_area new_ua; 
 					new_ua.center = bs;
 					new_ua.checked_points.resize( bs.size() );
@@ -2518,8 +2526,8 @@ size_t CalculateDoerAlpha(const size_t core_size, int beta) {
 		double p0 = 1 - p1;
 		std::discrete_distribution<> d({p0, p1}); // 0 with probability p0;
 		int p = d(gen);
-		std::cout << "random p: " << p << std::endl; 
-		std::cout << "probabilities for p: " << p1 << ":"<< p0 <<  std::endl; 
+		//std::cout << "random p: " << p << std::endl; 
+		//std::cout << "probabilities for p: " << p1 << ":"<< p0 <<  std::endl; 
 		if (p == 0) 
 			return 1;
 		else 
@@ -2532,8 +2540,7 @@ size_t CalculateDoerAlpha(const size_t core_size, int beta) {
 			aperi_const += 1/(std::pow(val, beta));
 		}
 	}
-	std::cout << "aperi_const = " << aperi_const << std::endl;
-
+	//std::cout << "aperi_const = " << aperi_const << std::endl;
 	std::vector<size_t> alpha_values;
 	std::vector<double> alpha_values_probabilities;
 
@@ -2592,20 +2599,108 @@ boost::dynamic_bitset<> createNewPoint(boost::dynamic_bitset<> center_point, flo
 	return new_point;
 }
 
+boost::dynamic_bitset<> crossoverInPopulation(vector<pair <boost::dynamic_bitset<>, double> > population) {
+		std::random_device rd;
+		std::mt19937 gen(rd());	
+		vector<double> init;
+
+		for (int i = 0; i < population.size(); i++) {
+			double f_i = (double)1/population[i].second;
+			init.push_back(f_i);
+		}
+		
+		std::discrete_distribution<> dist(init.begin(),init.end());; 
+		int i = dist(gen);
+		int j = dist(gen);
+
+		while (i == j) {
+			j = dist(gen);
+		}
+		boost::dynamic_bitset<> point_A  = population[i].first;
+		boost::dynamic_bitset<> point_B  = population[j].first;
+		int point_size = point_A.size();
+		boost::dynamic_bitset<> cross_point = point_A;
+
+		int bit_changed_count = 0;
+		for (int i = 0; i < point_size; i++) {
+			if ((gen() % 2) != 0) {
+				int val = point_B[i];
+				cross_point[i] = val;
+				bit_changed_count++;
+			}
+		}
+	return cross_point;
+}
+
+boost::dynamic_bitset<> chooseNewPointFromPopulation(vector<pair <boost::dynamic_bitset<>, double> > population) {
+	std::random_device rd;
+	std::mt19937 gen(rd());	
+
+	double p1 = 1;
+	double p2 = 2;
+
+	vector<double> init;
+
+	for (int i = 0; i < population.size(); i++) {
+		double f_i = (double)1/population[i].second;
+		init.push_back(f_i);
+	}
+	std::discrete_distribution<> dist(init.begin(),init.end());; 
+	std::vector<double> p = dist.probabilities();
+    int i = dist(gen);
+    
+	if (i < population.size())
+		cout << "chosen point index = " << i << endl;
+	else {
+		cout << "Error wrong index in chooseNewPointFromPopulation()" << endl;
+		i = 0;
+	}
+	boost::dynamic_bitset<> new_point = population[i].first;
+	return new_point;
+}
+
+pair<boost::dynamic_bitset<>, double> bestPointInPopulation (vector<pair <boost::dynamic_bitset<>, double> > population) {
+	double min_value = population[0].second;
+	int min_val_ind = 0;
+	for (int i = 1; i < population.size(); i++) {
+		if (population[i].second < min_value) {
+			min_value = population[i].second;
+			min_val_ind = i;
+		}
+	}
+	return population[min_val_ind];
+}
+
+vector<pair<boost::dynamic_bitset<>, double> > bestPointsInPopulation (vector<pair <boost::dynamic_bitset<>, double> > population, int L) {
+	map<double, boost::dynamic_bitset<> > population_sorted; // from best to worst points
+	map<double, boost::dynamic_bitset<> >::iterator it;
+
+	for (int i = 0; i <  population.size(); i++) {
+		population_sorted.insert({population[i].second, population[i].first});
+	}
+	
+	vector<pair<boost::dynamic_bitset<>, double> > best_points_vec;
+	it = population_sorted.begin();
+	if (L < 1)
+		cout << "Error: L < 1";
+
+	for (int i = 0; i < L; i++) {
+		double val = it->first;
+		boost::dynamic_bitset<> vec = it->second; 
+		best_points_vec.push_back({vec, val});
+		it++;
+	}
+	return best_points_vec;
+}
+
+
 bool MPI_Predicter::GetDeepPredictTasks()
 {
 // Make tasks for checking neighbours of current point
 	// var_choose_order - current best decomosition (point)
 	stringstream sstream;
 	sstream << endl << "*** GetDeepPredictTasks" << endl;
-	if (algorithm_type > 1) {
-		switch (algorithm_type) {
-			case 1: 
-				sstream << "algorithm_type: FEA" << endl;
-				break;
-		}
-	}
-	else {
+	if (algorithm_type == 0) {
 		sstream << "ts_strategy " << ts_strategy << endl;
 	}
 	
@@ -2619,8 +2714,58 @@ bool MPI_Predicter::GetDeepPredictTasks()
 		cur_vars_changing = 2;
 	}
 	else {
-		if (algorithm_type == 1) {	    
-    		points_to_check = 1;
+		if (algorithm_type == 1) {	
+			sstream << "using fast evolution algoritm (FEA)" << endl;    
+			points_to_check = 1;
+    	}
+		else if (algorithm_type == 2) {
+			sstream << "using genetic algorithm (GA) with parameters (N, L, H, G): " << N << ", "<< L << ", "<< H <<  ", " << G<< endl;
+			if (new_record_vec.size() >= N) { 
+				points_to_check = H + G;
+				if (current_point_population.size() == 0) { // if population is empty 
+					for (int i = 0; i < N; i++) {
+						int ind = new_record_vec.size() - 1;
+						current_point_population.push_back(new_record_vec[ind - i]);
+					}
+					sstream << "start population:" << endl; 
+					for (int i = 0; i < current_point_population.size(); i++) {
+						boost::dynamic_bitset<> point = current_point_population[i].first;
+						double predict_value = current_point_population[i].second;
+						for (int j = 0; j < point.size(); j++) {
+							sstream << point[j] << "";	
+						}
+						sstream << " " << predict_value << endl;
+					}
+				}
+				else {
+					if (decomp_set_arr.size() > 1) {
+						// pair<boost::dynamic_bitset<>, double> best_local_point  = bestPointInPopulation(current_point_population);
+						vector<pair<boost::dynamic_bitset<>, double> > best_local_points  = bestPointsInPopulation(current_point_population, L);
+						current_point_population.clear();
+						for (int i = 0; i < decomp_set_arr.size(); i++) {
+							boost::dynamic_bitset<> local_point = IntVecToBitsetPredict(decomp_set_arr[i].var_choose_order);
+							double local_value = predict_time_arr[i];
+							current_point_population.push_back({local_point, local_value});
+						}
+						for (int i = 0; i < best_local_points.size(); i++) {
+							current_point_population.push_back(best_local_points[i]);
+						}
+					}
+					sstream << "current population:" << endl; 
+					for (int i = 0; i < current_point_population.size(); i++) {
+						boost::dynamic_bitset<> point = current_point_population[i].first;
+						double predict_value = current_point_population[i].second;
+						for (int j = 0; j < point.size(); j++) {
+							sstream << point[j] << "";	
+						}
+						sstream << " " << predict_value << endl;
+					}
+				}
+			}
+			else {	    
+				sstream << "creating start population using FEA (beta = " << beta_value << ")" << endl;
+    			points_to_check = 1;
+    		}
     	} else {
 			points_to_check = isFirstPoint ? 1 : core_len_combinations_size;
 			cur_vars_changing = 1;
@@ -2691,17 +2836,15 @@ bool MPI_Predicter::GetDeepPredictTasks()
 			}
 			new_var_choose_order = BitsetToIntVecPredict(new_point);
 		}
-		else if (algorithm_type == 1) {
-			const auto alpha = CalculateDoerAlpha(full_var_choose_order.size(), beta_value); // = 1		
+		else if (algorithm_type == 1) { //using FEA to create next point
+			const auto alpha = CalculateDoerAlpha(full_var_choose_order.size(), beta_value);
 			float p = static_cast<float>(alpha) / full_var_choose_order.size();
 			float probabilities[] = {1-p, p};
-			// sstream << "new generated point with parameters Beta = 1, (alpha = " << alpha << ", probability: " << probabilities[0]<< ")" << endl;
-
+		
 			bool isMatch = true;
 			while (isMatch) {
 				new_point = createNewPoint(current_unchecked_area.center, p);
-
-				sstream << "new generated point with parameters Beta = " << beta_value <<", (alpha = " << alpha << ", probability: " << probabilities[0]<< ")" << endl;
+				sstream << "new generated point (FEA parameters: beta = " << beta_value <<", alpha = " << alpha << ", probability: " << probabilities[0]<< ")" << endl;
 				for (unsigned i = 0; i < new_point.size(); i++) {
 					sstream << new_point[i];
 				}
@@ -2716,20 +2859,69 @@ bool MPI_Predicter::GetDeepPredictTasks()
 					str = string( str.rbegin(), str.rend() );
 					// sstream << str << endl;
 					if ( L2_it->center == new_point ) {
-						sstream << "match in L2_it" << endl;
+						// sstream << "match in L2_it" << endl;
 						isMatchFound = true;
 						current_skipped++;
 					}
 				}
 				isMatch = isMatchFound;
 				// sstream << endl;
-			}
-			
+			}			
 			new_var_choose_order = BitsetToIntVecPredict( new_point );
 			// sstream << "new_var_choose_order :" << endl;
 			// for (auto &x : new_var_choose_order)
 			// 	sstream << x << " ";
 			// sstream << endl;
+		}
+		else if (algorithm_type == 2) { //using GA to create next points (population)
+			sstream << "cur_point_index " << cur_point_index << endl;
+		
+			bool isMatch = true;
+			while (isMatch) {
+				if (current_point_population.size() > 0) {
+					if (cur_point_index < G) {
+						sstream << "crossover mutation:" << endl;
+						new_point = crossoverInPopulation(current_point_population);
+					}
+					else {
+						sstream << "1+1 random mutation:" << endl;
+						boost::dynamic_bitset<> choosed_point = chooseNewPointFromPopulation(current_point_population);
+						float p = static_cast<float>(1) / full_var_choose_order.size();
+						new_point = createNewPoint(choosed_point, p);
+					}
+				}
+				else { // if current population is empty -- use FEA to generate new points
+					const auto alpha = CalculateDoerAlpha(full_var_choose_order.size(), beta_value);
+					float p = static_cast<float>(alpha) / full_var_choose_order.size();
+					new_point = createNewPoint(current_unchecked_area.center, p); // new point is based on a center point
+				}
+				
+				list<unchecked_area> :: iterator L2_it;
+				// sstream << "L2:" << endl;
+				bool isMatchFound = false;
+				for ( L2_it = L2.begin(); L2_it != L2.end(); ++L2_it ) {
+					string str;
+					to_string( L2_it->center, str );
+					str = string( str.rbegin(), str.rend() );
+					// sstream << str << endl;
+					if ( L2_it->center == new_point ) {
+						// sstream << "match in L2_it" << endl;
+						isMatchFound = true;
+						current_skipped++;
+						// continue; // checked already
+					}
+				}
+				isMatch = isMatchFound;
+				// sstream << endl;
+			}
+			
+			sstream << "new point: " ;
+			for (unsigned i = 0; i < new_point.size(); i++) {
+				sstream << new_point[i];
+			}
+			sstream << endl;
+
+			new_var_choose_order = BitsetToIntVecPredict( new_point );			
 		}
 		else {
 			if (current_unchecked_area.checked_points[cur_point_index] == 1) {
@@ -2771,8 +2963,9 @@ bool MPI_Predicter::GetDeepPredictTasks()
 		decomp_set_arr.push_back( d_s ); // add new decomp set
 	} // for ( int i = 0; i < decomp_set_count; i++ )
 
-	cout << "decomp_set_arr" << endl;
+	
 	if (ts_strategy == 4) {
+		cout << "decomp_set_arr" << endl;
 		for (auto &x : decomp_set_arr) {
 			for (auto &y : x.var_choose_order)
 				cout << y << " ";
@@ -2780,9 +2973,11 @@ bool MPI_Predicter::GetDeepPredictTasks()
 		}
 	}
 	
-	random_shuffle( decomp_set_arr.begin(), decomp_set_arr.end() );
-	sort(decomp_set_arr.begin(), decomp_set_arr.end(), compareByDsetSize);
-	
+	if (algorithm_type != 2) {
+		random_shuffle( decomp_set_arr.begin(), decomp_set_arr.end() );
+		sort(decomp_set_arr.begin(), decomp_set_arr.end(), compareByDsetSize);
+	}
+
 	if ( ts_strategy == 2 ) {
 		if ( decomp_set_arr.size() > TS2_POINTS_COUNT ) {
 			for ( auto &x : decomp_set_arr )

@@ -257,10 +257,11 @@ void WriteUsage( )
 	"\n   -no_increm - disable incremental mode while solving"
 	"\n   -te - time limit for backdoor strategy in predict"
 	"\n   -interval_predict - estimation of intervals"
-	"\n additional options for PD-SAT predict mode:"
+	"\n    additional options for PD-SAT predict mode:"
 	"\n   -algorithm_type - (integer) type of evolution algorithm used to create new unchecked point"
-	"\n       1 - fast evolution algorithm with parameter beta (Doerr's algorithm)"
-	"\n   -beta_value - (integer) value for parameter beta (by default = 1)";
+	"\n       1 - fast evolution algorithm (FEA) with parameter beta (Doerr's algorithm)"
+	"\n       2 - genetic algorithm (GA) with parameters N=10 (size of population), L=2 (number of elitism selections), H=4 (number of 1+1 random mutations), G=4 (number of crossover mutations)"
+	"\n   -beta_value - (integer) value for FEA's parameter beta (by default = 1)\n";
 }
 
 //---------------------------------------------------------

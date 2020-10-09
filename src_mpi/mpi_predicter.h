@@ -104,12 +104,20 @@ public:
 	int decomp_sets_in_block;
 	string deep_predict_file_name;
 
-	int algorithm_type;
+	int algorithm_type; // type of evolution algorithm used to generate next unchecked point in predict mode
 	unsigned stagnation_count;
 	int beta_value;
 	int max_stagnation_count;
 	vector<vector<int> > new_record_point_vec;
-		// boost::random::mt19937 gen;
+
+	
+	const int N = 10; //population's size
+	const int L = 2; //elitism
+	const int H = 4; //1+1 random mutations
+	const int G = 4; //crossover mutations
+
+	vector<pair <boost::dynamic_bitset<>, double> > new_record_vec; //!
+	vector<pair <boost::dynamic_bitset<>, double> > current_point_population;
 	
 	list<checked_area> L1; // areas where all points were checked
 	list<unchecked_area> L2; // areas where not all points were checked
